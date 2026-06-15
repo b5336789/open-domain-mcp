@@ -53,16 +53,24 @@ Knowledge extraction uses the Anthropic API (`ANTHROPIC_API_KEY` /
 ### CLI
 
 ```bash
-opendomainmcp ingest ./path/to/code-or-docs
-opendomainmcp search "how is retrieval implemented" --top-k 5
+opendomainmcp ingest ./path/to/code-or-docs        # add --sync to prune deleted files
+opendomainmcp search "how is retrieval implemented" --top-k 5 --language python
+opendomainmcp ask "how does hybrid search work"     # cited answer (needs API key)
+opendomainmcp collections                           # list knowledge bases
+opendomainmcp --collection my_project ingest ./src  # use a specific knowledge base
 opendomainmcp stats
 opendomainmcp clear
 ```
 
+Search is **hybrid** (dense + BM25 with Reciprocal Rank Fusion) by default and supports
+`--kind`, `--language`, `--symbol`, and `--source` filters. Set `ODM_SEARCH_MODE=vector`
+for dense-only.
+
 ### MCP server
 
 ```bash
-opendomainmcp-server          # stdio; tools: ingest_path, search_knowledge, get_stats
+opendomainmcp-server          # stdio; tools: ingest_path, search_knowledge, ask,
+                              #               get_stats, list_collections
 ```
 
 ### Web dashboard
@@ -71,8 +79,9 @@ opendomainmcp-server          # stdio; tools: ingest_path, search_knowledge, get
 opendomainmcp-web             # http://127.0.0.1:8000
 ```
 
-A console to view database status, ingest with live progress, search/explore
-results, browse & edit stored items, and change settings.
+A console to view database status, ingest with live progress (and optional sync),
+hybrid search with filters, ask cited questions, browse & edit stored items,
+switch between knowledge bases, and change settings.
 
 ## Configuration
 

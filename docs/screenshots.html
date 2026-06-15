@@ -47,9 +47,10 @@
   <h1>網頁主控台：實際運作截圖</h1>
   <p>以下畫面取自實際啟動的服務。我們把平台本身的原始碼（Python 後端、React／TypeScript 前端、測試與文件，
      共 41 個檔案、189 個片段）餵進系統，再逐頁操作擷取。所有數字與搜尋結果都是真實資料，並非示意圖。</p>
-  <div class="note">本次擷取在無對外金鑰的沙箱環境執行，因此知識萃取（Claude）暫時關閉；
-     嵌入與語意檢索皆為實際運算。只要設定 <span style="font-family:var(--mono)">ANTHROPIC_API_KEY</span>，
-     萃取出的摘要與概念便會一併顯示於搜尋結果。</div>
+  <div class="note">本次擷取在無對外金鑰的沙箱環境執行，因此凡需呼叫 Claude 的功能（知識萃取、Ask 問答）
+     皆會<strong>明確回報需要 API key</strong>；嵌入、混合檢索與多知識庫切換皆為實際運算。
+     只要設定 <span style="font-family:var(--mono)">ANTHROPIC_API_KEY</span>，摘要與引用答案便會一併顯示。
+     畫面左側可見「Knowledge base」切換器（此處有 domain_knowledge 與 web_frontend 兩個知識庫）。</div>
 </div></header>
 
 <div class="wrap">
@@ -67,10 +68,18 @@
   </figure>
 
   <figure>
-    <div class="cap"><div class="step">03 · Explore</div><h2>語意搜尋</h2>
-      <p>以一句「how are functions and classes chunked from source code using the AST」查詢，
-        系統依語意排序回傳結果，每張卡片標示來源、符號與相似度分數——最相關的正是 <span style="font-family:var(--mono)">code_splitter.py</span>。</p></div>
-    <img src="screenshots/03-explore.jpg" alt="Explore 語意搜尋結果" loading="lazy" />
+    <div class="cap"><div class="step">03 · Explore</div><h2>混合語意搜尋（含過濾）</h2>
+      <p>採 dense + BM25 混合檢索（RRF 融合），並以 language 過濾（此處 python）與 source 子字串縮小範圍。
+        每張卡片標示來源、符號與相似度分數。</p></div>
+    <img src="screenshots/03-explore.jpg" alt="Explore 混合語意搜尋與過濾" loading="lazy" />
+  </figure>
+
+  <figure>
+    <div class="cap"><div class="step">07 · Ask</div><h2>RAG 問答（附引用）</h2>
+      <p>檢索最相關片段後，交由 Claude 合成附 [n] 引用的答案。此沙箱無金鑰，因此頁面
+        <strong>明確回報</strong>需要設定 <span style="font-family:var(--mono)">ANTHROPIC_API_KEY</span>——
+        正是「Fail Loud」原則的實際呈現。</p></div>
+    <img src="screenshots/07-ask.jpg" alt="Ask RAG 問答頁面" loading="lazy" />
   </figure>
 
   <figure>

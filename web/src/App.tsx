@@ -41,7 +41,7 @@ function CollectionSwitcher() {
       </label>
       <div className="flex gap-1">
         <select
-          className="flex-1 rounded bg-slate-800 text-slate-100 text-sm px-2 py-1.5 border border-slate-700"
+          className="flex-1 min-w-0 rounded bg-slate-800 text-slate-100 text-sm px-2 py-1.5 border border-slate-700"
           value={active}
           onChange={(e) => choose(e.target.value)}
         >

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>openDomainMcp · 使用說明書</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&family=Lora:ital,wght@0,600;0,700;1,500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --mint:#34d9b5; --teal:#0d9488; --sky:#0ea5c4; --ink:#13322e;
+    --muted:#587a74; --paper:#f5fbf9; --card:#ffffff; --line:#dcefe9;
+    --shadow:0 18px 40px -24px rgba(13,80,72,.42);
+    --serif:"Noto Serif TC","Lora",Georgia,"Songti TC",serif;
+    --sans:"Noto Sans TC","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono","SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);
+    line-height:1.85;letter-spacing:.1px;-webkit-font-smoothing:antialiased}
+  code,kbd,pre{font-family:var(--mono)}
+  a{color:var(--teal);text-decoration:none}
+  h1,h2,h3,h4,.brand{font-family:var(--serif);letter-spacing:.2px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+
+  nav.bar{position:sticky;top:0;z-index:30;backdrop-filter:blur(10px);
+    background:rgba(245,251,249,.84);border-bottom:1px solid var(--line)}
+  nav.bar .wrap{display:flex;align-items:center;gap:18px;height:64px}
+  nav.bar .brand{font-weight:700;font-size:1.08rem;display:flex;align-items:center;gap:9px}
+  nav.bar .dot{width:13px;height:13px;border-radius:50%;
+    background:conic-gradient(from 90deg,var(--mint),var(--sky),var(--mint))}
+  nav.bar .links{margin-left:auto;display:flex;gap:22px;font-size:.92rem;font-weight:500;font-family:var(--sans)}
+  nav.bar .links a{color:var(--muted)}
+  nav.bar .links a:hover{color:var(--teal)}
+  .pill{background:linear-gradient(120deg,var(--mint),var(--sky));color:#053b35 !important;
+    padding:7px 15px;border-radius:999px;font-weight:700}
+
+  header.hero{position:relative;overflow:hidden;padding:84px 0 66px;
+    background:
+      radial-gradient(900px 380px at 12% -10%,rgba(14,165,196,.16),transparent 60%),
+      radial-gradient(760px 420px at 96% 0%,rgba(52,217,181,.26),transparent 55%);}
+  .hero .badge{display:inline-flex;align-items:center;gap:8px;background:var(--card);
+    border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:.82rem;
+    font-weight:600;color:var(--teal);box-shadow:var(--shadow);font-family:var(--sans)}
+  .hero h1{font-size:clamp(2.25rem,5vw,3.5rem);line-height:1.28;font-weight:700;margin:24px 0 18px}
+  .hero h1 .grad{background:linear-gradient(110deg,var(--teal),var(--sky));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lead{font-size:1.16rem;color:#3f5e59;max-width:660px;line-height:1.95}
+  .hero .cta{margin-top:30px;display:flex;gap:14px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:9px;padding:13px 22px;border-radius:13px;
+    font-weight:600;font-size:.98rem;font-family:var(--sans);border:1px solid transparent;transition:.18s}
+  .btn.primary{background:linear-gradient(120deg,var(--teal),var(--mint));color:#053b35;box-shadow:var(--shadow)}
+  .btn.primary:hover{transform:translateY(-2px)}
+  .btn.ghost{background:var(--card);border-color:var(--line);color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--mint)}
+
+  .flow{margin-top:44px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-weight:500;font-size:.9rem;font-family:var(--sans)}
+  .flow .step{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:9px 15px;box-shadow:var(--shadow)}
+  .flow .arrow{color:var(--mint);font-size:1.1rem}
+
+  section{padding:60px 0}
+  .eyebrow{font-size:.78rem;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--teal);font-family:var(--sans)}
+  h2{font-size:clamp(1.65rem,3.4vw,2.25rem);font-weight:700;margin:12px 0 10px}
+  .sub{color:var(--muted);max-width:700px;margin-bottom:32px;font-size:1.04rem}
+
+  .grid{display:grid;gap:18px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:820px){.g3,.g2{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px;box-shadow:var(--shadow)}
+  .card h3{font-size:1.18rem;font-weight:700;margin:14px 0 8px;display:flex;align-items:center;gap:9px}
+  .card p{color:var(--muted);font-size:.98rem}
+  .ico{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(135deg,rgba(52,217,181,.18),rgba(14,165,196,.16));font-size:1.35rem}
+
+  ol.steps{list-style:none;counter-reset:s;display:grid;gap:16px}
+  ol.steps li{counter-increment:s;background:var(--card);border:1px solid var(--line);
+    border-radius:16px;padding:22px 24px 22px 66px;position:relative;box-shadow:var(--shadow)}
+  ol.steps li::before{content:counter(s);position:absolute;left:22px;top:20px;width:30px;height:30px;
+    border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--mint));color:#053b35;
+    font-family:var(--serif);font-weight:700;display:grid;place-items:center}
+  ol.steps li b{font-size:1.05rem;font-family:var(--serif)}
+
+  pre{background:#08231f;color:#cdeee6;border-radius:13px;padding:16px 18px;overflow:auto;
+    font-size:.85rem;line-height:1.75;margin-top:14px;border:1px solid #0c3a33}
+  pre .c{color:#6abfae}.k{color:#7ad0e6}
+  p code,li code{background:#e4f5f0;color:#0b6257;padding:2px 7px;border-radius:6px;font-size:.85em}
+
+  .tour{display:grid;gap:14px}
+  .tour .row{display:grid;grid-template-columns:56px 1fr;gap:18px;align-items:start;
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;box-shadow:var(--shadow)}
+  .tour .row .tag{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;font-size:1.5rem;
+    background:linear-gradient(135deg,rgba(52,217,181,.2),rgba(14,165,196,.16))}
+  .tour .row h4{font-size:1.08rem;font-weight:700;margin-bottom:4px}
+  .tour .row p{color:var(--muted);font-size:.96rem}
+
+  .chips{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-weight:500;font-size:.88rem;font-family:var(--sans)}
+  .chip b{color:var(--teal);font-family:var(--mono);font-weight:600}
+
+  details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 22px;margin-bottom:12px;box-shadow:var(--shadow)}
+  details summary{cursor:pointer;font-weight:700;font-family:var(--serif);padding:16px 0;list-style:none;display:flex;justify-content:space-between;align-items:center;font-size:1.04rem}
+  details summary::-webkit-details-marker{display:none}
+  details summary::after{content:"+";color:var(--mint);font-size:1.4rem;font-weight:600}
+  details[open] summary::after{content:"–"}
+  details p{color:var(--muted);padding-bottom:18px}
+
+  .note{background:linear-gradient(120deg,rgba(52,217,181,.1),rgba(14,165,196,.08));
+    border:1px solid var(--line);border-left:4px solid var(--mint);border-radius:12px;padding:16px 18px;color:#1c5d54;font-size:.98rem}
+
+  footer{padding:48px 0;text-align:center;color:var(--muted);border-top:1px solid var(--line);font-size:.9rem}
+</style>
+</head>
+<body>
+
+<nav class="bar"><div class="wrap">
+  <span class="brand"><span class="dot"></span>openDomainMcp</span>
+  <span class="links">
+    <a href="#start">快速上手</a>
+    <a href="#use">三種介面</a>
+    <a href="#tour">主控台</a>
+    <a href="screenshots.html">功能截圖</a>
+    <a class="pill" href="reference.html">技術文件 →</a>
+  </span>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <span class="badge">使用說明書 · User Guide</span>
+  <h1>把文件與程式碼，<br/>收進一座<span class="grad">能對話的知識庫</span></h1>
+  <p class="lead">openDomainMcp 會讀進你交付的檔案，交由 Claude 整理出其中的領域知識，轉成向量後存放起來。
+    日後想找某段內容時，用平常說話的方式描述即可，散落在各份文件與原始碼裡的答案都能一併找回。</p>
+  <div class="cta">
+    <a class="btn primary" href="#start">開始使用</a>
+    <a class="btn ghost" href="reference.html">了解運作原理</a>
+  </div>
+  <div class="flow">
+    <span class="step">載入</span><span class="arrow">→</span>
+    <span class="step">切塊</span><span class="arrow">→</span>
+    <span class="step">萃取知識</span><span class="arrow">→</span>
+    <span class="step">向量化</span><span class="arrow">→</span>
+    <span class="step">入庫</span><span class="arrow">→</span>
+    <span class="step">查詢</span>
+  </div>
+</div></header>
+
+<section id="what"><div class="wrap">
+  <span class="eyebrow">概觀</span>
+  <h2>一套通用的領域知識工作流</h2>
+  <p class="sub">無論是 PDF、Word、Markdown，或十多種程式語言的原始碼，放進來即可。
+    程式碼會依語法結構切分，文件則按段落遞迴切分；處理完之後，命令列、MCP 與網頁三種介面查的都是同一份資料。</p>
+  <div class="grid g3">
+    <div class="card">
+      <div class="ico">🗂️</div>
+      <h3>什麼都收得進來</h3>
+      <p>常見格式 txt、md、pdf、docx、html、json、csv 一應俱全；其餘檔案只要是 UTF-8 純文字，同樣照收。</p>
+    </div>
+    <div class="card">
+      <div class="ico">🌳</div>
+      <h3>依語法結構切分程式碼</h3>
+      <p>切塊的邊界落在函式、類別與方法上，而不是按固定字數硬切。這個作法借鏡自開源專案 <code>claude-context</code>。</p>
+    </div>
+    <div class="card">
+      <div class="ico">🧠</div>
+      <h3>連同重點一起入庫</h3>
+      <p>每一段內容都先由 Claude 寫下摘要與關鍵概念，再與原文一同嵌入，因此搜尋比對的是語意，而非字面文字。</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="start" style="background:linear-gradient(180deg,transparent,rgba(52,217,181,.06))">
+<div class="wrap">
+  <span class="eyebrow">Quick Start</span>
+  <h2>三分鐘上手</h2>
+  <p class="sub">環境只需要 Python 3.11 以上。第一次執行時，本地的嵌入模型會自動下載一個輕量模型，往後便不再需要連線。</p>
+  <ol class="steps">
+    <li><b>安裝</b>　建立虛擬環境、安裝套件，再把設定範本複製一份留用。
+      <pre><span class="c"># 建立並啟用虛擬環境</span>
+python -m venv .venv && <span class="k">source</span> .venv/bin/activate
+<span class="c"># 安裝（含開發相依）</span>
+pip install -e <span class="k">".[dev]"</span>
+cp .env.example .env   <span class="c"># 依需求調整</span></pre>
+    </li>
+    <li><b>匯入資料</b>　指向單一檔案或整個資料夾都可以，目錄會自動遞迴掃描。
+      <pre>opendomainmcp ingest ./your-project
+<span class="c"># [load] … [split] … [extract] … [store]</span>
+<span class="c"># Indexed 42 files / 318 chunks.</span></pre>
+    </li>
+    <li><b>開始查詢</b>　用一句話描述你要找的東西即可；需要時加上 <code>--kind</code>，限定只找程式碼或只找文件。
+      <pre>opendomainmcp search <span class="k">"檢索是怎麼實作的"</span> --top-k 5</pre>
+    </li>
+  </ol>
+  <div class="note" style="margin-top:18px">想完全離線、暫時不呼叫 Claude，把環境變數
+    <code>ODM_EXTRACT_KNOWLEDGE</code> 設為 <code>false</code> 即可關閉知識萃取，其餘流程照常運作。</div>
+</div></section>
+
+<section id="use"><div class="wrap">
+  <span class="eyebrow">三種介面</span>
+  <h2>同一份資料，三種用法</h2>
+  <p class="sub">命令列、MCP 伺服器與網頁主控台共用同一條管線、同一個資料庫。
+    不論你從哪裡匯入、又從哪裡查詢，看到的結果都一致。</p>
+  <div class="grid g3">
+    <div class="card">
+      <div class="ico">⌨️</div>
+      <h3>命令列</h3>
+      <p>最直接的方式，四個指令就夠：<code>ingest</code>、<code>search</code>、<code>stats</code>、<code>clear</code>。</p>
+      <pre>opendomainmcp stats
+opendomainmcp clear</pre>
+    </div>
+    <div class="card">
+      <div class="ico">🔌</div>
+      <h3>MCP 伺服器</h3>
+      <p>透過 stdio 把工具提供給支援 MCP 的客戶端（例如 Claude）：
+        <code>ingest_path</code>、<code>search_knowledge</code>、<code>ask</code>、
+        <code>get_stats</code>、<code>list_collections</code>。</p>
+      <pre>opendomainmcp-server</pre>
+    </div>
+    <div class="card">
+      <div class="ico">🖥️</div>
+      <h3>網頁主控台</h3>
+      <p>啟動後在瀏覽器即可完成全部操作，適合一邊匯入、一邊觀察結果。</p>
+      <pre>opendomainmcp-web
+<span class="c"># http://127.0.0.1:8000</span></pre>
+    </div>
+  </div>
+</div></section>
+
+<section id="tour" style="background:linear-gradient(180deg,rgba(14,165,196,.06),transparent)">
+<div class="wrap">
+  <span class="eyebrow">Dashboard</span>
+  <h2>網頁主控台一覽</h2>
+  <p class="sub">六個分頁，從檢視現況、匯入、搜尋、問答，到逐筆編輯與調整設定，都在同一處完成；
+    左側並可建立與切換多個知識庫。</p>
+  <div class="tour">
+    <div class="row"><div class="tag">📊</div><div>
+      <h4>總覽 Dashboard</h4>
+      <p>掌握資料庫的當前狀態：已索引的片段數量、使用中的嵌入模型與維度、資料存放位置，以及知識萃取是否啟用。
+        側欄的「知識庫」切換器可在不同專案之間切換或新建。</p></div></div>
+    <div class="row"><div class="tag">📥</div><div>
+      <h4>匯入 Ingest</h4>
+      <p>上傳檔案或填入路徑後，進度會即時回報；從載入、切塊、萃取、嵌入到入庫，每個階段都看得到。
+        勾選「Sync」還能在重新匯入時，順手清除已刪除檔案留下的舊片段。</p></div></div>
+    <div class="row"><div class="tag">🔎</div><div>
+      <h4>搜尋 Explore</h4>
+      <p>採 dense 與 BM25 混合檢索，對精確的符號名也找得準；可再以語言或來源路徑過濾。
+        每張卡片標示來源、符號與相似度，並附上該段摘要與關鍵概念。</p></div></div>
+    <div class="row"><div class="tag">💬</div><div>
+      <h4>問答 Ask</h4>
+      <p>把問題交給系統，它會先找出最相關的片段，再由 Claude 寫出一段附來源引用的答案（需設定 API 金鑰）。</p></div></div>
+    <div class="row"><div class="tag">✏️</div><div>
+      <h4>瀏覽與編輯 Browse</h4>
+      <p>以列表檢視所有已存內容，可逐筆查看、就地修正中繼資料，或刪除不再需要的項目。</p></div></div>
+    <div class="row"><div class="tag">⚙️</div><div>
+      <h4>設定 Settings</h4>
+      <p>嵌入後端、萃取模型、切塊大小、檢索模式等參數，都能在頁面上直接調整；變更會寫入設定檔並立即套用。</p></div></div>
+  </div>
+</div></section>
+
+<section id="files"><div class="wrap">
+  <span class="eyebrow">支援範圍</span>
+  <h2>收得進來的檔案類型</h2>
+  <p class="sub">下列程式語言以語法樹切分。即使是清單之外的語言也不會被略過，而是改用行區間的方式切分，內容不致遺漏。</p>
+  <div class="grid g2">
+    <div class="card">
+      <h3>🧑‍💻 程式語言（語法樹切分）</h3>
+      <div class="chips" style="margin-top:14px">
+        <span class="chip">Python</span><span class="chip">JavaScript</span>
+        <span class="chip">TypeScript / TSX</span><span class="chip">Java</span>
+        <span class="chip">Go</span><span class="chip">Rust</span><span class="chip">C</span>
+        <span class="chip">C++</span><span class="chip">C#</span><span class="chip">Ruby</span>
+        <span class="chip">Bash</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>📄 文件（遞迴文字切分）</h3>
+      <div class="chips" style="margin-top:14px">
+        <span class="chip"><b>.txt</b></span><span class="chip"><b>.md</b></span>
+        <span class="chip"><b>.pdf</b></span><span class="chip"><b>.docx</b></span>
+        <span class="chip"><b>.html</b></span><span class="chip"><b>.json</b></span>
+        <span class="chip"><b>.csv</b></span><span class="chip">任何 UTF-8 文字</span>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<section id="faq" style="background:linear-gradient(180deg,transparent,rgba(52,217,181,.06))">
+<div class="wrap">
+  <span class="eyebrow">FAQ</span>
+  <h2>常見問題</h2>
+  <div style="margin-top:24px">
+    <details open><summary>一定要付費的 API 金鑰嗎？</summary>
+      <p>向量化（嵌入）與混合搜尋預設使用本地模型，不需任何金鑰。只有兩項會呼叫 Anthropic API：
+        知識萃取與「Ask」問答，兩者皆從 <code>ANTHROPIC_API_KEY</code> 與 <code>ANTHROPIC_BASE_URL</code> 取得設定。
+        不需萃取時把 <code>ODM_EXTRACT_KNOWLEDGE</code> 設為 <code>false</code> 即可；沒有金鑰時，Ask 會明確提示需要設定，而非回空答案。</p></details>
+    <details><summary>可以同時管理多個專案的知識嗎？</summary>
+      <p>可以。系統支援多個「知識庫」（collection），在側欄即可建立與切換，彼此資料互相隔離；
+        命令列用 <code>--collection</code>、MCP 工具用 <code>collection</code> 參數同樣可指定。</p></details>
+    <details><summary>我的資料存放在哪裡？</summary>
+      <p>預設在專案下的 <code>.opendomain/</code> 目錄：向量資料庫位於 <code>chroma/</code>，
+        網頁上調整的設定則記在 <code>settings.json</code>。若想換位置，設定 <code>ODM_DATA_DIR</code> 即可。</p></details>
+    <details><summary>重複匯入同一份檔案，內容會重複嗎？</summary>
+      <p>不會。每個片段以「來源、行號、內容」三者的雜湊值作為識別碼；只要內容沒變，就視為同一筆，
+        重新匯入只是覆寫，不會新增。</p></details>
+    <details><summary>遇到不支援或讀不了的檔案，會怎麼處理？</summary>
+      <p>系統採「明確回報」的原則：略過的檔案與發生的錯誤都會逐一記錄並回報，不會默默吞掉；
+        同時，整體匯入仍會繼續處理其餘檔案，不致中斷。</p></details>
+    <details><summary>可以改用品質更好的嵌入模型嗎？</summary>
+      <p>可以。嵌入後端是可替換的，內建本地（fastembed）、OpenAI 與 Voyage 三種；
+        在設定頁或環境變數切換即可。細節請見技術文件的「嵌入層」一節。</p></details>
+  </div>
+  <div style="text-align:center;margin-top:36px">
+    <a class="btn primary" href="reference.html">想深入了解運作原理，請看技術文件 →</a>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  openDomainMcp · 通用領域知識工作流平台　|　<a href="reference.html">技術文件</a> ·
+  <a href="index.html">文件首頁</a>
+</div></footer>
+
+</body>
+</html>

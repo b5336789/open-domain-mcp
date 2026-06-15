@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>openDomainMcp · 功能截圖</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{--teal:#0d9488;--mint:#34d9b5;--ink:#13322e;--muted:#587a74;--paper:#f5fbf9;
+    --card:#fff;--line:#dcefe9;--shadow:0 18px 40px -24px rgba(13,80,72,.42);
+    --serif:"Noto Serif TC",Georgia,serif;--sans:"Noto Sans TC","Inter",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);line-height:1.8;-webkit-font-smoothing:antialiased}
+  h1,h2,.brand{font-family:var(--serif)}
+  a{color:var(--teal);text-decoration:none}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+  nav{position:sticky;top:0;z-index:5;backdrop-filter:blur(10px);background:rgba(245,251,249,.85);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:18px;height:62px}
+  nav .brand{font-weight:700;display:flex;align-items:center;gap:9px}
+  nav .dot{width:13px;height:13px;border-radius:50%;background:conic-gradient(from 90deg,var(--mint),#0ea5c4,var(--mint))}
+  nav .links{margin-left:auto;display:flex;gap:20px;font-size:.92rem;color:var(--muted)}
+  header{padding:60px 0 30px}
+  header .eyebrow{font-size:.78rem;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--teal)}
+  header h1{font-size:clamp(2rem,4.5vw,3rem);font-weight:700;margin:12px 0 12px;line-height:1.25}
+  header p{color:var(--muted);max-width:680px;font-size:1.06rem}
+  .note{margin-top:20px;background:linear-gradient(120deg,rgba(52,217,181,.1),rgba(14,165,196,.08));
+    border:1px solid var(--line);border-left:4px solid var(--mint);border-radius:12px;padding:14px 18px;color:#1c5d54;font-size:.96rem}
+  figure{margin:42px 0;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+  figure .cap{padding:18px 22px;border-bottom:1px solid var(--line)}
+  figure .cap .step{font-family:var(--mono);font-size:.74rem;color:var(--teal);font-weight:600;letter-spacing:1px}
+  figure .cap h2{font-size:1.25rem;font-weight:700;margin:4px 0 4px}
+  figure .cap p{color:var(--muted);font-size:.96rem}
+  figure img{display:block;width:100%;height:auto;border-top:1px solid var(--line);background:#0d1117}
+  footer{padding:50px 0;text-align:center;color:var(--muted);border-top:1px solid var(--line);font-size:.9rem;margin-top:30px}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <span class="brand"><span class="dot"></span>openDomainMcp</span>
+  <span class="links"><a href="guide.html">使用說明書</a><a href="reference.html">技術文件</a><a href="index.html">首頁</a></span>
+</div></nav>
+
+<header><div class="wrap">
+  <span class="eyebrow">Screenshots · 真實使用畫面</span>
+  <h1>網頁主控台：實際運作截圖</h1>
+  <p>以下畫面取自實際啟動的服務。我們把平台本身的原始碼（Python 後端、React／TypeScript 前端、測試與文件，
+     共 41 個檔案、189 個片段）餵進系統，再逐頁操作擷取。所有數字與搜尋結果都是真實資料，並非示意圖。</p>
+  <div class="note">本次擷取在無對外金鑰的沙箱環境執行，因此凡需呼叫 Claude 的功能（知識萃取、Ask 問答）
+     皆會<strong>明確回報需要 API key</strong>；嵌入、混合檢索與多知識庫切換皆為實際運算。
+     只要設定 <span style="font-family:var(--mono)">ANTHROPIC_API_KEY</span>，摘要與引用答案便會一併顯示。
+     畫面左側可見「Knowledge base」切換器（此處有 domain_knowledge 與 web_frontend 兩個知識庫）。</div>
+</div></header>
+
+<div class="wrap">
+  <figure>
+    <div class="cap"><div class="step">01 · Dashboard</div><h2>總覽</h2>
+      <p>資料庫現況一目了然：189 個已索引片段、集合名稱、使用中的嵌入模型與 384 維向量，上方並標出管線各階段。</p></div>
+    <img src="screenshots/01-dashboard.jpg" alt="Dashboard 總覽" loading="lazy" />
+  </figure>
+
+  <figure>
+    <div class="cap"><div class="step">02 · Ingest</div><h2>匯入（即時串流）</h2>
+      <p>輸入伺服器端路徑後開始匯入，下方以 SSE 即時顯示 load → split → extract → embed → store 的逐步進度，
+        完成後回報「Indexed 1 files / 9 chunks」。</p></div>
+    <img src="screenshots/02-ingest.jpg" alt="Ingest 匯入即時進度" loading="lazy" />
+  </figure>
+
+  <figure>
+    <div class="cap"><div class="step">03 · Explore</div><h2>混合語意搜尋（含過濾）</h2>
+      <p>採 dense + BM25 混合檢索（RRF 融合），並以 language 過濾（此處 python）與 source 子字串縮小範圍。
+        每張卡片標示來源、符號與相似度分數。</p></div>
+    <img src="screenshots/03-explore.jpg" alt="Explore 混合語意搜尋與過濾" loading="lazy" />
+  </figure>
+
+  <figure>
+    <div class="cap"><div class="step">07 · Ask</div><h2>RAG 問答（附引用）</h2>
+      <p>檢索最相關片段後，交由 Claude 合成附 [n] 引用的答案。此沙箱無金鑰，因此頁面
+        <strong>明確回報</strong>需要設定 <span style="font-family:var(--mono)">ANTHROPIC_API_KEY</span>——
+        正是「Fail Loud」原則的實際呈現。</p></div>
+    <img src="screenshots/07-ask.jpg" alt="Ask RAG 問答頁面" loading="lazy" />
+  </figure>
+
+  <figure>
+    <div class="cap"><div class="step">04 · Browse / Edit</div><h2>瀏覽</h2>
+      <p>以列表檢視所有已儲存的片段，每筆顯示來源與符號名稱，右側可直接編輯或刪除。</p></div>
+    <img src="screenshots/04-browse.jpg" alt="Browse 瀏覽清單" loading="lazy" />
+  </figure>
+
+  <figure>
+    <div class="cap"><div class="step">05 · Browse / Edit</div><h2>就地編輯中繼資料</h2>
+      <p>點開任一筆即可編輯其中繼資料（語言、符號、行號、kind 等），存檔後立即生效。</p></div>
+    <img src="screenshots/05-browse-edit.jpg" alt="Browse 編輯中繼資料" loading="lazy" />
+  </figure>
+
+  <figure>
+    <div class="cap"><div class="step">06 · Settings</div><h2>設定</h2>
+      <p>嵌入後端、嵌入模型、是否萃取知識、切塊大小等參數，皆可於頁面調整並寫入設定檔。</p></div>
+    <img src="screenshots/06-settings.jpg" alt="Settings 設定頁" loading="lazy" />
+  </figure>
+</div>
+
+<footer><div class="wrap">
+  openDomainMcp · 功能截圖　|　<a href="guide.html">使用說明書</a> · <a href="reference.html">技術文件</a> · <a href="index.html">文件首頁</a>
+</div></footer>
+</body>
+</html>

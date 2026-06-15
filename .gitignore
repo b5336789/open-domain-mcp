@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Project data (vector store, ingested artifacts)
+.opendomain/
+*.sqlite3
+
+# Env / secrets
+.env
+
+# Node / frontend
+web/node_modules/
+web/dist/
+src/opendomainmcp/api/static/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>openDomainMcp · 技術文件</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#11161f; --card:#161d28; --line:#222c3a;
+    --ink:#dbe5f0; --muted:#8b9bb0; --indigo:#8b9aff; --cyan:#3fd6c8;
+    --amber:#f0b95b; --green:#5cd6a3; --red:#ff8a8a; --code:#0a0e14;
+    --sans:"Inter","Noto Sans TC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --serif:"Noto Serif TC","Lora",Georgia,serif;
+    --mono:"JetBrains Mono","SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.78;
+    letter-spacing:.1px;-webkit-font-smoothing:antialiased}
+  code,kbd,pre{font-family:var(--mono)}
+  a{color:var(--cyan);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .layout{display:grid;grid-template-columns:272px 1fr;min-height:100vh}
+  aside{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;
+    background:var(--panel);border-right:1px solid var(--line);padding:26px 18px}
+  aside .brand{font-family:var(--serif);font-weight:700;font-size:1.1rem;display:flex;align-items:center;gap:9px;margin-bottom:4px}
+  aside .brand .dot{width:12px;height:12px;border-radius:3px;background:linear-gradient(135deg,var(--indigo),var(--cyan))}
+  aside .ver{font-size:.72rem;color:var(--muted);margin-bottom:22px;letter-spacing:.4px}
+  aside .grp{font-size:.66rem;text-transform:uppercase;letter-spacing:1.6px;color:var(--muted);
+    margin:22px 0 8px;font-weight:700}
+  aside a{display:block;color:var(--muted);font-size:.875rem;padding:6px 11px;border-radius:7px;
+    border-left:2px solid transparent}
+  aside a:hover{color:var(--ink);background:var(--card);text-decoration:none}
+  aside .home{margin-top:26px;display:inline-block;color:var(--cyan);font-size:.82rem}
+
+  main{padding:50px 56px;max-width:940px}
+  .doc-head{border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:38px}
+  .doc-head .kicker{color:var(--indigo);font-weight:700;letter-spacing:2.4px;font-size:.74rem;text-transform:uppercase}
+  .doc-head h1{font-family:var(--serif);font-size:2.4rem;font-weight:700;letter-spacing:.3px;margin:10px 0 12px}
+  .doc-head p{color:var(--muted);max-width:700px;font-size:1.02rem;line-height:1.85}
+  .meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .meta span{font-size:.74rem;background:var(--card);border:1px solid var(--line);
+    border-radius:6px;padding:4px 11px;color:var(--muted);font-family:var(--mono)}
+
+  section{margin-bottom:52px;scroll-margin-top:24px}
+  h2{font-size:1.5rem;font-weight:700;letter-spacing:.2px;padding-bottom:9px;margin-bottom:18px;
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:11px}
+  h2 .n{font-size:.82rem;color:var(--indigo);font-weight:700;font-family:var(--mono)}
+  h3{font-size:1.12rem;font-weight:600;margin:28px 0 10px;color:#eef4fb}
+  p{color:#c3cfdd;margin-bottom:13px}
+  ul,ol{margin:0 0 13px 22px}
+  li{color:#c3cfdd;margin-bottom:7px}
+
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:15px 17px;
+    overflow:auto;font-size:.82rem;line-height:1.7;margin:13px 0}
+  pre .c{color:#5f7088}.k{color:var(--indigo)}.s{color:var(--green)}.t{color:var(--cyan)}.a{color:var(--amber)}
+  p code,li code,td code{background:#1b2330;color:#9fe7df;padding:2px 6px;border-radius:5px;font-size:.85em;border:1px solid var(--line)}
+
+  table{width:100%;border-collapse:collapse;margin:15px 0;font-size:.86rem}
+  th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.7px;background:var(--panel)}
+  tbody tr:hover{background:var(--card)}
+  td.mono,th.mono{font-family:var(--mono);white-space:nowrap}
+
+  .method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:2px 8px;border-radius:5px}
+  .get{background:rgba(92,214,163,.16);color:var(--green)}
+  .post{background:rgba(139,154,255,.18);color:var(--indigo)}
+  .patch{background:rgba(240,185,91,.16);color:var(--amber)}
+  .del{background:rgba(255,138,138,.16);color:var(--red)}
+
+  .callout{border:1px solid var(--line);border-left:3px solid var(--indigo);background:var(--card);
+    border-radius:8px;padding:14px 17px;margin:17px 0;color:#c3cfdd;font-size:.92rem}
+  .callout b{color:var(--cyan)}
+
+  .arch{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:18px;
+    font-family:var(--mono);font-size:.8rem;color:#9fb0c4;white-space:pre;overflow:auto;line-height:1.5}
+
+  footer{border-top:1px solid var(--line);padding:28px 56px;color:var(--muted);font-size:.82rem}
+  @media(max-width:880px){.layout{grid-template-columns:1fr}aside{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}main{padding:32px 22px}}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside>
+  <div class="brand"><span class="dot"></span>openDomainMcp</div>
+  <div class="ver">Technical Reference · v0.2.0</div>
+  <div class="grp">概念</div>
+  <a href="#overview">1 · 系統概觀</a>
+  <a href="#architecture">2 · 架構與資料流</a>
+  <a href="#model">3 · 資料模型</a>
+  <div class="grp">處理管線</div>
+  <a href="#pipeline">4 · 攝取管線</a>
+  <a href="#ast">5 · 語法樹程式碼切塊</a>
+  <a href="#text">6 · 文件載入與文字切塊</a>
+  <a href="#extract">7 · 知識萃取</a>
+  <a href="#embed">8 · 嵌入層</a>
+  <a href="#store">9 · 向量儲存</a>
+  <div class="grp">介面</div>
+  <a href="#rest">10 · REST API</a>
+  <a href="#mcp">11 · MCP 工具</a>
+  <a href="#cli">12 · 命令列</a>
+  <div class="grp">進階能力</div>
+  <a href="#sync">16 · 變更感知同步與並行</a>
+  <a href="#hybrid">17 · 混合檢索與過濾</a>
+  <a href="#ask">18 · RAG 問答</a>
+  <a href="#collections">19 · 多知識庫</a>
+  <div class="grp">維運</div>
+  <a href="#config">13 · 設定參考</a>
+  <a href="#testing">14 · 測試策略</a>
+  <a href="#extending">15 · 擴充指南</a>
+  <a class="home" href="guide.html">← 回到使用說明書</a>
+</aside>
+
+<main>
+  <div class="doc-head">
+    <div class="kicker">Technical Documentation</div>
+    <h1>openDomainMcp 技術文件</h1>
+    <p>本文件提供 openDomainMcp 的工程參考，內容涵蓋整體架構與資料模型、攝取管線、程式碼的語法樹切塊，
+       以及嵌入、向量儲存，與 REST、MCP、命令列三種對外介面的規格。</p>
+    <div class="meta">
+      <span>Python ≥ 3.11</span><span>Chroma · cosine</span><span>tree-sitter</span>
+      <span>fastembed · 384d</span><span>hybrid · BM25+RRF</span>
+      <span>RAG · ask</span><span>multi-collection</span><span>FastAPI · SSE · MCP</span>
+    </div>
+  </div>
+
+  <!-- 1 -->
+  <section id="overview">
+    <h2><span class="n">01</span>系統概觀</h2>
+    <p>openDomainMcp 接收各種型態的文件與多種程式語言的原始碼，從中整理出領域知識，
+       並存入向量資料庫供語意檢索。整體設計圍繞以下幾個原則：</p>
+    <ul>
+      <li><b>單一事實來源。</b>命令列、MCP 伺服器與 Web API 共用同一份執行情境
+        （<code>Context</code>，由設定、向量庫與管線組成），三者行為必然一致。</li>
+      <li><b>依語意切塊。</b>程式碼沿語法樹的邊界切分（作法借鏡 <code>claude-context</code>），文件則以遞迴方式切分。</li>
+      <li><b>以知識增強檢索。</b>每段內容先由 Claude 產生結構化摘要，再折入嵌入文字，使檢索貼近語意而非字面。</li>
+      <li><b>明確回報，絕不靜默丟棄。</b>略過與錯誤一律記錄並回傳，資料不會無聲消失。</li>
+      <li><b>可替換、可注入。</b>嵌入後端、萃取器與切塊器皆可抽換，測試以替身元件全程離線執行。</li>
+    </ul>
+  </section>
+
+  <!-- 2 -->
+  <section id="architecture">
+    <h2><span class="n">02</span>架構與資料流</h2>
+    <p>攝取流程是一條線性的六階段管線。三個前端介面並不各自實作邏輯，而是一律透過
+       <code>build_context()</code> 取得共用元件：</p>
+<div class="arch">  ┌─────────── 介面層 (interchangeable front-ends) ───────────┐
+  │   cli.py        server.py (MCP)        api/app.py (FastAPI) │
+  └───────────────┬──────────────┬───────────────┬────────────┘
+                  └──────────────┴───────────────┘
+                          context.build_context()
+                   ┌──────────────┴───────────────┐
+                   │   Context(settings, store, pipeline)
+                   └──────────────┬───────────────┘
+                                  ▼
+   load ──▶ split ──▶ extract ──▶ embed ──▶ store ──▶ search
+  loader   code/text  knowledge   embedder  Chroma    Chroma
+           splitter   (Claude)    (vector)  (upsert)  (query)</div>
+    <p>所有路徑都建立在 <code>opendomainmcp/context.py</code> 的工廠之上，因此系統裡只會有一份管線實作。</p>
+    <h3>原始碼結構</h3>
+    <table>
+      <thead><tr><th>模組</th><th>職責</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">context.py</td><td>組裝並共享 <code>Context</code>（設定 / 向量庫 / 管線）。</td></tr>
+        <tr><td class="mono">config.py</td><td>以 <code>ODM_</code> 前綴讀取環境設定，並支援執行期覆寫。</td></tr>
+        <tr><td class="mono">models.py</td><td>核心資料結構：<code>Chunk</code>、<code>KnowledgeUnit</code>、<code>SearchResult</code>。</td></tr>
+        <tr><td class="mono">ingest/loader.py</td><td>檔案型別偵測與文字抽取。</td></tr>
+        <tr><td class="mono">ingest/code_splitter.py</td><td>語法樹切塊，附行區間退回機制。</td></tr>
+        <tr><td class="mono">ingest/text_splitter.py</td><td>遞迴文字切塊器。</td></tr>
+        <tr><td class="mono">ingest/pipeline.py</td><td>攝取編排、目錄走訪、進度事件與錯誤回報。</td></tr>
+        <tr><td class="mono">extract/knowledge.py</td><td>Claude 知識萃取與 <code>NullExtractor</code>。</td></tr>
+        <tr><td class="mono">embedding/</td><td>可替換嵌入器：local / openai / voyage。</td></tr>
+        <tr><td class="mono">store/chroma_store.py</td><td>Chroma 封裝：upsert / query / 增刪查改 / 統計。</td></tr>
+        <tr><td class="mono">cli.py · server.py · api/app.py</td><td>三種前端介面。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 3 -->
+  <section id="model">
+    <h2><span class="n">03</span>資料模型</h2>
+    <p>定義於 <code>models.py</code>，皆為不含業務邏輯的 dataclass，於各層之間傳遞。</p>
+    <h3>Chunk</h3>
+    <p>嵌入與儲存的基本單位。<code>kind</code> 為 <code>"code"</code> 或 <code>"text"</code>；程式碼片段會額外攜帶語法樹的中繼資料。</p>
+    <table>
+      <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">text</td><td class="mono">str</td><td>原始片段內容。</td></tr>
+        <tr><td class="mono">source</td><td class="mono">str</td><td>來源檔案路徑。</td></tr>
+        <tr><td class="mono">kind</td><td class="mono">str</td><td><code>code</code> 或 <code>text</code>。</td></tr>
+        <tr><td class="mono">language</td><td class="mono">str?</td><td>程式語言名稱（文件為 <code>None</code>）。</td></tr>
+        <tr><td class="mono">node_type</td><td class="mono">str?</td><td>語法樹節點型別，或 <code>block</code> / <code>lines</code>。</td></tr>
+        <tr><td class="mono">symbol</td><td class="mono">str?</td><td>定義的符號名稱（函式或類別名）。</td></tr>
+        <tr><td class="mono">start_line / end_line</td><td class="mono">int?</td><td>從 1 起算的起訖行號。</td></tr>
+        <tr><td class="mono">knowledge</td><td class="mono">KnowledgeUnit?</td><td>萃取所得的領域知識。</td></tr>
+      </tbody>
+    </table>
+    <p>衍生行為：</p>
+    <ul>
+      <li><code>content_hash</code> / <code>id</code>：取 <code>sha256("{source}:{start}-{end}\n{text}")</code>，作為冪等 upsert 的穩定識別碼。</li>
+      <li><code>embedding_text()</code>：若已有知識，回傳「原文＋摘要＋概念」的增強文字；否則回傳原文。</li>
+      <li><code>metadata()</code>：扁平化、且去除 <code>None</code> 的中繼資料字典，方便寫入 Chroma。</li>
+    </ul>
+    <h3>KnowledgeUnit / SearchResult</h3>
+    <pre><span class="k">class</span> <span class="t">KnowledgeUnit</span>:  summary: str; concepts: list[str]; relations: list[str]
+<span class="k">class</span> <span class="t">SearchResult</span>:  id: str; text: str; score: float; metadata: dict</pre>
+  </section>
+
+  <!-- 4 -->
+  <section id="pipeline">
+    <h2><span class="n">04</span>攝取管線</h2>
+    <p><code>Pipeline.ingest_path(path, progress)</code> 接受單一檔案或目錄。傳入目錄時會遞迴走訪，
+       並略過版本控制與相依目錄（<code>.git</code>、<code>node_modules</code>、<code>.venv</code>、
+       <code>__pycache__</code>、<code>dist</code>、<code>build</code> 等）以及隱藏檔。</p>
+    <h3>逐檔處理與進度事件</h3>
+    <p>處理過程透過選用的 <code>progress</code> 回呼逐步發出事件，Web 端即依此以 SSE 串流即時狀態：</p>
+    <table>
+      <thead><tr><th>stage</th><th>意義</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">load</td><td>開始載入檔案。</td></tr>
+        <tr><td class="mono">split</td><td>切塊中（程式碼走語法樹，文件走遞迴）。</td></tr>
+        <tr><td class="mono">extract</td><td>逐段萃取知識，detail 帶有片段數。</td></tr>
+        <tr><td class="mono">embed / store</td><td>向量化後 upsert 入庫。</td></tr>
+        <tr><td class="mono">prune</td><td>移除該來源的孤兒片段，或目錄同步時移除已刪除檔案的片段。</td></tr>
+        <tr><td class="mono">skip</td><td>不支援、二進位或無內容（記入 report.skipped）。</td></tr>
+        <tr><td class="mono">error</td><td>非預期錯誤（記入 report.errors，流程繼續）。</td></tr>
+        <tr><td class="mono">done / report</td><td>整體完成；report 帶有彙總計數。</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><b>明確回報：</b><code>UnsupportedFileError</code> 歸入 <code>skipped</code>，
+      其他例外歸入 <code>errors</code>。知識萃取屬盡力而為，單一片段失敗只記錄、不中斷整體攝取。
+      最終回傳 <code>IngestReport(files_indexed, chunks_indexed, chunks_pruned, skipped[], errors[])</code>。
+      變更感知同步與並行萃取詳見第 16 節。</div>
+  </section>
+
+  <!-- 5 -->
+  <section id="ast">
+    <h2><span class="n">05</span>語法樹程式碼切塊</h2>
+    <p><code>split_code(source, language, path, max_chars)</code> 借鏡 <code>claude-context</code> 的核心想法：
+       先以 tree-sitter 解析，再沿語意邊界（函式、類別、方法）切塊，而非任意的字元視窗。
+       各語言的 grammar 內建於對應的 <code>tree-sitter-*</code> wheel，離線即可使用，解析器並會快取重用。</p>
+    <h3>切塊邏輯</h3>
+    <ol>
+      <li><b>同層走訪</b>（<code>_chunk_siblings</code>）：依序檢視節點。連續的非定義節點（如 import、敘述）
+        會先行合併，直到累積跨度超過 <code>max_chars</code> 才切出一塊。</li>
+      <li><b>定義節點</b>：遇到 <code>_DEFINITION_TYPES</code>（如 <code>function_definition</code>、
+        <code>class_declaration</code>、<code>impl_item</code> 等）時，先沖出當前群組，再單獨成塊，
+        並標註 <code>symbol</code>（取 <code>name</code> 欄位，或第一個 identifier）。</li>
+      <li><b>過大的定義</b>（<code>_split_definition</code>）：若單一定義超過 <code>max_chars</code>，
+        便遞迴進入其主體（<code>block</code>、<code>class_body</code>、<code>declaration_list</code> 等）切分成員；
+        若找不到可辨識的主體，則整塊保留，以免遺失符號名稱。</li>
+      <li><b>退回機制</b>：當語言缺少對應 grammar、解析失敗，或結果為空（空檔或僅含註解）時，
+        改用 <code>_line_fallback</code> 以行區間切塊，節點型別記為 <code>lines</code>，同時寫下警告。</li>
+    </ol>
+    <h3>支援語言對應</h3>
+    <p>Python、JavaScript、TypeScript、TSX、Java、Go、Rust、C、C++、C#、Ruby、Bash。
+       語言名稱對應至 <code>tree_sitter_*</code> 模組及其 <code>language*()</code> 工廠函式
+       （TypeScript 較特別，分為 <code>language_typescript</code> 與 <code>language_tsx</code>）。</p>
+    <pre><span class="c"># 每一塊都帶有可追溯的定位資訊</span>
+Chunk(kind=<span class="s">"code"</span>, language=<span class="s">"python"</span>, node_type=<span class="s">"function_definition"</span>,
+      symbol=<span class="s">"build_context"</span>, start_line=<span class="a">25</span>, end_line=<span class="a">36</span>)</pre>
+  </section>
+
+  <!-- 6 -->
+  <section id="text">
+    <h2><span class="n">06</span>文件載入與文字切塊</h2>
+    <h3>載入與型別偵測（loader.py）</h3>
+    <ul>
+      <li>程式碼副檔名對應為 <code>LoadedDoc(kind="code", language=...)</code>。</li>
+      <li><code>.pdf</code> 以 pypdf 抽取、<code>.docx</code> 以 python-docx 抽取、<code>.html</code> 以
+        HTMLParser 抽取（並略過 <code>script</code> 與 <code>style</code>）。</li>
+      <li>已知的文字副檔名（txt、md、json、yaml、csv、xml、css 等）直接讀取。</li>
+      <li>未知副檔名則先嘗試以 UTF-8 解碼：成功便視為文字，失敗則丟出
+        <code>UnsupportedFileError</code>（通常代表二進位檔）。</li>
+    </ul>
+    <h3>遞迴文字切塊（text_splitter.py）</h3>
+    <p><code>RecursiveTextSplitter(chunk_size, chunk_overlap)</code> 依分隔符的優先序
+       <code>["\n\n","\n",". "," ",""]</code> 由粗到細處理：先用文本中存在的最粗分隔符切開，
+       對仍然過長的片段往下遞迴，最後再把小片段合併成約 <code>chunk_size</code> 大小的塊，
+       並保留 <code>chunk_overlap</code> 字元的前文重疊。若 <code>chunk_overlap ≥ chunk_size</code> 會直接丟出 <code>ValueError</code>。</p>
+  </section>
+
+  <!-- 7 -->
+  <section id="extract">
+    <h2><span class="n">07</span>知識萃取</h2>
+    <p>萃取器的介面為 <code>extract(text, kind, language) -> KnowledgeUnit</code>，
+       由 <code>get_extractor(settings)</code> 依設定決定實作：</p>
+    <ul>
+      <li><code>ClaudeExtractor</code>：呼叫 Anthropic 的 <code>messages.create</code>。模型由
+        <code>ODM_EXTRACTION_MODEL</code> 指定（預設 <code>claude-sonnet-4-6</code>），
+        <code>max_tokens</code> 為 600；客戶端自環境讀取 <code>ANTHROPIC_API_KEY</code> 與
+        <code>ANTHROPIC_BASE_URL</code>。</li>
+      <li><code>NullExtractor</code>：當 <code>ODM_EXTRACT_KNOWLEDGE=false</code> 時回傳空知識。</li>
+    </ul>
+    <h3>輸出契約</h3>
+    <p>系統提示要求模型「只」輸出一個 JSON 物件。<code>_parse</code> 會剝除 Markdown code fence、
+       擷取首尾大括號之間的 JSON，並正規化三個欄位：</p>
+    <pre>{
+  <span class="t">"summary"</span>:   <span class="s">"一到兩句，描述這段內容的主旨"</span>,
+  <span class="t">"concepts"</span>:  [<span class="s">"1–8 個它引入的領域術語或實體"</span>],
+  <span class="t">"relations"</span>: [<span class="s">"以 A -> B 描述關係，可為空"</span>]
+}</pre>
+    <p>若輸出不含 JSON 物件，則丟出 <code>ExtractionError</code>。萃取結果會寫入中繼資料，
+       並由 <code>Chunk.embedding_text()</code> 折入嵌入文字，以增強檢索的語意。</p>
+  </section>
+
+  <!-- 8 -->
+  <section id="embed">
+    <h2><span class="n">08</span>嵌入層</h2>
+    <p>抽象介面 <code>Embedder</code> 提供 <code>embed(texts) -> list[list[float]]</code> 與
+       <code>dim</code> 屬性，由 <code>get_embedder(settings)</code> 依後端選擇實作。</p>
+    <table>
+      <thead><tr><th>後端</th><th>類別</th><th>預設模型 / 維度</th><th>相依</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">local</td><td class="mono">LocalEmbedder</td><td>BAAI/bge-small-en-v1.5 · 384d</td><td>fastembed（ONNX，免金鑰）</td></tr>
+        <tr><td class="mono">openai</td><td class="mono">OpenAIEmbedder</td><td>text-embedding-3-small · 1536d</td><td><code>OPENAI_API_KEY</code> + openai</td></tr>
+        <tr><td class="mono">voyage</td><td class="mono">VoyageEmbedder</td><td>voyage-3-lite · 512d</td><td><code>VOYAGE_API_KEY</code> + voyageai</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">本地模型於首次使用時自 HuggingFace 下載。雲端後端的 SDK 採延遲匯入，
+      缺少套件或金鑰時會<b>明確報錯</b>，而不會悄悄降級。向量維度由首批嵌入結果探得後快取。</div>
+  </section>
+
+  <!-- 9 -->
+  <section id="store">
+    <h2><span class="n">09</span>向量儲存</h2>
+    <p><code>ChromaStore</code> 封裝 Chroma。集合本身不掛載 embedding function（向量一律由本層提供），
+       採用 <strong>cosine</strong> 空間（<code>hnsw:space</code>）。預設持久化於
+       <code>&lt;data_dir&gt;/chroma</code>；測試時可注入 <code>EphemeralClient</code>。</p>
+    <table>
+      <thead><tr><th>方法</th><th>行為</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">upsert(chunks)</td><td>以 <code>chunk.id</code>（內容雜湊）冪等寫入，嵌入的是 <code>embedding_text()</code>；同批會先以 id 去重，避免重複內容觸發 <code>DuplicateIDError</code>。</td></tr>
+        <tr><td class="mono">search(query, top_k, where, mode, source_contains)</td><td>向量或混合檢索，詳見第 17 節。</td></tr>
+        <tr><td class="mono">get_ids_for_source / delete_ids / get_all_sources</td><td>供變更感知同步（第 16 節）使用的來源查詢與批次刪除。</td></tr>
+        <tr><td class="mono">get_items / get_item</td><td>分頁瀏覽，或取得單筆。</td></tr>
+        <tr><td class="mono">update_metadata / delete_item</td><td>就地更新中繼資料，或刪除（對象不存在時回傳 <code>False</code>）。</td></tr>
+        <tr><td class="mono">list_collections / create_collection / drop_collection</td><td>知識庫（集合）管理，詳見第 19 節。</td></tr>
+        <tr><td class="mono">stats()</td><td>回傳 collection、count、embedder、dim。</td></tr>
+        <tr><td class="mono">clear()</td><td>刪除並重建集合。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 10 -->
+  <section id="rest">
+    <h2><span class="n">10</span>REST API</h2>
+    <p>由 <code>api/app.py</code> 中的 FastAPI 提供，是共用 <code>Context</code> 的薄包裝層。
+       若 <code>api/static/</code> 存在，則會將前端 SPA 掛載於 <code>/</code>。預設位址為
+       <code>127.0.0.1:8000</code>，可由 <code>ODM_WEB_HOST</code> 與 <code>ODM_WEB_PORT</code> 調整。
+       所有資料端點皆接受可選的 <code>collection</code>（查詢參數或 <code>X-Collection</code> 標頭）以選擇知識庫，預設為 <code>ODM_COLLECTION_NAME</code>。</p>
+    <table>
+      <thead><tr><th>方法</th><th>路徑</th><th>說明</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method get">GET</span></td><td class="mono">/api/health</td><td>健康檢查。</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="mono">/api/stats</td><td>集合統計，另含 data_dir 與 extract_knowledge。</td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="mono">/api/search</td><td>主體 <code>{query, top_k, kind?, language?, symbol?, source_contains?}</code>，回傳結果陣列。</td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="mono">/api/ask</td><td>主體 <code>{query, top_k}</code>，回傳 <code>{answer, citations[]}</code>；無金鑰時回 503。</td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="mono">/api/upload</td><td>multipart 上傳；寫入暫存目錄後回傳其路徑。</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="mono">/api/ingest/stream?path=&amp;sync=</td><td>以 SSE 串流攝取進度（事件名稱即 stage）。</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="mono">/api/items</td><td>分頁列出（<code>limit, offset, kind?</code>）。</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="mono">/api/items/{id}</td><td>取得單筆（不存在回 404）。</td></tr>
+        <tr><td><span class="method patch">PATCH</span></td><td class="mono">/api/items/{id}</td><td>更新中繼資料 <code>{metadata}</code>。</td></tr>
+        <tr><td><span class="method del">DELETE</span></td><td class="mono">/api/items/{id}</td><td>刪除單筆。</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="mono">/api/collections</td><td>列出知識庫與其片段數，含目前作用中者。</td></tr>
+        <tr><td><span class="method post">POST</span></td><td class="mono">/api/collections</td><td>建立知識庫 <code>{name}</code>。</td></tr>
+        <tr><td><span class="method del">DELETE</span></td><td class="mono">/api/collections/{name}</td><td>刪除知識庫。</td></tr>
+        <tr><td><span class="method get">GET</span></td><td class="mono">/api/settings</td><td>讀取可編輯設定與環境資訊。</td></tr>
+        <tr><td><span class="method patch">PATCH</span></td><td class="mono">/api/settings</td><td>更新 <code>{values}</code>，並清除各庫快取使其生效。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 11 -->
+  <section id="mcp">
+    <h2><span class="n">11</span>MCP 工具</h2>
+    <p><code>server.py</code> 以 FastMCP 在 stdio 上提供工具，供支援 MCP 的客戶端（例如 Claude）呼叫，
+       並與其他介面共用同一個 <code>Context</code>。啟動方式：<code>opendomainmcp-server</code>。</p>
+    <table>
+      <thead><tr><th>工具</th><th>參數</th><th>回傳</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">ingest_path</td><td class="mono">path, sync=False, collection?</td><td>IngestReport 字典（files / chunks / pruned / skipped / errors）。</td></tr>
+        <tr><td class="mono">search_knowledge</td><td class="mono">query, top_k=5, kind?, language?, symbol?, collection?</td><td>SearchResult 字典陣列（預設混合檢索）。</td></tr>
+        <tr><td class="mono">ask</td><td class="mono">query, top_k=6, collection?</td><td><code>{answer, citations}</code>，或 <code>{error}</code>。</td></tr>
+        <tr><td class="mono">get_stats</td><td class="mono">collection?</td><td>集合統計。</td></tr>
+        <tr><td class="mono">list_collections</td><td class="mono">—</td><td>知識庫清單與片段數。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 12 -->
+  <section id="cli">
+    <h2><span class="n">12</span>命令列</h2>
+    <p>進入點為 <code>opendomainmcp</code>，採 argparse 子指令；全域旗標 <code>--collection &lt;name&gt;</code> 可選擇知識庫。</p>
+    <table>
+      <thead><tr><th>指令</th><th>說明</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">ingest &lt;path&gt; [--sync]</td><td>攝取檔案或目錄；<code>--sync</code> 連同已刪除檔案的片段一併清除。</td></tr>
+        <tr><td class="mono">search &lt;query&gt; [--top-k] [--kind] [--language] [--symbol] [--source]</td><td>混合檢索（預設），列出來源、符號、分數與摘要。</td></tr>
+        <tr><td class="mono">ask &lt;query&gt; [--top-k]</td><td>檢索後合成附引用的答案（需 API 金鑰）。</td></tr>
+        <tr><td class="mono">collections</td><td>列出知識庫與其片段數。</td></tr>
+        <tr><td class="mono">stats</td><td>列出集合統計。</td></tr>
+        <tr><td class="mono">clear</td><td>清空集合中的所有內容。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 13 -->
+  <section id="config">
+    <h2><span class="n">13</span>設定參考</h2>
+    <p>所有設定皆以 <code>ODM_</code> 為前綴，讀自環境變數與 <code>.env</code>。標記為「可編輯」者，
+       亦可在 Web 設定頁調整；覆寫值會持久化於 <code>&lt;data_dir&gt;/settings.json</code>，
+       由 <code>get_settings()</code> 疊加套用。</p>
+    <table>
+      <thead><tr><th>變數</th><th>預設</th><th>可編輯</th><th>說明</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">ODM_DATA_DIR</td><td class="mono">.opendomain</td><td>—</td><td>資料根目錄（chroma 與 settings.json 所在）。</td></tr>
+        <tr><td class="mono">ODM_COLLECTION_NAME</td><td class="mono">domain_knowledge</td><td>—</td><td>Chroma 集合名稱。</td></tr>
+        <tr><td class="mono">ODM_EMBEDDER_BACKEND</td><td class="mono">local</td><td>✓</td><td>local / openai / voyage。</td></tr>
+        <tr><td class="mono">ODM_EMBEDDER_MODEL</td><td class="mono">BAAI/bge-small-en-v1.5</td><td>✓</td><td>嵌入模型名稱。</td></tr>
+        <tr><td class="mono">ODM_EXTRACT_KNOWLEDGE</td><td class="mono">true</td><td>✓</td><td>是否啟用 Claude 知識萃取。</td></tr>
+        <tr><td class="mono">ODM_EXTRACTION_MODEL</td><td class="mono">claude-sonnet-4-6</td><td>✓</td><td>萃取所用的模型。</td></tr>
+        <tr><td class="mono">ODM_EXTRACT_CONCURRENCY</td><td class="mono">8</td><td>✓</td><td>每檔並行萃取的執行緒數。</td></tr>
+        <tr><td class="mono">ODM_CHUNK_SIZE</td><td class="mono">1200</td><td>✓</td><td>文字切塊的目標字元數。</td></tr>
+        <tr><td class="mono">ODM_CHUNK_OVERLAP</td><td class="mono">150</td><td>✓</td><td>文字切塊的重疊量。</td></tr>
+        <tr><td class="mono">ODM_CODE_MAX_CHUNK_CHARS</td><td class="mono">2000</td><td>✓</td><td>程式碼塊的大小上限（觸發遞迴或行退回）。</td></tr>
+        <tr><td class="mono">ODM_SEARCH_MODE</td><td class="mono">hybrid</td><td>✓</td><td>檢索模式：<code>vector</code> 或 <code>hybrid</code>。</td></tr>
+        <tr><td class="mono">ODM_ANSWER_MODEL</td><td class="mono">claude-sonnet-4-6</td><td>✓</td><td>RAG 問答（ask）合成所用的模型。</td></tr>
+        <tr><td class="mono">ODM_WEB_HOST / ODM_WEB_PORT</td><td class="mono">127.0.0.1 / 8000</td><td>—</td><td>Web 伺服器位址。</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">憑證類設定（<code>ANTHROPIC_*</code>、<code>OPENAI_API_KEY</code>、
+      <code>VOYAGE_API_KEY</code>）與 <code>DATA_DIR</code> 刻意排除在可編輯欄位之外，
+      無法經由 Web 介面變更（見 <code>EDITABLE_FIELDS</code>）。</div>
+  </section>
+
+  <!-- 14 -->
+  <section id="testing">
+    <h2><span class="n">14</span>測試策略</h2>
+    <p>測試全程離線：以確定性的 <code>FakeEmbedder</code>（用雜湊式 bag-of-words，讓詞彙重疊決定 cosine 相似度）、
+       <code>FakeExtractor</code> 與 Chroma <code>EphemeralClient</code> 取代真實相依，既不需網路，也不需下載模型。</p>
+    <ul>
+      <li>單元測試：語法樹切塊應落在函式與類別邊界，符號與行號需正確；文字切塊需符合大小與重疊；loader 的路由與二進位失敗。</li>
+      <li>整合測試：攝取一個小型 fixture，驗證可被檢索，且重複攝取為冪等（靠雜湊去重）。</li>
+      <li>API 測試：以 httpx 或 TestClient 驗證 stats、search、items 增刪查改，以及 ingest 的 SSE 串流。</li>
+    </ul>
+    <pre><span class="k">pytest</span>   <span class="c"># 全數通過，無網路、無模型下載</span></pre>
+  </section>
+
+  <!-- 15 -->
+  <section id="extending">
+    <h2><span class="n">15</span>擴充指南</h2>
+    <ul>
+      <li><b>新增程式語言：</b>於 <code>loader.LANGUAGE_BY_EXT</code> 補上副檔名對應，
+        並在 <code>code_splitter._GRAMMARS</code> 註冊該語言的 grammar 模組與工廠函式（同時把對應 wheel 加入相依）。</li>
+      <li><b>新增嵌入後端：</b>實作 <code>Embedder</code> 子類別，再於 <code>embedding.get_embedder</code> 接上分支即可。</li>
+      <li><b>替換萃取器：</b>提供具備 <code>extract(text, kind, language)</code> 的物件，注入 <code>Pipeline</code> 便能生效。</li>
+      <li><b>新增前端：</b>透過 <code>build_context()</code> 取得共用的管線與向量庫，切勿另建第二份管線。</li>
+    </ul>
+  </section>
+
+  <!-- 16 -->
+  <section id="sync">
+    <h2><span class="n">16</span>變更感知同步與並行萃取</h2>
+    <h3>變更感知同步</h3>
+    <p>片段 id 為內容雜湊，因此「未變動」內容重新攝取本即冪等。但檔案<strong>內容變動</strong>後，
+       舊片段（舊行號與內文）會殘留為孤兒；<strong>刪除</strong>的檔案也會留下過時片段。為此，逐檔處理時會做一次對帳：</p>
+    <ul>
+      <li>算出本次該檔的新 id 集合，向 <code>get_ids_for_source(source)</code> 取得既有 id，
+        以 <code>delete_ids(existing − new)</code> 移除孤兒，再 upsert。新增、更新、移除一次到位。</li>
+      <li>目錄同步：<code>ingest_path(dir, sync=True)</code> 記錄本次走訪到的所有來源，
+        再比對 <code>get_all_sources()</code>，移除位於該根目錄下、但本次未見（即已刪除）的檔案片段。</li>
+      <li>移除數量計入 <code>IngestReport.chunks_pruned</code>，並發出 <code>prune</code> 事件（明確回報）。</li>
+    </ul>
+    <h3>並行萃取</h3>
+    <p>知識萃取是 IO 密集（Anthropic 呼叫）。<code>_extract_all</code> 以 <code>ThreadPoolExecutor</code>
+       並行處理每片段（執行緒數由 <code>ODM_EXTRACT_CONCURRENCY</code> 控制，預設 8），結果直接寫回各
+       <code>Chunk</code> 物件，順序無關；單一片段失敗只記入 <code>report.errors</code>，不中斷整體。
+       嵌入仍於單次 <code>upsert</code> 批次完成。</p>
+  </section>
+
+  <!-- 17 -->
+  <section id="hybrid">
+    <h2><span class="n">17</span>混合檢索與過濾</h2>
+    <p><code>store.search(query, top_k, where, mode, source_contains)</code> 預設 <code>mode="hybrid"</code>：
+       同時取得密集向量與 BM25 結果，再以 <strong>Reciprocal Rank Fusion（RRF）</strong>融合。
+       這能補足嵌入對精確符號／識別字（如函式名）易模糊的弱點。</p>
+    <ul>
+      <li><b>詞彙索引</b>（<code>retrieval/lexical.py</code> 的 <code>LexicalIndex</code>）：以 <code>rank-bm25</code>
+        建於集合文件之上，採惰性建置與 dirty 標記，於 upsert／刪除後重建。</li>
+      <li><b>融合</b>：<code>rrf_fuse(rankings, k=60)</code>，分數 <code>Σ 1/(k + rank + 1)</code>，兩路皆高者勝出。</li>
+      <li><b>過濾</b>：<code>build_where</code> 將 <code>kind / language / symbol</code> 轉為 Chroma 精確 <code>where</code>；
+        <code>source_contains</code> 以 Python 後置過濾來源路徑子字串。</li>
+    </ul>
+    <p>以 <code>ODM_SEARCH_MODE=vector</code> 可退回純密集檢索（此模式 <code>score = 1 − cosine_distance</code>）。</p>
+  </section>
+
+  <!-- 18 -->
+  <section id="ask">
+    <h2><span class="n">18</span>RAG 問答（ask）</h2>
+    <p><code>query/rag.py</code> 的 <code>answer_question(query, store, settings, top_k)</code> 先檢索最相關片段，
+       再交由 Claude 合成附 <code>[n]</code> 行內引用的答案，並回傳 <code>{answer, citations[]}</code>。</p>
+    <ul>
+      <li>LLM 呼叫隔離於可注入的 <code>synthesize</code> callable，使邏輯可離線單元測試；預設後端用
+        Anthropic SDK，模型由 <code>ODM_ANSWER_MODEL</code> 指定。</li>
+      <li>無金鑰（或 SDK／API 失敗）時<strong>明確丟出</strong> <code>AnswerError</code>；Web 端回 503，
+        MCP 回 <code>{error}</code>，CLI 印出錯誤——絕不悄悄回空答案。</li>
+      <li>無檢索結果時直接短路，不呼叫模型。</li>
+    </ul>
+  </section>
+
+  <!-- 19 -->
+  <section id="collections">
+    <h2><span class="n">19</span>多知識庫（collections）</h2>
+    <p>作用中的集合可於執行期選擇，而非綁定單一 <code>collection_name</code>。
+       <code>build_context(collection=...)</code> 為每個知識庫建立並快取一份 <code>Context</code>。</p>
+    <ul>
+      <li><b>管理</b>：<code>list_collections()</code>（含片段數）、<code>create_collection</code>、
+        <code>drop_collection</code>，皆透過共用的 Chroma client；同一 <code>data_dir</code> 的多個 store 共享底層 DB。</li>
+      <li><b>選擇</b>：Web 以 <code>collection</code> 查詢參數或 <code>X-Collection</code> 標頭指定；
+        CLI 以 <code>--collection</code>；MCP 工具以 <code>collection</code> 參數。未指定則用預設。</li>
+      <li><b>前端</b>：側欄的知識庫切換器可建立／切換，選擇存於 <code>localStorage</code> 並隨每次請求送出。</li>
+    </ul>
+  </section>
+</main>
+</div>
+
+<footer>
+  openDomainMcp · 技術文件 v0.2.0　|　<a href="guide.html">使用說明書</a> ·
+  <a href="index.html">文件首頁</a>　·　遵循 CLAUDE.md：簡單優先、外科手術式修改、明確回報。
+</footer>
+</body>
+</html>

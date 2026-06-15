@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>openDomainMcp · 文件首頁</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Noto Sans TC","PingFang TC","Segoe UI",system-ui,sans-serif;color:#0f2e2b;
+    min-height:100vh;display:grid;place-items:center;padding:30px;
+    background:
+      radial-gradient(800px 400px at 15% 0%,rgba(56,189,248,.22),transparent 60%),
+      radial-gradient(700px 420px at 90% 10%,rgba(52,217,181,.28),transparent 55%),#f4fbf9;}
+  .hub{max-width:860px;width:100%}
+  .top{display:flex;align-items:center;gap:11px;font-weight:800;font-size:1.15rem;margin-bottom:8px}
+  .dot{width:14px;height:14px;border-radius:50%;background:conic-gradient(from 90deg,#34d9b5,#38bdf8,#34d9b5)}
+  h1{font-size:clamp(2rem,5vw,3rem);line-height:1.15;letter-spacing:-.5px;margin:14px 0 10px}
+  h1 .g{background:linear-gradient(110deg,#0ea5a4,#38bdf8);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:#5b7a76;font-size:1.1rem;max-width:620px;margin-bottom:34px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:720px){.cards{grid-template-columns:1fr}}
+  a.card{display:block;background:#fff;border:1px solid #dcefe9;border-radius:20px;padding:30px;
+    box-shadow:0 18px 40px -22px rgba(13,80,72,.45);transition:.2s;text-decoration:none;color:inherit}
+  a.card:hover{transform:translateY(-4px);border-color:#34d9b5}
+  a.card .ico{width:54px;height:54px;border-radius:15px;display:grid;place-items:center;font-size:1.7rem;
+    background:linear-gradient(135deg,rgba(52,217,181,.2),rgba(56,189,248,.2));margin-bottom:16px}
+  a.card h2{font-size:1.35rem;margin-bottom:8px}
+  a.card p{color:#5b7a76;font-size:.97rem;line-height:1.7}
+  a.card .go{margin-top:16px;font-weight:700;color:#0ea5a4}
+  .foot{margin-top:30px;color:#5b7a76;font-size:.88rem}
+</style>
+</head>
+<body>
+<div class="hub">
+  <div class="top"><span class="dot"></span>openDomainMcp</div>
+  <h1>通用<span class="g">領域知識</span>工作流平台<br/>文件中心</h1>
+  <p class="lead">把任何文件與程式碼變成可問答的知識庫。請選擇你需要的文件：</p>
+  <div class="cards">
+    <a class="card" href="guide.html">
+      <div class="ico">✨</div>
+      <h2>使用說明書</h2>
+      <p>風格清新、3 分鐘上手。涵蓋安裝、攝取、搜尋、三種介面與網頁儀表板導覽，以及常見問題。</p>
+      <div class="go">開始閱讀 →</div>
+    </a>
+    <a class="card" href="reference.html">
+      <div class="ico">📐</div>
+      <h2>技術文件</h2>
+      <p>結構嚴謹的工程參考：架構、資料模型、AST 切塊演算法、嵌入與向量儲存、REST / MCP / CLI 規格與設定。</p>
+      <div class="go">查閱規格 →</div>
+    </a>
+  </div>
+  <div class="foot">v0.1.0 · 兩份文件皆為自含式網頁，離線即可開啟。</div>
+</div>
+</body>
+</html>

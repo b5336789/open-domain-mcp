@@ -33,6 +33,25 @@ _SKIP_DIRS = {
 Progress = Callable[[dict], None]
 
 
+class PathNotAllowedError(Exception):
+    """Raised when an ingest path escapes the configured ``ingest_root``."""
+
+
+def _resolve_within(path: Path, root: Path) -> Path:
+    """Resolve ``path`` and ensure it stays within ``root``.
+
+    Resolution follows symlinks, so a link pointing outside ``root`` is caught.
+    Raises :class:`PathNotAllowedError` if the target escapes the root.
+    """
+    rp = path.resolve()
+    rr = root.resolve()
+    if rp != rr and rr not in rp.parents:
+        raise PathNotAllowedError(
+            f"{path} resolves outside the allowed ingest root {root}"
+        )
+    return rp
+
+
 @dataclass
 class IngestReport:
     files_indexed: int = 0
@@ -60,15 +79,27 @@ class Pipeline:
         path: str | Path,
         progress: Optional[Progress] = None,
         sync: bool = False,
+        allowed_root: Optional[str | Path] = None,
     ) -> IngestReport:
         path = Path(path)
         report = IngestReport()
+        # Confine ingestion to an allowed root when one is configured. The
+        # explicit ``allowed_root`` argument (used by the web layer) takes
+        # precedence over the global ``ingest_root`` setting.
+        root = allowed_root if allowed_root is not None else getattr(
+            self._settings, "ingest_root", None
+        )
+        if root is not None:
+            root = Path(root)
+            path = _resolve_within(path, root)
         if path.is_dir():
             files = list(self._walk(path))
         elif path.is_file():
             files = [path]
         else:
             raise FileNotFoundError(f"{path} does not exist")
+        if root is not None:
+            files = self._filter_within(files, root, report, progress)
         for file_path in files:
             self._ingest_file(file_path, report, progress)
         if sync and path.is_dir():
@@ -78,11 +109,26 @@ class Pipeline:
 
     # -- internals ------------------------------------------------------
     def _walk(self, root: Path):
+        # followlinks defaults to False, so symlinked sub-directories are not
+        # traversed; symlinked files are caught later by _filter_within.
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not d.startswith(".")]
             for name in sorted(filenames):
                 if not name.startswith("."):
                     yield Path(dirpath) / name
+
+    def _filter_within(self, files, root: Path, report: IngestReport,
+                       progress: Optional[Progress]):
+        """Drop files that escape ``root`` (e.g. symlinks pointing outside)."""
+        safe = []
+        for f in files:
+            try:
+                _resolve_within(f, root)
+                safe.append(f)
+            except PathNotAllowedError:
+                report.skipped.append({"path": str(f), "reason": "outside ingest root"})
+                self._emit(progress, "skip", str(f), detail="outside ingest root")
+        return safe
 
     def _ingest_file(self, path: Path, report: IngestReport, progress: Optional[Progress]):
         self._emit(progress, "load", str(path))

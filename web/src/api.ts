@@ -156,6 +156,51 @@ export const api = {
     }).then(json<{ deleted: string }>),
 };
 
+// Stream a cited answer via Server-Sent Events. Answer text arrives as "delta"
+// events; a final "citations" event carries the sources. Returns an
+// unsubscribe fn.
+export function askStream(
+  query: string,
+  top_k: number,
+  onDelta: (text: string) => void,
+  onCitations: (citations: Citation[]) => void,
+  onError: (detail: string) => void,
+  onDone: () => void
+): () => void {
+  const url = withCollection(
+    `/api/ask/stream?query=${encodeURIComponent(query)}&top_k=${top_k}`
+  );
+  const source = new EventSource(url);
+  source.addEventListener("delta", (ev) => {
+    try {
+      onDelta((JSON.parse((ev as MessageEvent).data) as { text: string }).text);
+    } catch {
+      /* ignore */
+    }
+  });
+  source.addEventListener("citations", (ev) => {
+    try {
+      onCitations(
+        (JSON.parse((ev as MessageEvent).data) as { citations: Citation[] }).citations
+      );
+    } catch {
+      /* ignore */
+    }
+    source.close();
+    onDone();
+  });
+  source.addEventListener("error", (ev) => {
+    try {
+      onError((JSON.parse((ev as MessageEvent).data) as { detail: string }).detail);
+    } catch {
+      /* connection error with no payload */
+    }
+    source.close();
+    onDone();
+  });
+  return () => source.close();
+}
+
 // Stream ingest progress via Server-Sent Events. Returns an unsubscribe fn.
 export function ingestStream(
   path: string,

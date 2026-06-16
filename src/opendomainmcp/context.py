@@ -12,6 +12,7 @@ from .config import Settings, get_settings
 from .embedding import get_embedder
 from .extract import get_extractor
 from .ingest.pipeline import Pipeline
+from .retrieval import get_reranker
 from .store import ChromaStore
 
 
@@ -29,6 +30,8 @@ def build_context(settings: Settings | None = None, collection: str | None = Non
         embedder,
         data_dir=settings.data_dir / "chroma",
         collection_name=collection or settings.collection_name,
+        max_retries=settings.max_retries,
+        reranker=get_reranker(settings),
     )
     extractor = get_extractor(settings)
     pipeline = Pipeline(store, extractor, settings)

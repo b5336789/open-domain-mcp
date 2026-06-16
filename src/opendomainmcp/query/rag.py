@@ -44,11 +44,13 @@ def _citations(results: list[SearchResult]) -> list[dict]:
     return cites
 
 
-def _claude_synthesize(model: str, system: str, user: str) -> str:
+def _claude_synthesize(model: str, system: str, user: str,
+                       timeout: float = 60.0, max_retries: int = 2) -> str:
     try:
         import anthropic
 
-        client = anthropic.Anthropic()
+        # timeout bounds the call; max_retries backs off on transient errors.
+        client = anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
         message = client.messages.create(
             model=model, max_tokens=800, system=system,
             messages=[{"role": "user", "content": user}],
@@ -60,11 +62,59 @@ def _claude_synthesize(model: str, system: str, user: str) -> str:
         ) from exc
 
 
+def _claude_synthesize_stream(model: str, system: str, user: str,
+                              timeout: float = 60.0, max_retries: int = 2):
+    """Yield answer text deltas as they arrive from the model."""
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
+        with client.messages.stream(
+            model=model, max_tokens=800, system=system,
+            messages=[{"role": "user", "content": user}],
+        ) as stream:
+            yield from stream.text_stream
+    except Exception as exc:  # no key, no SDK, or API error -> fail loud
+        raise AnswerError(
+            f"answer synthesis failed ({exc!r}); set ANTHROPIC_API_KEY to enable 'ask'"
+        ) from exc
+
+
 def answer_question(query, store, settings, top_k: int = 6, synthesize=None) -> dict:
     results = store.search(query, top_k=top_k, mode=settings.search_mode)
     if not results:
         return {"answer": "No indexed content matched this question.", "citations": []}
-    synth = synthesize or _claude_synthesize
     user = f"Question: {query}\n\nSources:\n{_format_sources(results)}"
-    answer = synth(settings.answer_model, _SYSTEM, user)
+    if synthesize is not None:
+        answer = synthesize(settings.answer_model, _SYSTEM, user)
+    else:
+        answer = _claude_synthesize(
+            settings.answer_model, _SYSTEM, user,
+            timeout=settings.request_timeout, max_retries=settings.max_retries,
+        )
     return {"answer": answer, "citations": _citations(results)}
+
+
+def answer_question_stream(query, store, settings, top_k: int = 6, synthesize_stream=None):
+    """Like :func:`answer_question` but yields incremental events:
+
+    ``{"type": "delta", "text": ...}`` for each answer fragment, then a final
+    ``{"type": "citations", "citations": [...]}``. ``synthesize_stream`` lets
+    tests inject an offline token generator.
+    """
+    results = store.search(query, top_k=top_k, mode=settings.search_mode)
+    if not results:
+        yield {"type": "delta", "text": "No indexed content matched this question."}
+        yield {"type": "citations", "citations": []}
+        return
+    user = f"Question: {query}\n\nSources:\n{_format_sources(results)}"
+    if synthesize_stream is not None:
+        stream = synthesize_stream(settings.answer_model, _SYSTEM, user)
+    else:
+        stream = _claude_synthesize_stream(
+            settings.answer_model, _SYSTEM, user,
+            timeout=settings.request_timeout, max_retries=settings.max_retries,
+        )
+    for delta in stream:
+        yield {"type": "delta", "text": delta}
+    yield {"type": "citations", "citations": _citations(results)}

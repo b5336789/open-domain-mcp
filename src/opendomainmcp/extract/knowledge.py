@@ -60,10 +60,13 @@ class NullExtractor:
 
 
 class ClaudeExtractor:
-    def __init__(self, model: str, max_tokens: int = 600):
+    def __init__(self, model: str, max_tokens: int = 600,
+                 timeout: float = 60.0, max_retries: int = 2):
         import anthropic
 
-        self._client = anthropic.Anthropic()
+        # timeout bounds a single call; max_retries lets the SDK back off and
+        # retry transient errors (overloaded / network) rather than hang or fail.
+        self._client = anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
         self._model = model
         self._max_tokens = max_tokens
 
@@ -87,4 +90,8 @@ class ClaudeExtractor:
 def get_extractor(settings: Settings):
     if not settings.extract_knowledge:
         return NullExtractor()
-    return ClaudeExtractor(settings.extraction_model)
+    return ClaudeExtractor(
+        settings.extraction_model,
+        timeout=settings.request_timeout,
+        max_retries=settings.max_retries,
+    )

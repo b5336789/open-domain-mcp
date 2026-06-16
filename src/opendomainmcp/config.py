@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +27,7 @@ EDITABLE_FIELDS = (
     "code_max_chunk_chars",
     "extract_concurrency",
     "search_mode",
+    "rerank_enabled",
     "answer_model",
 )
 
@@ -38,6 +40,14 @@ class Settings(BaseSettings):
     # Storage
     data_dir: Path = Path(".opendomain")
     collection_name: str = "domain_knowledge"
+
+    # Security: when set, ingestion is confined to this directory tree. Paths
+    # that resolve outside it (including via symlinks) are rejected. Unset means
+    # no restriction (trusted local use); set it when exposing the web/MCP server.
+    ingest_root: Optional[Path] = None
+
+    # Security: reject uploads larger than this (megabytes) to bound memory use.
+    max_upload_mb: int = 50
 
     # Embedding
     embedder_backend: str = "local"  # local | openai | voyage
@@ -58,8 +68,19 @@ class Settings(BaseSettings):
     # Retrieval: "vector" (dense only) or "hybrid" (dense + BM25 via RRF)
     search_mode: str = "hybrid"
 
+    # Optional cross-encoder re-ranking of candidates after fusion. Off by
+    # default (the model is downloaded on first use); when on it produces a
+    # unified relevance score for every result, including lexical-only hits.
+    rerank_enabled: bool = False
+    rerank_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+
     # RAG answer synthesis (Anthropic)
     answer_model: str = "claude-sonnet-4-6"
+
+    # Resilience for external API calls (Anthropic): per-request timeout in
+    # seconds and the number of automatic retries on transient errors.
+    request_timeout: float = 60.0
+    max_retries: int = 2
 
     @property
     def overrides_path(self) -> Path:

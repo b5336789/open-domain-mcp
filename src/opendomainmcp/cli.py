@@ -52,17 +52,24 @@ def _cmd_search(ctx, args) -> int:
 
 
 def _cmd_ask(ctx, args) -> int:
-    from .query import AnswerError, answer_question
+    from .query import AnswerError, answer_question_stream
 
+    citations = []
     try:
-        result = answer_question(args.query, ctx.store, ctx.settings, top_k=args.top_k)
+        for event in answer_question_stream(
+            args.query, ctx.store, ctx.settings, top_k=args.top_k
+        ):
+            if event["type"] == "delta":
+                print(event["text"], end="", flush=True)
+            elif event["type"] == "citations":
+                citations = event["citations"]
     except AnswerError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    print(result["answer"])
-    if result["citations"]:
+    print()  # newline after the streamed answer
+    if citations:
         print("\nSources:")
-        for c in result["citations"]:
+        for c in citations:
             loc = c["source"] or "?"
             if c["symbol"]:
                 loc += f"::{c['symbol']}"

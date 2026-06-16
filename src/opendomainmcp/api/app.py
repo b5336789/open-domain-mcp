@@ -100,20 +100,77 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
         except AnswerError as exc:
             raise HTTPException(status_code=503, detail=str(exc))
 
+    @app.get("/api/ask/stream")
+    async def ask_stream(query: str, top_k: int = 6, ctx: Context = Depends(get_ctx)):
+        from ..query import AnswerError, answer_question_stream
+
+        queue: asyncio.Queue = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+
+        def run():
+            # The model stream is blocking, so iterate it off the event loop and
+            # bridge each event back via the queue.
+            try:
+                for event in answer_question_stream(
+                    query, ctx.store, ctx.settings, top_k=top_k
+                ):
+                    loop.call_soon_threadsafe(queue.put_nowait, event)
+            except AnswerError as exc:  # surface to the UI (Fail Loud)
+                loop.call_soon_threadsafe(
+                    queue.put_nowait, {"type": "error", "detail": str(exc)}
+                )
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+        async def events():
+            task = asyncio.create_task(asyncio.to_thread(run))
+            try:
+                while True:
+                    event = await queue.get()
+                    if event is None:
+                        break
+                    yield {"event": event["type"], "data": json.dumps(event)}
+            finally:
+                await task
+
+        return EventSourceResponse(events())
+
     # -- ingestion ------------------------------------------------------
     @app.post("/api/upload")
     async def upload(files: list[UploadFile] = File(...), ctx: Context = Depends(get_ctx)):
         stage = ctx.settings.data_dir / "uploads" / uuid.uuid4().hex
         stage.mkdir(parents=True, exist_ok=True)
+        limit = ctx.settings.max_upload_mb * 1024 * 1024
         names = []
         for f in files:
             dest = stage / Path(f.filename or "upload").name
-            dest.write_bytes(await f.read())
+            # Stream to disk in chunks so a huge upload never lands in memory,
+            # and abort once it exceeds the configured limit (Fail Loud).
+            written = 0
+            with dest.open("wb") as out:
+                while chunk := await f.read(1024 * 1024):
+                    written += len(chunk)
+                    if written > limit:
+                        out.close()
+                        dest.unlink(missing_ok=True)
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"{dest.name} exceeds the {ctx.settings.max_upload_mb} MB upload limit",
+                        )
+                    out.write(chunk)
             names.append(dest.name)
         return {"path": str(stage), "files": names}
 
     @app.get("/api/ingest/stream")
     async def ingest_stream(path: str, sync: bool = False, ctx: Context = Depends(get_ctx)):
+        # Reject paths that escape the configured ingest root before streaming.
+        if ctx.settings.ingest_root is not None:
+            from ..ingest.pipeline import PathNotAllowedError, _resolve_within
+
+            try:
+                _resolve_within(Path(path), ctx.settings.ingest_root)
+            except PathNotAllowedError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+
         queue: asyncio.Queue = asyncio.Queue()
         loop = asyncio.get_running_loop()
 

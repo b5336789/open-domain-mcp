@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # no restriction (trusted local use); set it when exposing the web/MCP server.
     ingest_root: Optional[Path] = None
 
+    # Security: reject uploads larger than this (megabytes) to bound memory use.
+    max_upload_mb: int = 50
+
     # Embedding
     embedder_backend: str = "local"  # local | openai | voyage
     embedder_model: str = "BAAI/bge-small-en-v1.5"

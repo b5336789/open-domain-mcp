@@ -105,10 +105,24 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     async def upload(files: list[UploadFile] = File(...), ctx: Context = Depends(get_ctx)):
         stage = ctx.settings.data_dir / "uploads" / uuid.uuid4().hex
         stage.mkdir(parents=True, exist_ok=True)
+        limit = ctx.settings.max_upload_mb * 1024 * 1024
         names = []
         for f in files:
             dest = stage / Path(f.filename or "upload").name
-            dest.write_bytes(await f.read())
+            # Stream to disk in chunks so a huge upload never lands in memory,
+            # and abort once it exceeds the configured limit (Fail Loud).
+            written = 0
+            with dest.open("wb") as out:
+                while chunk := await f.read(1024 * 1024):
+                    written += len(chunk)
+                    if written > limit:
+                        out.close()
+                        dest.unlink(missing_ok=True)
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"{dest.name} exceeds the {ctx.settings.max_upload_mb} MB upload limit",
+                        )
+                    out.write(chunk)
             names.append(dest.name)
         return {"path": str(stage), "files": names}
 

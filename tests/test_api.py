@@ -72,6 +72,36 @@ def test_upload(client):
     assert (resp["path"]).endswith(resp["path"].split("/")[-1])
 
 
+def test_upload_streams_to_disk(client):
+    tc, _, _ = client
+    payload = b"x" * (3 * 1024 * 1024)  # 3 MB, under the default 50 MB limit
+    resp = tc.post(
+        "/api/upload",
+        files=[("files", ("big.txt", payload, "text/plain"))],
+    )
+    assert resp.status_code == 200
+    staged = resp.json()
+    from pathlib import Path
+
+    written = Path(staged["path"]) / "big.txt"
+    assert written.read_bytes() == payload  # full content reached disk intact
+
+
+def test_upload_over_limit_rejected(store, pipeline, tmp_path):
+    settings = Settings(data_dir=tmp_path, max_upload_mb=1)
+    ctx = Context(settings=settings, store=store, pipeline=pipeline)
+    tc = TestClient(create_app(context=ctx, context_factory=lambda: ctx))
+
+    payload = b"y" * (2 * 1024 * 1024)  # 2 MB, over the 1 MB limit
+    resp = tc.post(
+        "/api/upload",
+        files=[("files", ("toobig.txt", payload, "text/plain"))],
+    )
+    assert resp.status_code == 413
+    # the partial file must not linger on disk
+    assert not list((tmp_path / "uploads").rglob("toobig.txt"))
+
+
 def test_collections_endpoint(client):
     tc, _, _ = client
     data = tc.get("/api/collections").json()

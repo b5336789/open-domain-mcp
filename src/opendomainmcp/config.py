@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     # RAG answer synthesis (Anthropic)
     answer_model: str = "claude-sonnet-4-6"
 
+    # Resilience for external API calls (Anthropic): per-request timeout in
+    # seconds and the number of automatic retries on transient errors.
+    request_timeout: float = 60.0
+    max_retries: int = 2
+
     @property
     def overrides_path(self) -> Path:
         return self.data_dir / "settings.json"

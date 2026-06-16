@@ -44,11 +44,13 @@ def _citations(results: list[SearchResult]) -> list[dict]:
     return cites
 
 
-def _claude_synthesize(model: str, system: str, user: str) -> str:
+def _claude_synthesize(model: str, system: str, user: str,
+                       timeout: float = 60.0, max_retries: int = 2) -> str:
     try:
         import anthropic
 
-        client = anthropic.Anthropic()
+        # timeout bounds the call; max_retries backs off on transient errors.
+        client = anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
         message = client.messages.create(
             model=model, max_tokens=800, system=system,
             messages=[{"role": "user", "content": user}],
@@ -64,7 +66,12 @@ def answer_question(query, store, settings, top_k: int = 6, synthesize=None) -> 
     results = store.search(query, top_k=top_k, mode=settings.search_mode)
     if not results:
         return {"answer": "No indexed content matched this question.", "citations": []}
-    synth = synthesize or _claude_synthesize
     user = f"Question: {query}\n\nSources:\n{_format_sources(results)}"
-    answer = synth(settings.answer_model, _SYSTEM, user)
+    if synthesize is not None:
+        answer = synthesize(settings.answer_model, _SYSTEM, user)
+    else:
+        answer = _claude_synthesize(
+            settings.answer_model, _SYSTEM, user,
+            timeout=settings.request_timeout, max_retries=settings.max_retries,
+        )
     return {"answer": answer, "citations": _citations(results)}

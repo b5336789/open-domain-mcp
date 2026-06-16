@@ -29,6 +29,7 @@ def build_context(settings: Settings | None = None, collection: str | None = Non
         embedder,
         data_dir=settings.data_dir / "chroma",
         collection_name=collection or settings.collection_name,
+        max_retries=settings.max_retries,
     )
     extractor = get_extractor(settings)
     pipeline = Pipeline(store, extractor, settings)

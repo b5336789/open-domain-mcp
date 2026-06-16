@@ -5,6 +5,7 @@ overlap drives cosine similarity. This lets retrieval tests run with no network
 and no model download.
 """
 
+import hashlib
 import math
 
 import pytest
@@ -12,6 +13,13 @@ import pytest
 from opendomainmcp.embedding.base import Embedder
 
 _DIM = 64
+
+
+def _stable_hash(token: str) -> int:
+    """Process-independent hash. Builtin hash() is salted per process
+    (PYTHONHASHSEED), which made retrieval order — and tests that assert on
+    it — flaky across runs."""
+    return int.from_bytes(hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest(), "big")
 
 
 class FakeEmbedder(Embedder):
@@ -22,7 +30,7 @@ class FakeEmbedder(Embedder):
         for text in texts:
             vec = [0.0] * _DIM
             for token in text.lower().split():
-                vec[hash(token) % _DIM] += 1.0
+                vec[_stable_hash(token) % _DIM] += 1.0
             norm = math.sqrt(sum(v * v for v in vec)) or 1.0
             vectors.append([v / norm for v in vec])
         return vectors

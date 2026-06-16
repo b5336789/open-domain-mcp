@@ -7,11 +7,15 @@ IDs are content hashes so re-ingesting unchanged content is an idempotent upsert
 
 from __future__ import annotations
 
+import logging
+import time
 from typing import Optional
 
 from ..embedding.base import Embedder
 from ..models import Chunk, SearchResult
 from ..retrieval import LexicalIndex, rrf_fuse
+
+logger = logging.getLogger(__name__)
 
 
 def build_where(filters: Optional[dict]) -> Optional[dict]:
@@ -31,11 +35,13 @@ class ChromaStore:
         data_dir,
         collection_name: str = "domain_knowledge",
         client=None,
+        max_retries: int = 0,
     ):
         import chromadb
 
         self._embedder = embedder
         self._collection_name = collection_name
+        self._max_retries = max_retries
         if client is not None:
             self._client = client
         else:
@@ -46,6 +52,23 @@ class ChromaStore:
         self._lexical = LexicalIndex()
         self._lexical_dirty = True
 
+    def _retry(self, op, fn):
+        """Run ``fn`` with bounded exponential backoff on transient failures.
+
+        Chroma raises plain exceptions on transient issues; with ``max_retries``
+        unset (0) this is a direct call, so existing behaviour is unchanged.
+        """
+        for attempt in range(self._max_retries + 1):
+            try:
+                return fn()
+            except Exception as exc:  # noqa: BLE001 - Chroma errors are untyped
+                if attempt >= self._max_retries:
+                    raise
+                delay = 0.5 * (2 ** attempt)
+                logger.warning("chroma %s failed (%r); retry %d/%d in %.1fs",
+                               op, exc, attempt + 1, self._max_retries, delay)
+                time.sleep(delay)
+
     def upsert(self, chunks: list[Chunk]) -> int:
         if not chunks:
             return 0
@@ -54,12 +77,12 @@ class ChromaStore:
         unique = {c.id: c for c in chunks}
         chunks = list(unique.values())
         embeddings = self._embedder.embed([c.embedding_text() for c in chunks])
-        self._collection.upsert(
+        self._retry("upsert", lambda: self._collection.upsert(
             ids=[c.id for c in chunks],
             embeddings=embeddings,
             documents=[c.text for c in chunks],
             metadatas=[c.metadata() for c in chunks],
-        )
+        ))
         self._lexical_dirty = True
         return len(chunks)
 
@@ -82,7 +105,8 @@ class ChromaStore:
         n = max(top_k * 5, 30) if widen else top_k
 
         qvec = self._embedder.embed([query])[0]
-        vres = self._collection.query(query_embeddings=[qvec], n_results=n, where=where)
+        vres = self._retry("query", lambda: self._collection.query(
+            query_embeddings=[qvec], n_results=n, where=where))
         v_ids = vres.get("ids", [[]])[0]
         v_dist = {i: d for i, d in zip(v_ids, vres.get("distances", [[]])[0])}
 

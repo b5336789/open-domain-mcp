@@ -42,6 +42,31 @@ def test_reingest_is_idempotent(pipeline, store, tmp_path):
     assert store.stats()["count"] == count_after_first == first.chunks_indexed
 
 
+def test_review_mode_marks_extractions_pending(store, fake_extractor, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+
+    _make_corpus(tmp_path)
+    settings = Settings(chunk_size=200, chunk_overlap=20, review_mode=True)
+    Pipeline(store, fake_extractor, settings).ingest_path(tmp_path)
+
+    items = store.get_items(limit=100)
+    classified = [i for i in items if i["metadata"].get("review_status")]
+    assert classified and all(
+        i["metadata"]["review_status"] == "pending" for i in classified
+    )
+
+
+def test_default_mode_marks_extractions_approved(pipeline, store, tmp_path):
+    _make_corpus(tmp_path)
+    pipeline.ingest_path(tmp_path)
+    items = store.get_items(limit=100)
+    classified = [i for i in items if i["metadata"].get("review_status")]
+    assert classified and all(
+        i["metadata"]["review_status"] == "approved" for i in classified
+    )
+
+
 def test_progress_events_emitted(pipeline, tmp_path):
     _make_corpus(tmp_path)
     events = []

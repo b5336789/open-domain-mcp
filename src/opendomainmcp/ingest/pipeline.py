@@ -192,6 +192,10 @@ class Pipeline:
             chunk.knowledge = self._extractor.extract(
                 chunk.text, chunk.kind, chunk.language
             )
+            # In review mode, freshly extracted knowledge must be approved before
+            # it counts as reviewed; otherwise it is born approved (default).
+            if getattr(self._settings, "review_mode", False) and chunk.knowledge:
+                chunk.knowledge.review_status = "pending"
         except Exception as exc:  # extraction is best-effort; record and continue
             report.errors.append({"path": str(path), "error": f"extract: {exc!r}"})
 

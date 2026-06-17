@@ -146,6 +146,66 @@ def test_collections_endpoint(client):
     assert tc.delete(f"/api/collections/{name}").json()["deleted"] == name
 
 
+def test_review_workflow_approve_reject_and_filter(client):
+    tc, ctx, _ = client
+    from opendomainmcp.models import Chunk, KnowledgeUnit
+
+    ctx.store.upsert([
+        Chunk(text="pending feature one", source="a.md", kind="text",
+              knowledge=KnowledgeUnit(summary="p1", knowledge_type="Feature",
+                                      review_status="pending")),
+        Chunk(text="pending feature two", source="b.md", kind="text",
+              knowledge=KnowledgeUnit(summary="p2", knowledge_type="Feature",
+                                      review_status="pending")),
+    ])
+
+    pending = tc.get("/api/items", params={"review_status": "pending"}).json()
+    assert len(pending) == 2
+    first = pending[0]["id"]
+
+    approved = tc.post(f"/api/items/{first}/approve").json()
+    assert approved["metadata"]["review_status"] == "approved"
+    rejected = tc.post(f"/api/items/{pending[1]['id']}/reject").json()
+    assert rejected["metadata"]["review_status"] == "rejected"
+
+    still_pending = tc.get("/api/items", params={"review_status": "pending"}).json()
+    assert still_pending == []
+    assert tc.post("/api/items/nope/approve").status_code == 404
+
+
+def test_manual_add_item_is_approved(client):
+    tc, _, _ = client
+    created = tc.post("/api/items", json={
+        "text": "Customers on the free tier cannot export to PDF.",
+        "knowledge_type": "Constraint",
+        "audience": ["product_manager"],
+        "tags": ["billing"],
+    }).json()
+    assert created["metadata"]["knowledge_type"] == "Constraint"
+    assert created["metadata"]["review_status"] == "approved"
+    assert created["metadata"]["audience"] == "product_manager"
+
+
+def test_search_approved_only_policy(store, pipeline, tmp_path):
+    settings = Settings(data_dir=tmp_path, retrieve_approved_only=True)
+    ctx = Context(settings=settings, store=store, pipeline=pipeline)
+    tc = TestClient(create_app(context=ctx, context_factory=lambda: ctx))
+    from opendomainmcp.models import Chunk, KnowledgeUnit
+
+    store.upsert([
+        Chunk(text="approved widget knowledge", source="a.md", kind="text",
+              knowledge=KnowledgeUnit(summary="a", knowledge_type="Feature",
+                                      review_status="approved")),
+        Chunk(text="pending widget knowledge", source="b.md", kind="text",
+              knowledge=KnowledgeUnit(summary="b", knowledge_type="Feature",
+                                      review_status="pending")),
+    ])
+    results = tc.post("/api/search", json={"query": "widget knowledge"}).json()
+    assert results and all(
+        r["metadata"].get("review_status") == "approved" for r in results
+    )
+
+
 def test_settings_roundtrip_and_validation(client):
     tc, _, _ = client
     assert tc.get("/api/settings").json()["editable"]["chunk_size"] == 1200

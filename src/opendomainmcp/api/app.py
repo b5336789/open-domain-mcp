@@ -42,6 +42,17 @@ class ItemPatch(BaseModel):
     metadata: dict
 
 
+class ItemCreate(BaseModel):
+    """Manually authored knowledge added through the review UI."""
+
+    text: str
+    source: str = "manual"
+    knowledge_type: str = ""
+    audience: list[str] = []
+    tags: list[str] = []
+    summary: str = ""
+
+
 class SettingsPatch(BaseModel):
     values: dict
 
@@ -84,7 +95,10 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     def search(req: SearchRequest, ctx: Context = Depends(get_ctx)):
         from ..store import build_where
 
-        where = build_where({"kind": req.kind, "language": req.language, "symbol": req.symbol})
+        filters = {"kind": req.kind, "language": req.language, "symbol": req.symbol}
+        if ctx.settings.retrieve_approved_only:
+            filters["review_status"] = "approved"
+        where = build_where(filters)
         results = ctx.store.search(
             req.query, top_k=req.top_k, where=where,
             mode=ctx.settings.search_mode, source_contains=req.source_contains,
@@ -200,12 +214,49 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
 
         return EventSourceResponse(events())
 
-    # -- browse & edit --------------------------------------------------
+    # -- browse, edit & review -----------------------------------------
     @app.get("/api/items")
     def list_items(limit: int = 50, offset: int = 0, kind: str | None = None,
+                   review_status: str | None = None,
+                   knowledge_type: str | None = None,
                    ctx: Context = Depends(get_ctx)):
-        where = {"kind": kind} if kind else None
+        from ..store import build_where
+
+        where = build_where({
+            "kind": kind, "review_status": review_status,
+            "knowledge_type": knowledge_type,
+        })
         return ctx.store.get_items(limit=limit, offset=offset, where=where)
+
+    @app.post("/api/items")
+    def create_item(body: ItemCreate, ctx: Context = Depends(get_ctx)):
+        from ..models import Chunk, KnowledgeUnit
+
+        # Manually authored knowledge is trusted, so it is born approved.
+        knowledge = KnowledgeUnit(
+            summary=body.summary or body.text[:160],
+            knowledge_type=body.knowledge_type,
+            audience=body.audience,
+            tags=body.tags,
+            confidence=1.0,
+            review_status="approved",
+        )
+        chunk = Chunk(text=body.text, source=body.source, kind="text",
+                      knowledge=knowledge)
+        ctx.store.upsert([chunk])
+        return ctx.store.get_item(chunk.id)
+
+    @app.post("/api/items/{item_id}/approve")
+    def approve_item(item_id: str, ctx: Context = Depends(get_ctx)):
+        if not ctx.store.update_metadata(item_id, {"review_status": "approved"}):
+            raise HTTPException(status_code=404, detail="item not found")
+        return ctx.store.get_item(item_id)
+
+    @app.post("/api/items/{item_id}/reject")
+    def reject_item(item_id: str, ctx: Context = Depends(get_ctx)):
+        if not ctx.store.update_metadata(item_id, {"review_status": "rejected"}):
+            raise HTTPException(status_code=404, detail="item not found")
+        return ctx.store.get_item(item_id)
 
     @app.get("/api/items/{item_id}")
     def get_item(item_id: str, ctx: Context = Depends(get_ctx)):

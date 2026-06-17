@@ -69,7 +69,7 @@ LOAD → SPLIT → EXTRACT → EMBED → STORE   (+ PRUNE, SYNC)
 
 | 副檔名 | kind | 處理 |
 |--------|------|------|
-| `LANGUAGE_BY_EXT`（.py/.js/.ts/.go/.rs/.java/.c/.cpp/.cs/.rb/.php/.swift/.kt/.scala/.sh/.lua…） | `code` | tree-sitter |
+| `LANGUAGE_BY_EXT`（.py/.js/.ts/.go/.rs/.java/.c/.cpp/.cs/.rb/.php/.swift/.kt/.scala/.sh/.lua…） | `code` | tree-sitter（11 種具 AST wheel；無 wheel 者如 php/swift/kt/scala/lua 退回 line 切分） |
 | `.pdf` / `.docx` | `text` | pypdf / python-docx |
 | `.html` / `.htm` | `text` | HTMLParser（去除 script/style） |
 | `.json` / `.yaml` / `.yml` 且 `looks_like_openapi()` | `api` | OpenAPI 解析，language="openapi" |
@@ -305,7 +305,7 @@ opendomainmcp-view   → server:main        # 角色視圖 MCP
 opendomainmcp-web    → api.app:main       # Web Dashboard
 ```
 
-**主要相依**：`chromadb`、`fastembed`、`rank-bm25`、`tree-sitter`(+12 語言)、`pypdf`、`python-docx`、`pyyaml`、`anthropic`、`mcp`、`fastapi`、`uvicorn`、`sse-starlette`、`pydantic-settings`、`python-multipart`。Python `>=3.11`。
+**主要相依**：`chromadb`、`fastembed`、`rank-bm25`、`tree-sitter`(+11 語言 wheel)、`pypdf`、`python-docx`、`pyyaml`、`anthropic`、`mcp`、`fastapi`、`uvicorn`、`sse-starlette`、`pydantic-settings`、`python-multipart`。Python `>=3.11`。
 
 ---
 

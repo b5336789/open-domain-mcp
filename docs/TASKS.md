@@ -33,7 +33,7 @@
 | 1.3 | ✅ | Medium | 向量儲存 | Chroma PersistentClient、upsert/search、CRUD、collections | `store/chroma_store.py` |
 | 1.4 | ✅ | Low | 文件載入與型別偵測 | pdf/docx/html/markdown/text + fail-loud | `ingest/loader.py` |
 | 1.5 | ✅ | Low | 遞迴文字切分 | chunk_size/overlap、無外部相依 | `ingest/text_splitter.py` |
-| 1.6 | ✅ | Medium | AST 程式碼切分 | tree-sitter 11+ 語言、line fallback、symbol 抽取 | `ingest/code_splitter.py` |
+| 1.6 | ✅ | Medium | AST 程式碼切分 | tree-sitter（11 種具 AST wheel；其餘辨識為程式碼者退回 line 切分）、symbol 抽取 | `ingest/code_splitter.py` |
 | 1.7 | ✅ | Medium | 擷取 pipeline | load→split→extract→embed→store 編排、concurrency、progress callback | `ingest/pipeline.py` |
 | 1.8 | ✅ | Medium | LLM 知識萃取 | Claude 產生 summary/concepts/relations、NullExtractor | `extract/knowledge.py` |
 | 1.9 | ✅ | Low | 共享 Context | `build_context()` 單一接線點 | `context.py` |

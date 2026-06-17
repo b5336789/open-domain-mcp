@@ -8,20 +8,26 @@
 
 OpenDomainMCP 採「單一真實來源（single wiring point）+ 三個可互換入口」設計：
 
-```
-   CLI            MCP Server         Web Dashboard (FastAPI)
-opendomainmcp   opendomainmcp-      opendomainmcp-web
- (cli.py)        server/-view        (api/app.py)
-                 (server.py)
-        \             |             /
-         \            |            /
-            build_context()   ← 唯一接線點 (context.py)
-                   |
-        Context { settings, store, pipeline }
-                   |
-   ┌───────────────┼────────────────┐
- Pipeline       ChromaStore        Settings
-(ingest/)     (store/)            (config.py)
+```mermaid
+flowchart TD
+    CLI["CLI<br/>opendomainmcp<br/>(cli.py)"]
+    MCP["MCP Server<br/>opendomainmcp-server / -view<br/>(server.py)"]
+    WEB["Web Dashboard<br/>opendomainmcp-web<br/>(api/app.py)"]
+
+    BC["build_context()<br/>唯一接線點 (context.py)"]
+    CTX["Context<br/>{ settings, store, pipeline }"]
+
+    PIPE["Pipeline<br/>(ingest/)"]
+    STORE["ChromaStore<br/>(store/)"]
+    SET["Settings<br/>(config.py)"]
+
+    CLI --> BC
+    MCP --> BC
+    WEB --> BC
+    BC --> CTX
+    CTX --> PIPE
+    CTX --> STORE
+    CTX --> SET
 ```
 
 - **三個入口都透過 `build_context()`** 取得相同的 `settings / store / pipeline`，確保行為一致。
@@ -43,8 +49,11 @@ opendomainmcp   opendomainmcp-      opendomainmcp-web
 
 5 個主要階段 + 2 個維護階段，由 `ingest/pipeline.py` 的 `Pipeline.ingest_path()` 編排：
 
-```
-LOAD → SPLIT → EXTRACT → EMBED → STORE   (+ PRUNE, SYNC)
+```mermaid
+flowchart LR
+    LOAD --> SPLIT --> EXTRACT --> EMBED --> STORE
+    STORE -.-> PRUNE["PRUNE<br/>(維護)"]
+    STORE -.-> SYNC["SYNC<br/>(維護)"]
 ```
 
 | 階段 | 說明 | 模組 |

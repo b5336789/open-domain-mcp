@@ -95,54 +95,27 @@ searchable from the MCP server and the web UI, and vice versa.
 The three surfaces are thin adapters. They all call `build_context()`, which
 assembles the embedder, extractor, vector store, and pipeline from `Settings`.
 
-```
-                         ┌──────────────────────────────────────────────────────┐
-                         │                     ENTRY POINTS                       │
-                         │                                                        │
-   terminal / CI ───────▶│  CLI            MCP server          Web dashboard      │
-                         │  cli.py         server.py           api/app.py (FastAPI)│
-   AI agent (stdio) ────▶│                 (FastMCP tools)     + React SPA (web/)  │
-                         │                                                        │
-   browser ─────────────▶│  ingest/search  ingest_path/        REST + SSE         │
-                         │  ask/stats/...   search_knowledge/   /api/*            │
-                         │                  ask/get_stats/...                      │
-                         └───────────────────────────┬──────────────────────────┘
-                                                     │
-                                  every surface calls build_context()
-                                                     │
-                                                     ▼
-                         ┌──────────────────────────────────────────────────────┐
-                         │                context.py  ──  Context                 │
-                         │           { settings, store, pipeline }                │
-                         │      single source of truth for the whole app          │
-                         └───────┬───────────────┬───────────────┬───────────────┘
-                                 │               │               │
-              ┌──────────────────┘               │               └──────────────────┐
-              ▼                                   ▼                                  ▼
-   ┌────────────────────┐          ┌──────────────────────────┐         ┌────────────────────┐
-   │      Pipeline      │          │       ChromaStore        │         │      Settings      │
-   │  ingest/pipeline   │          │   store/chroma_store     │         │     config.py      │
-   │                    │          │                          │         │                    │
-   │  load→split→       │  upsert  │  • vector + BM25 index   │         │  ODM_* env / .env  │
-   │  extract→embed ────┼─────────▶│  • RRF fusion            │         │  + JSON overrides  │
-   │  →store            │  search  │  • optional re-rank      │         │  (web-editable)    │
-   └─────────┬──────────┘          │  • collections admin     │         └────────────────────┘
-             │                     └────────────┬─────────────┘
-             │ injected deps                    │ wraps
-             ▼                                  ▼
-   ┌────────────────────┐          ┌──────────────────────────┐
-   │  Extractor         │          │   Embedder (pluggable)   │          ┌─────────────────┐
-   │  extract/knowledge │          │   embedding/             │          │  Chroma (DuckDB │
-   │                    │          │   • local (fastembed)    │          │  + Parquet) on  │
-   │  Claude  /  Null   │          │   • openai / voyage      │          │  disk: data_dir │
-   └─────────┬──────────┘          └────────────┬─────────────┘          └─────────────────┘
-             │                                  │
-             ▼                                  ▼
-   ┌────────────────────┐          ┌──────────────────────────┐
-   │  Anthropic API     │          │  HuggingFace model (1st  │
-   │  (summaries +      │          │  use) / OpenAI / Voyage  │
-   │   ask synthesis)   │          │  API                     │
-   └────────────────────┘          └──────────────────────────┘
+```mermaid
+flowchart TD
+    terminal["terminal / CI"] --> EP
+    agent["AI agent (stdio)"] --> EP
+    browser["browser"] --> EP
+    subgraph EP["ENTRY POINTS"]
+        CLI["CLI · cli.py<br/>ingest / search / ask / stats"]
+        MCP["MCP server · server.py (FastMCP)<br/>ingest_path / search_knowledge / ask / get_stats"]
+        WEB["Web dashboard · api/app.py (FastAPI) + React SPA<br/>REST + SSE · /api/*"]
+    end
+    EP -->|"every surface calls build_context()"| CTX
+    CTX["context.py — Context<br/>{ settings, store, pipeline }<br/>single source of truth"]
+    CTX --> PIPE["Pipeline · ingest/pipeline<br/>load → split → extract → embed → store"]
+    CTX --> STORE["ChromaStore · store/chroma_store<br/>vector + BM25 · RRF · optional re-rank · collections"]
+    CTX --> SET["Settings · config.py<br/>ODM_* env / .env + JSON overrides (web-editable)"]
+    PIPE -->|"upsert / search"| STORE
+    PIPE -->|"injected deps"| EXTR["Extractor · extract/knowledge<br/>Claude / Null"]
+    PIPE --> EMB["Embedder (pluggable) · embedding/<br/>local (fastembed) / openai / voyage"]
+    EXTR --> ANT["Anthropic API<br/>summaries + ask synthesis"]
+    EMB --> HF["HuggingFace (1st use) / OpenAI / Voyage API"]
+    STORE --> CHR["Chroma (DuckDB + Parquet) on disk: data_dir"]
 ```
 
 **Reading the diagram:** dependencies are *injected* into the pipeline and store
@@ -157,43 +130,17 @@ tests by swapping in fakes.
 stages. A `progress` callback emits a dict per stage so the CLI and web UI can
 stream live status.
 
-```
-  ingest_path(file | dir, sync?, allowed_root?)
-        │
-        │  ── confine to ingest_root (symlink-safe) ──────────────────┐
-        │  ── walk dir, skip .dotfiles / node_modules / .git / ...     │  (security + noise filter)
-        ▼
-  ┌─────────────┐   for each file
-  │   1. LOAD   │   loader.py  →  detect type by extension
-  └─────┬───────┘     • code (.py/.ts/.go/...)   → tree-sitter language
-        │              • pdf / docx / html        → text extraction
-        │              • txt/md/json/csv/...       → verbatim UTF-8
-        │              • unknown                   → UTF-8 or "unsupported" (skip, reported)
-        ▼
-  ┌─────────────┐
-  │  2. SPLIT   │   code → code_splitter.py (AST)        text → text_splitter.py (recursive)
-  └─────┬───────┘     • chunk at function/class/method     • split on ¶ → line → ". " → " "
-        │              • merge small siblings               • merge to ~chunk_size
-        │              • recurse into oversized defs         • carry chunk_overlap
-        │              • fallback to line windows
-        ▼
-  ┌─────────────┐
-  │ 3. EXTRACT  │   extract/knowledge.py  →  Claude per chunk (ThreadPoolExecutor, concurrency=N)
-  └─────┬───────┘     returns KnowledgeUnit { summary, concepts[], relations[] }
-        │              per-chunk failures are recorded, never abort the run (Fail Loud)
-        ▼
-  ┌─────────────┐
-  │   PRUNE     │   reconcile: drop stored chunks for this source whose ids no longer exist
-  └─────┬───────┘     (e.g. an edited function shifted line ranges)
-        ▼
-  ┌─────────────┐
-  │  4. EMBED   │   chunk.embedding_text() = raw text + "Summary: …" + "Concepts: …"
-  │  5. STORE   │   embedder.embed([...])  →  ChromaStore.upsert()  (id = content hash → idempotent)
-  └─────┬───────┘
-        ▼
-   IngestReport { files_indexed, chunks_indexed, chunks_pruned, skipped[], errors[] }
-        │
-        └── if sync && dir:  remove chunks for source files not seen this run (deleted files)
+```mermaid
+flowchart TD
+    START["ingest_path(file | dir, sync?, allowed_root?)"]
+    START -->|"confine to ingest_root (symlink-safe); walk dir, skip .dotfiles / node_modules / .git"| LOAD
+    LOAD["1. LOAD · loader.py — detect type by extension<br/>code → tree-sitter · pdf/docx/html → text · txt/md/json/csv → UTF-8 · unknown → skip (reported)"]
+    LOAD --> SPLIT["2. SPLIT<br/>code → code_splitter.py (AST) · text → text_splitter.py (recursive, chunk_overlap)"]
+    SPLIT --> EXTRACT["3. EXTRACT · extract/knowledge.py<br/>Claude per chunk (ThreadPoolExecutor) → KnowledgeUnit · per-chunk failures recorded (Fail Loud)"]
+    EXTRACT --> PRUNE["PRUNE<br/>drop stored chunks for this source whose ids no longer exist"]
+    PRUNE --> EMBED["4. EMBED + 5. STORE<br/>embedding_text() = text + Summary + Concepts → embed → ChromaStore.upsert() (id = content hash, idempotent)"]
+    EMBED --> REPORT["IngestReport { files_indexed, chunks_indexed, chunks_pruned, skipped[], errors[] }"]
+    REPORT -.->|"if sync && dir"| SYNC["remove chunks for source files not seen this run (deleted files)"]
 ```
 
 **Why enrich before embedding?** `embedding_text()` appends the LLM summary and
@@ -213,39 +160,21 @@ the stale ones are pruned in the PRUNE step.
 and lexical retrieval independently, fuses them with RRF, applies filters, and
 (optionally) re-ranks.
 
-```
-  search(query, top_k, where, mode, source_contains)
-        │
-        │ over-fetch n = max(top_k*5, 30) when fusing / post-filtering
-        ▼
-  ┌──────────────────────┐        ┌───────────────────────────┐
-  │  DENSE                │        │  LEXICAL  (hybrid only)   │
-  │  embed(query) →       │        │  LexicalIndex (BM25Okapi) │
-  │  Chroma cosine query  │        │  built lazily from docs,  │
-  │  → ranked ids + dist  │        │  rebuilt when store dirty │
-  └──────────┬───────────┘        └─────────────┬─────────────┘
-             │                                  │ (filter lexical hits through `where`)
-             └───────────────┬──────────────────┘
-                             ▼
-                   ┌───────────────────┐
-                   │  RRF FUSION       │   score(id) = Σ 1 / (k + rank + 1),  k=60
-                   │  rrf_fuse(...)    │   → single best-first ranking
-                   └─────────┬─────────┘
-                             ▼
-                   ┌───────────────────┐
-                   │  RESOLVE + FILTER │   fetch docs/metadata; apply source_contains post-filter
-                   └─────────┬─────────┘
-                             ▼
-                ┌────────────────────────────┐
-                │  RE-RANK?  (optional)      │
-                │  CrossEncoder scores every │── yes ─▶ sort by cross-encoder score → top_k
-                │  (query, doc) jointly      │
-                └────────────┬───────────────┘
-                             │ no
-                             ▼
-                   score = 1 - cosine_distance   (lexical-only hits → 0.0)
-                             ▼
-                   list[SearchResult] (top_k)   { id, text, score, metadata }
+```mermaid
+flowchart TD
+    SEARCH["search(query, top_k, where, mode, source_contains)"]
+    SEARCH -->|"over-fetch n = max(top_k*5, 30) when fusing / post-filtering"| FORK(( ))
+    FORK --> DENSE["DENSE<br/>embed(query) → Chroma cosine query → ranked ids + dist"]
+    FORK --> LEX["LEXICAL (hybrid only)<br/>LexicalIndex (BM25Okapi), built lazily, rebuilt when store dirty"]
+    DENSE --> RRF
+    LEX -->|"filter lexical hits through where"| RRF
+    RRF["RRF FUSION · rrf_fuse()<br/>score(id) = Σ 1 / (k + rank + 1), k = 60"]
+    RRF --> RESOLVE["RESOLVE + FILTER<br/>fetch docs / metadata; apply source_contains post-filter"]
+    RESOLVE --> RERANK{"RE-RANK? (optional)"}
+    RERANK -->|"yes"| RR["CrossEncoder scores every (query, doc) jointly → sort → top_k"]
+    RERANK -->|"no"| COS["score = 1 − cosine_distance (lexical-only hits → 0.0)"]
+    RR --> OUT["list[SearchResult] (top_k)<br/>{ id, text, score, metadata }"]
+    COS --> OUT
 ```
 
 - **`mode="vector"`** skips the lexical/fusion branch entirely (pure dense).
@@ -261,23 +190,16 @@ and lexical retrieval independently, fuses them with RRF, applies filters, and
 `ask` layers answer synthesis on top of retrieval. The LLM is instructed to answer
 *strictly* from the numbered sources and cite them inline as `[n]`.
 
-```
-  ask(query, top_k)
-        │
-        ▼
-  store.search(query, top_k, mode)         ──▶  top-k SearchResults
-        │
-        ▼
-  _format_sources()   "[1] path::symbol\n<text>\n\n[2] ..."
-        │
-        ▼
-  Claude (answer_model)  system = "answer only from sources, cite [n]"
-        │
-        ├── answer_question()         → { answer, citations[] }            (CLI ask / MCP ask / POST /api/ask)
-        └── answer_question_stream()  → delta events… then citations event (CLI streams stdout, web streams SSE)
-                                          │
-                                          ▼
-                                   { n, id, source, symbol, score } per cited source
+```mermaid
+flowchart TD
+    ASK["ask(query, top_k)"]
+    ASK --> SEARCH["store.search(query, top_k, mode) → top-k SearchResults"]
+    SEARCH --> FMT["_format_sources()<br/>'[1] path::symbol &lt;text&gt; [2] ...'"]
+    FMT --> CLAUDE["Claude (answer_model)<br/>system = 'answer only from sources, cite [n]'"]
+    CLAUDE --> SYNC2["answer_question() → { answer, citations[] }<br/>(CLI ask · MCP ask · POST /api/ask)"]
+    CLAUDE --> STREAM["answer_question_stream() → delta events… then citations event<br/>(CLI stdout · web SSE)"]
+    SYNC2 --> CIT["{ n, id, source, symbol, score } per cited source"]
+    STREAM --> CIT
 ```
 
 If no chunk matches, it returns *"No indexed content matched this question."*
@@ -315,19 +237,35 @@ fabricating an answer.
 The pipeline passes plain dataclasses (`models.py`) between stages — no business
 logic on them, so stages stay decoupled.
 
-```
-KnowledgeUnit                     Chunk                                 SearchResult
-─────────────                     ─────                                 ────────────
-summary:   str                    text:        str                      id:       str
-concepts:  list[str]    ───────▶  source:      str                      text:     str
-relations: list[str]   (stored    kind:        "code" | "text"          score:    float
-                        on the →  language/node_type/symbol: str?       metadata: dict
-                        chunk)    start_line/end_line:       int?
-                                  knowledge:   KnowledgeUnit?
-                                  ──────────────────────────────
-                                  id            = sha256(source:lines + text)   ← idempotent upsert key
-                                  embedding_text() = text + summary + concepts   ← what gets embedded
-                                  metadata()       = flat, Chroma-friendly dict  ← stored alongside vector
+```mermaid
+classDiagram
+    class KnowledgeUnit {
+      +str summary
+      +list concepts
+      +list relations
+    }
+    class Chunk {
+      +str text
+      +str source
+      +str kind
+      +str language
+      +str node_type
+      +str symbol
+      +int start_line
+      +int end_line
+      +KnowledgeUnit knowledge
+      +id() content hash sha256
+      +embedding_text() text plus summary plus concepts
+      +metadata() flat Chroma-friendly dict
+    }
+    class SearchResult {
+      +str id
+      +str text
+      +float score
+      +dict metadata
+    }
+    KnowledgeUnit --> Chunk : stored on the chunk
+    Chunk --> SearchResult : retrieved as
 ```
 
 ---

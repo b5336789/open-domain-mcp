@@ -79,15 +79,20 @@ AI agent 在採取行動前，應能詢問：
 
 平台採三層架構：
 
-```
-Layer 1 — Knowledge Ingestion（知識擷取）
-  Sources → Parsing → Chunking → Knowledge Extraction → Embedding
-
-Layer 2 — Knowledge Store（知識儲存）
-  Vector Store + Structured Domain Store + Metadata Store
-
-Layer 3 — MCP View Layer（MCP 視圖層）
-  從同一知識庫產生多個 MCP
+```mermaid
+flowchart TD
+    subgraph L1["Layer 1 — Knowledge Ingestion（知識擷取）"]
+        direction LR
+        SRC[Sources] --> PARSE[Parsing] --> CHUNK[Chunking] --> EXT[Knowledge Extraction] --> EMB[Embedding]
+    end
+    subgraph L2["Layer 2 — Knowledge Store（知識儲存）"]
+        direction LR
+        VS[Vector Store] --- SDS[Structured Domain Store] --- MS[Metadata Store]
+    end
+    subgraph L3["Layer 3 — MCP View Layer（MCP 視圖層）"]
+        MCPS["從同一知識庫產生多個 MCP"]
+    end
+    L1 --> L2 --> L3
 ```
 
 技術實作對應見 [ARCHITECTURE.md](./ARCHITECTURE.md)。

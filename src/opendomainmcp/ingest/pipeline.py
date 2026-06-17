@@ -81,7 +81,23 @@ class Pipeline:
         sync: bool = False,
         allowed_root: Optional[str | Path] = None,
     ) -> IngestReport:
-        path = Path(path)
+        # A Git URL or .zip is materialised into a temp dir which then doubles as
+        # the allowed_root; plain paths fall through unchanged.
+        from .sources import prepared_source
+
+        with prepared_source(path, self._settings.data_dir) as prepared:
+            if prepared is not None:
+                self._emit(progress, "fetch", str(path), detail="materialised source")
+                return self._ingest(prepared, progress, sync=False, allowed_root=prepared)
+            return self._ingest(Path(path), progress, sync=sync, allowed_root=allowed_root)
+
+    def _ingest(
+        self,
+        path: Path,
+        progress: Optional[Progress],
+        sync: bool,
+        allowed_root: Optional[str | Path],
+    ) -> IngestReport:
         report = IngestReport()
         # Confine ingestion to an allowed root when one is configured. The
         # explicit ``allowed_root`` argument (used by the web layer) takes
@@ -147,6 +163,10 @@ class Pipeline:
         if doc.kind == "code":
             chunks = split_code(doc.text, doc.language, str(path),
                                 self._settings.code_max_chunk_chars)
+        elif doc.kind == "api":
+            from .openapi import split_openapi
+
+            chunks = split_openapi(doc.text, str(path))
         else:
             chunks = [Chunk(text=t, source=str(path), kind="text")
                       for t in self._splitter.split(doc.text)]
@@ -189,9 +209,12 @@ class Pipeline:
 
     def _extract_one(self, chunk: Chunk, path: Path, report: IngestReport):
         try:
-            chunk.knowledge = self._extractor.extract(
-                chunk.text, chunk.kind, chunk.language
-            )
+            # Pre-classified chunks (e.g. OpenAPI operations) already carry a
+            # knowledge_type; don't overwrite them with the LLM extractor.
+            if not (chunk.knowledge and chunk.knowledge.knowledge_type):
+                chunk.knowledge = self._extractor.extract(
+                    chunk.text, chunk.kind, chunk.language
+                )
             # In review mode, freshly extracted knowledge must be approved before
             # it counts as reviewed; otherwise it is born approved (default).
             if getattr(self._settings, "review_mode", False) and chunk.knowledge:

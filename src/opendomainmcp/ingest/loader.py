@@ -52,10 +52,14 @@ class UnsupportedFileError(Exception):
     """Raised when a file cannot be loaded as text or code."""
 
 
+# Structured-spec extensions that may hold an OpenAPI/Swagger document.
+_SPEC_EXTENSIONS = {".json", ".yaml", ".yml"}
+
+
 @dataclass
 class LoadedDoc:
     path: str
-    kind: str  # "code" | "text"
+    kind: str  # "code" | "text" | "api"
     text: str
     language: Optional[str] = None
 
@@ -123,6 +127,15 @@ def load_file(path: str | Path) -> LoadedDoc:
         return LoadedDoc(str(path), "text", _extract_docx(path))
     if ext in (".html", ".htm"):
         return LoadedDoc(str(path), "text", _extract_html(path))
+    if ext in _SPEC_EXTENSIONS:
+        # An OpenAPI/Swagger spec is split per-operation; other JSON/YAML is
+        # treated as plain text.
+        from .openapi import looks_like_openapi, parse_spec
+
+        text = _read_utf8(path)
+        if looks_like_openapi(parse_spec(text)):
+            return LoadedDoc(str(path), "api", text, "openapi")
+        return LoadedDoc(str(path), "text", text)
     if ext in TEXT_EXTENSIONS:
         return LoadedDoc(str(path), "text", _read_utf8(path))
 

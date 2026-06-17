@@ -18,11 +18,17 @@ from ..retrieval import LexicalIndex, rrf_fuse
 logger = logging.getLogger(__name__)
 
 
+# Scalar metadata fields that support exact-match Chroma filtering. ``audience``
+# is intentionally excluded: it is stored as a joined string (a chunk may serve
+# several audiences), so it is post-filtered in the view layer instead.
+_FILTER_FIELDS = ("kind", "language", "symbol", "knowledge_type", "review_status")
+
+
 def build_where(filters: Optional[dict]) -> Optional[dict]:
     """Translate simple equality filters into a Chroma ``where`` clause."""
     if not filters:
         return None
-    conds = [{k: filters[k]} for k in ("kind", "language", "symbol") if filters.get(k)]
+    conds = [{k: filters[k]} for k in _FILTER_FIELDS if filters.get(k)]
     if not conds:
         return None
     return conds[0] if len(conds) == 1 else {"$and": conds}

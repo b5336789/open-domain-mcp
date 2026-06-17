@@ -1,4 +1,4 @@
-from opendomainmcp.models import Chunk
+from opendomainmcp.models import Chunk, KnowledgeUnit
 from opendomainmcp.store import build_where
 
 
@@ -41,3 +41,28 @@ def test_vector_mode_still_default(store):
     _seed(store)
     res = store.search("embeddings", top_k=1)  # mode defaults to vector
     assert res and 0.0 <= res[0].score <= 1.0
+
+
+def _seed_classified(store):
+    store.upsert([
+        Chunk(text="users can export reports as PDF", source="a.md", kind="text",
+              knowledge=KnowledgeUnit(summary="export", knowledge_type="Feature",
+                                      review_status="approved")),
+        Chunk(text="restart the worker pool to clear the queue", source="b.md", kind="text",
+              knowledge=KnowledgeUnit(summary="restart", knowledge_type="Runbook",
+                                      review_status="pending")),
+    ])
+
+
+def test_knowledge_type_filter(store):
+    _seed_classified(store)
+    where = build_where({"knowledge_type": "Feature"})
+    res = store.search("export reports queue", top_k=5, where=where, mode="hybrid")
+    assert res and all(r.metadata.get("knowledge_type") == "Feature" for r in res)
+
+
+def test_review_status_filter(store):
+    _seed_classified(store)
+    where = build_where({"review_status": "approved"})
+    res = store.search("export restart", top_k=5, where=where, mode="hybrid")
+    assert res and all(r.metadata.get("review_status") == "approved" for r in res)

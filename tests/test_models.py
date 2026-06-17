@@ -36,3 +36,39 @@ def test_metadata_drops_none_and_flattens_knowledge():
     assert meta["relations"] == "a->b"
     assert "node_type" not in meta  # None values dropped
     assert all(v is not None for v in meta.values())
+
+
+def test_metadata_flattens_classification_fields():
+    k = KnowledgeUnit(
+        summary="s", knowledge_type="Feature",
+        audience=["product_manager", "support"], confidence=0.8,
+        version="v2", permissions=["admin"], tags=["billing", "core"],
+        references=["TICKET-1"],
+    )
+    chunk = Chunk(text="t", source="f.md", knowledge=k)
+    meta = chunk.metadata()
+    assert meta["knowledge_type"] == "Feature"
+    assert meta["audience"] == "product_manager, support"
+    assert meta["confidence"] == 0.8
+    assert meta["version"] == "v2"
+    assert meta["permissions"] == "admin"
+    assert meta["tags"] == "billing, core"
+    assert meta["references"] == "TICKET-1"
+    assert meta["review_status"] == "approved"
+
+
+def test_metadata_omits_empty_classification_for_legacy_chunks():
+    # A chunk with no extracted knowledge (e.g. NullExtractor / older index)
+    # carries none of the new keys, so old filters keep matching.
+    chunk = Chunk(text="t", source="f.txt")
+    meta = chunk.metadata()
+    for key in ("knowledge_type", "audience", "review_status", "tags"):
+        assert key not in meta
+
+
+def test_classification_fields_default_empty_and_backward_compatible():
+    k = KnowledgeUnit(summary="s")
+    assert k.knowledge_type == ""
+    assert k.audience == []
+    assert k.confidence == 0.0
+    assert k.review_status == "approved"

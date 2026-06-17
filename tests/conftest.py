@@ -72,7 +72,16 @@ class FakeExtractor:
 
         self.calls += 1
         first_word = text.strip().split()[0] if text.strip() else ""
-        return KnowledgeUnit(summary=f"about {first_word}", concepts=[kind])
+        # Deterministic classification so view/filter tests have stable fixtures.
+        knowledge_type = "Code" if kind == "code" else "Feature"
+        audience = ["engineering"] if kind == "code" else ["product_manager"]
+        return KnowledgeUnit(
+            summary=f"about {first_word}",
+            concepts=[kind],
+            knowledge_type=knowledge_type,
+            audience=audience,
+            confidence=1.0,
+        )
 
 
 @pytest.fixture

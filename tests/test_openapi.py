@@ -57,6 +57,84 @@ def test_split_openapi_ignores_non_spec():
     assert split_openapi('{"paths": "not a dict"}', "x.json") == []
 
 
+# Spec exercising nested + cyclic $refs across components.
+_REF_SPEC = {
+    "openapi": "3.0.0",
+    "info": {"title": "Ref API"},
+    "paths": {
+        "/nodes": {
+            "post": {
+                "operationId": "createNode",
+                "summary": "Create a node",
+                "parameters": [{"$ref": "#/components/parameters/TraceId"}],
+                "requestBody": {"$ref": "#/components/requestBodies/NodeBody"},
+                "responses": {
+                    "201": {
+                        "description": "created",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/Node"}
+                            }
+                        },
+                    }
+                },
+            }
+        }
+    },
+    "components": {
+        "parameters": {
+            "TraceId": {"name": "X-Trace-Id", "in": "header"},
+        },
+        "requestBodies": {
+            "NodeBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/Node"}
+                    }
+                }
+            }
+        },
+        "schemas": {
+            # Node references Address (nested) and itself via "parent" (cyclic).
+            "Node": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "address": {"$ref": "#/components/schemas/Address"},
+                    "parent": {"$ref": "#/components/schemas/Node"},
+                },
+            },
+            "Address": {
+                "type": "object",
+                "properties": {
+                    "street": {"type": "string"},
+                    "city": {"type": "string"},
+                },
+            },
+        },
+    },
+}
+
+
+def test_split_openapi_resolves_nested_and_cyclic_refs():
+    # Termination: a cyclic ref must not hang. If this returns, it terminated.
+    chunks = split_openapi(json.dumps(_REF_SPEC), "ref.json")
+    assert len(chunks) == 1
+    text = chunks[0].text
+
+    # Parameter $ref resolved to its name.
+    assert "X-Trace-Id" in text
+    # requestBody $ref -> Node schema fields, including nested Address fields.
+    assert "Request body fields:" in text
+    assert "id" in text
+    assert "address" in text
+    assert "parent" in text  # cyclic property name still surfaces
+    assert "street" in text  # nested ref expanded
+    assert "city" in text
+    # Response schema fields resolved too.
+    assert "Response fields:" in text
+
+
 def test_ingest_openapi_file_classifies_as_api(pipeline, store, tmp_path):
     spec_file = tmp_path / "api.json"
     spec_file.write_text(json.dumps(_SPEC))

@@ -81,6 +81,7 @@ class FakeExtractor:
             knowledge_type=knowledge_type,
             audience=audience,
             confidence=1.0,
+            version="1.0.0",
         )
 
 

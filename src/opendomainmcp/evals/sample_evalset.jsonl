@@ -1,0 +1,3 @@
+{"id": "hybrid-fusion", "query": "how is hybrid search fused", "expected_sources": ["retrieval/lexical.py::rrf_fuse"], "expected_answer": ["RRF", "BM25"]}
+{"id": "answer-grounding", "query": "what does answer_question cite", "expected_sources": ["query/rag.py"], "expected_answer": ["[n]", "sources"]}
+{"id": "chunk-id", "query": "how is a chunk id derived", "expected_sources": ["models.py::content_hash"], "expected_answer": ["sha256"]}

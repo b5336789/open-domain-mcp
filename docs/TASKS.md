@@ -15,10 +15,10 @@
 |------|--------|--------|
 | Phase 0–1（基礎平台） | 18 | 18 ✅ |
 | Phase 2（M1–M5 typed knowledge） | 22 | 22 ✅ |
-| Phase 2 收尾缺口 | 6 | 0 ⬜ |
+| Phase 2 收尾缺口 | 6 | 3 🔶 |
 | Phase 3（Graphs） | 9 | 0 ⬜ |
-| Phase 4（Pre-Execution Advisor + Metrics） | 8 | 0 ⬜ |
-| 工程品質與強化 | 7 | 0 ⬜ |
+| Phase 4（Pre-Execution Advisor + Metrics） | 8 | 2 🔶 |
+| 工程品質與強化 | 7 | 1 🔶 |
 
 ---
 
@@ -108,11 +108,11 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 3.1 | ⬜ | Medium | GraphQL schema 擷取 | 解析 `.graphql`/SDL，每 type/query/mutation 一 chunk、預分類 API | 新增 `ingest/graphql.py`、`loader.py` |
+| 3.1 | ✅ | Medium | GraphQL schema 擷取 | 解析 `.graphql`/SDL，每 type/query/mutation 一 chunk、預分類 API | 新增 `ingest/graphql.py`、`loader.py` |
 | 3.2 | ⬜ | Low | Wiki export 擷取 | 支援 Confluence/MediaWiki 匯出（XML/HTML bundle） | `ingest/loader.py`、可能新增 `ingest/wiki.py` |
 | 3.3 | ⬜ | Low | 舊資料 review 回填 | CLI `backfill-review --status approved`，替既有 chunk 補 review_status | `cli.py`、`store/` |
-| 3.4 | ⬜ | Medium | Developer 視圖 symbol 精準化 | `get_class/get_function` 改用 symbol/node_type 精準查詢而非僅 kind=code | `views/__init__.py`、`store/build_where` |
-| 3.5 | ⬜ | Low | Version 欄位萃取 | prompt 與 `_parse` 補 `version`（目前欄位存在但未萃取） | `extract/knowledge.py` |
+| 3.4 | ✅ | Medium | Developer 視圖 symbol 精準化 | `get_class/get_function` 改用 symbol/node_type 精準查詢而非僅 kind=code | `views/__init__.py`、`store/build_where` |
+| 3.5 | ✅ | Low | Version 欄位萃取 | prompt 與 `_parse` 補 `version`（目前欄位存在但未萃取） | `extract/knowledge.py` |
 | 3.6 | ⬜ | Low | Workspace 來源登錄 | UI 記錄/管理已擷取來源清單（產品/來源/索引狀態） | `web/src/pages/Dashboard.tsx`、`api/app.py` |
 
 ---
@@ -168,11 +168,11 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 5.4 | ⬜ | Medium | 指標蒐集骨架 | 記錄檢索/問答事件（query、hits、scores、命中類型） | 新增 `metrics/` |
+| 5.4 | ✅ | Medium | 指標蒐集骨架 | 記錄檢索/問答事件（query、hits、scores、命中類型） | 新增 `metrics/` |
 | 5.5 | ⬜ | Low | Product 指標 | Published MCPs、Knowledge Objects、Indexed Sources 計數 | `metrics/`、`api/app.py` |
 | 5.6 | ⬜ | Low | Agent 指標 | Grounding Hit Rate、Retrieval Precision（延伸 Simulator 統計） | `metrics/`、`api/simulate` |
 | 5.7 | ⬜ | Medium | 指標儀表板 | 前端指標頁 | 新增 `web/src/pages/Metrics.tsx` |
-| 5.8 | ⬜ | Medium | 幻覺降低評測 | 建立離線評測集與 grounding 對照基準 | 新增 `evals/` |
+| 5.8 | ✅ | Medium | 幻覺降低評測 | 建立離線評測集與 grounding 對照基準 | 新增 `evals/` |
 
 ---
 
@@ -187,7 +187,7 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 | 6.3 | ⬜ | Medium | 多租戶隔離 | workspace/tenant 邊界與資料隔離 | `context.py`、`store/` |
 | 6.4 | ⬜ | Low | E2E 前端測試 | Review/Builder/Simulator 的端到端測試（Playwright） | 新增 `web/tests/` |
 | 6.5 | ⬜ | Low | CLI 擷取 Git/Zip 文件補強 | CLI `ingest` 說明與 help 補上新來源用法 | `cli.py`、`docs/` |
-| 6.6 | ⬜ | Low | OpenAPI 巢狀 $ref 解析 | 解析 `$ref` 以豐富 operation 文字 | `ingest/openapi.py` |
+| 6.6 | ✅ | Low | OpenAPI 巢狀 $ref 解析 | 解析 `$ref` 以豐富 operation 文字 | `ingest/openapi.py` |
 | 6.7 | ⬜ | Low | 觀測性/日誌 | 結構化日誌與基本 metrics endpoint（`/api/health` 擴充） | `api/app.py` |
 
 ---
@@ -268,17 +268,18 @@ flowchart LR
 
 無相依的 18 項雖皆可獨立啟動，但部分**共用同一檔案**（如 `api/app.py`、`loader.py`、`views/__init__.py`、`store/`），同時改動會造成合併衝突。因此以「**每個共用檔案僅由一個任務持有**」為原則切成數個 wave，wave 內各任務檔案不重疊、可安全並行（每個 subagent 在獨立 git worktree 開發）。
 
-**Wave 1（檔案互斥，本次並行）：**
+**Wave 1（檔案互斥，已並行完成 ✅）：** 6 個 subagent 各於獨立 git worktree 開發、各自跑過完整測試後合併回本分支；合併後全套件 **133 passed**（基線 106 + 新增 27 個測試），零回歸。
 
-| # | 任務 | 持有檔案 |
-|---|------|----------|
-| 3.1 | GraphQL 擷取 | `loader.py`、`ingest/graphql.py`(新) |
-| 3.4 | Developer 視圖 symbol | `views/__init__.py`、`store/chroma_store.py` |
-| 3.5 | Version 欄位萃取 | `extract/knowledge.py`、`conftest.py` |
-| 5.4 | 指標蒐集骨架 | `metrics/`(新) |
-| 5.8 | 幻覺降低評測 | `evals/`(新) |
-| 6.4 | E2E 前端測試 | `web/tests/`(新) |
-| 6.6 | OpenAPI $ref 解析 | `ingest/openapi.py` |
+| # | 任務 | 持有檔案 | 狀態 |
+|---|------|----------|------|
+| 3.1 | GraphQL 擷取 | `loader.py`、`pipeline.py`、`ingest/graphql.py`(新) | ✅ |
+| 3.4 | Developer 視圖 symbol | `views/__init__.py`、`store/chroma_store.py` | ✅ |
+| 3.5 | Version 欄位萃取 | `extract/knowledge.py`、`conftest.py` | ✅ |
+| 5.4 | 指標蒐集骨架 | `metrics/`(新) | ✅ |
+| 5.8 | 幻覺降低評測 | `evals/`(新) | ✅ |
+| 6.6 | OpenAPI $ref 解析 | `ingest/openapi.py` | ✅ |
+
+> 註：6.4（E2E 前端測試，Playwright）原列入 Wave 1，但此環境無瀏覽器/未建置前端無法驗證綠燈，移至後續 wave。
 
 **後續 wave（持有 `api/app.py` 等熱點檔，需序列化或分批）：** 3.2（`loader.py`，與 3.1 互斥）、3.3、3.6、4.1、4.2、5.1、6.1、6.2、6.3、6.5、6.7。
 
@@ -298,4 +299,4 @@ flowchart LR
 
 ---
 
-_最後更新：2026-06-18（加入相依性分析與並行排程）_
+_最後更新：2026-06-18（加入相依性分析與並行排程；Wave 1 並行完成 3.1/3.4/3.5/5.4/5.8/6.6）_

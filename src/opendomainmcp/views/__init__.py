@@ -18,12 +18,32 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+# Tree-sitter names a declaration differently per language (e.g. Python
+# ``function_definition`` vs JS ``function_declaration``), so a "functions" or
+# "classes" lookup must accept every variant. These sets mirror the definition
+# types produced by ``ingest.code_splitter`` and are matched against a chunk's
+# ``node_type`` metadata.
+_FUNCTION_NODE_TYPES = (
+    "function_definition", "function_declaration", "function_item",
+    "method_definition", "method_declaration", "constructor_declaration",
+)
+_CLASS_NODE_TYPES = (
+    "class_definition", "class_declaration", "class_specifier",
+    "struct_specifier", "struct_item", "enum_item", "enum_declaration",
+    "interface_declaration", "trait_item", "type_alias_declaration",
+)
+
+
 @dataclass(frozen=True)
 class ViewTool:
     name: str
     description: str
     filters: dict = field(default_factory=dict)
     default_top_k: int = 5
+    # Acceptable ``node_type`` values for a code lookup. When set, results whose
+    # ``node_type`` is outside the set are dropped, so e.g. ``get_function`` only
+    # returns function/method definitions rather than any ``kind=code`` chunk.
+    node_types: tuple = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -76,9 +96,9 @@ VIEWS: dict[str, ViewSpec] = {
             ViewTool("search_code", "Search source code by intent or symbol.",
                      {"kind": "code"}),
             ViewTool("get_class", "Find a class or type definition.",
-                     {"kind": "code"}),
+                     {"kind": "code"}, node_types=_CLASS_NODE_TYPES),
             ViewTool("get_function", "Find a function or method definition.",
-                     {"kind": "code"}),
+                     {"kind": "code"}, node_types=_FUNCTION_NODE_TYPES),
             ViewTool("trace_dependency",
                      "Find code and relations describing dependencies.",
                      {"kind": "code"}),
@@ -140,14 +160,18 @@ def run_view_tool(ctx, tool: ViewTool, query: str, top_k: int) -> list[dict]:
     if getattr(ctx.settings, "retrieve_approved_only", False):
         filters["review_status"] = "approved"
     where = build_where(filters)
-    # Over-fetch when we still have to post-filter by audience.
-    fetch_k = top_k * 3 if audience else top_k
+    # Over-fetch when we still have to post-filter (by audience or node_type).
+    post_filtered = bool(audience) or bool(tool.node_types)
+    fetch_k = top_k * 3 if post_filtered else top_k
     results = ctx.store.search(
         query, top_k=fetch_k, where=where, mode=ctx.settings.search_mode
     )
+    if tool.node_types:
+        allowed = set(tool.node_types)
+        results = [r for r in results if r.metadata.get("node_type") in allowed]
     if audience:
         results = [
             r for r in results
             if audience in (r.metadata.get("audience") or "").split(", ")
-        ][:top_k]
-    return [r.to_dict() for r in results]
+        ]
+    return [r.to_dict() for r in results[:top_k]]

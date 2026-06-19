@@ -102,52 +102,75 @@ def pipeline(store, fake_extractor, fake_graph):
 
 
 class FakeGraphStore:
-    """In-memory GraphStoreProtocol implementation for offline tests."""
+    """In-memory GraphStoreProtocol implementation for offline tests.
 
-    def __init__(self):
-        self.entities = {}                 # normalized_name -> dict
-        self.entity_chunks = {}            # normalized_name -> set(chunk_id)
-        self.edges = []                    # list of Edge
+    ``backing`` is an optional shared dict so two instances with different
+    ``collection`` values can prove filter-based isolation offline.
+    """
+
+    def __init__(self, collection: str = "domain_knowledge", backing=None):
+        self._collection = collection
+        # backing: {collection: {"entities": {}, "entity_chunks": {}, "edges": []}}
+        self._backing = backing if backing is not None else {}
+
+    def _slot(self):
+        """Return (or lazily create) the per-collection data slot."""
+        if self._collection not in self._backing:
+            self._backing[self._collection] = {
+                "entities": {},
+                "entity_chunks": {},
+                "edges": [],
+            }
+        return self._backing[self._collection]
 
     def ensure_schema(self):
         pass
 
     def upsert_entities(self, entities):
+        slot = self._slot()
         for e in entities:
-            cur = self.entities.get(e.normalized_name)
+            cur = slot["entities"].get(e.normalized_name)
             conf = max(e.confidence, cur["confidence"]) if cur else e.confidence
-            self.entities[e.normalized_name] = {
+            slot["entities"][e.normalized_name] = {
                 "name": e.display_name, "normalized_name": e.normalized_name,
                 "type": e.type, "confidence": conf}
-            self.entity_chunks.setdefault(e.normalized_name, set()).add(e.chunk_id)
+            slot["entity_chunks"].setdefault(e.normalized_name, set()).add(e.chunk_id)
 
     def upsert_edges(self, edges):
+        slot = self._slot()
         # Dedupe by (src, dst, relation_type, chunk_id), keeping max confidence —
         # mirrors MariaDB's ON DUPLICATE KEY UPDATE confidence=GREATEST(...).
-        index = {(e.src, e.dst, e.relation_type, e.chunk_id): e for e in self.edges}
+        index = {(e.src, e.dst, e.relation_type, e.chunk_id): e for e in slot["edges"]}
         for e in edges:
             key = (e.src, e.dst, e.relation_type, e.chunk_id)
             existing = index.get(key)
             if existing is None or e.confidence > existing.confidence:
                 index[key] = e
-        self.edges = list(index.values())
+        slot["edges"] = list(index.values())
 
     def delete_for_chunks(self, chunk_ids):
+        slot = self._slot()
         ids = set(chunk_ids)
-        self.edges = [e for e in self.edges if e.chunk_id not in ids]
-        for norm in list(self.entity_chunks):
-            self.entity_chunks[norm] -= ids
-            if not self.entity_chunks[norm]:
-                del self.entity_chunks[norm]
-                self.entities.pop(norm, None)
+        slot["edges"] = [e for e in slot["edges"] if e.chunk_id not in ids]
+        for norm in list(slot["entity_chunks"]):
+            slot["entity_chunks"][norm] -= ids
+            if not slot["entity_chunks"][norm]:
+                del slot["entity_chunks"][norm]
+                slot["entities"].pop(norm, None)
+
+    def delete_collection(self, name: str):
+        """Remove all data for the named collection slice."""
+        self._backing.pop(name, None)
 
     def get_entity(self, name):
         from opendomainmcp.graph.normalize import normalize_name
         norm = normalize_name(name)
-        row = self.entities.get(norm)
+        slot = self._slot()
+        row = slot["entities"].get(norm)
         if row is None:
             return None
-        return {**row, "aliases": [], "chunk_ids": sorted(self.entity_chunks.get(norm, set()))}
+        return {**row, "aliases": [],
+                "chunk_ids": sorted(slot["entity_chunks"].get(norm, set()))}
 
     def neighbors(self, name, relation_type=None, depth=1):
         from opendomainmcp.graph.normalize import normalize_name
@@ -155,13 +178,14 @@ class FakeGraphStore:
         root = self.get_entity(name)
         if root is None:
             return {"entity": None, "neighbors": []}
+        slot = self._slot()
         seen = {root["normalized_name"]}
         frontier = [root["normalized_name"]]
         collected = []
         for _ in range(depth):
             nxt = []
             for norm in frontier:
-                for e in self.edges:
+                for e in slot["edges"]:
                     if relation_type and e.relation_type != relation_type:
                         continue
                     if e.src == norm:
@@ -182,8 +206,9 @@ class FakeGraphStore:
         return {"entity": root, "neighbors": collected}
 
     def list_entities(self, type=None, q=None, limit=50):
+        slot = self._slot()
         rows = []
-        for norm, row in sorted(self.entities.items()):
+        for norm, row in sorted(slot["entities"].items()):
             if type and row["type"] != type:
                 continue
             if q and q.lower().strip() not in norm:

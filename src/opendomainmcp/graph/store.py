@@ -14,6 +14,7 @@ class GraphStoreProtocol(Protocol):
     def upsert_entities(self, entities: list[Entity]) -> None: ...
     def upsert_edges(self, edges: list[Edge]) -> None: ...
     def delete_for_chunks(self, chunk_ids: Iterable[str]) -> None: ...
+    def delete_collection(self, name: str) -> None: ...
     def get_entity(self, name: str) -> Optional[dict]: ...
     def neighbors(self, name: str, relation_type: Optional[str] = None,
                   depth: int = 1) -> dict: ...
@@ -28,6 +29,7 @@ class NullGraphStore:
     def upsert_entities(self, entities: list[Entity]) -> None: pass
     def upsert_edges(self, edges: list[Edge]) -> None: pass
     def delete_for_chunks(self, chunk_ids: Iterable[str]) -> None: pass
+    def delete_collection(self, name: str) -> None: pass
     def get_entity(self, name: str) -> Optional[dict]:
         return None
     def neighbors(self, name: str, relation_type: Optional[str] = None,
@@ -41,27 +43,31 @@ class NullGraphStore:
 _SCHEMA = (
     """
     CREATE TABLE IF NOT EXISTS entities (
-        normalized_name VARCHAR(255) PRIMARY KEY,
+        collection      VARCHAR(255) NOT NULL,
+        normalized_name VARCHAR(255) NOT NULL,
         display_name    VARCHAR(512) NOT NULL,
         type            VARCHAR(64)  NOT NULL,
-        confidence      FLOAT        NOT NULL DEFAULT 1.0
+        confidence      FLOAT        NOT NULL DEFAULT 1.0,
+        PRIMARY KEY (collection, normalized_name)
     ) CHARACTER SET utf8mb4
     """,
     """
     CREATE TABLE IF NOT EXISTS entity_chunks (
+        collection      VARCHAR(255) NOT NULL,
         normalized_name VARCHAR(255) NOT NULL,
         chunk_id        VARCHAR(128) NOT NULL,
-        PRIMARY KEY (normalized_name, chunk_id)
+        PRIMARY KEY (collection, normalized_name, chunk_id)
     ) CHARACTER SET utf8mb4
     """,
     """
     CREATE TABLE IF NOT EXISTS edges (
+        collection    VARCHAR(255) NOT NULL,
         src           VARCHAR(255) NOT NULL,
         dst           VARCHAR(255) NOT NULL,
         relation_type VARCHAR(64)  NOT NULL,
         chunk_id      VARCHAR(128) NOT NULL,
         confidence    FLOAT        NOT NULL DEFAULT 1.0,
-        PRIMARY KEY (src, dst, relation_type, chunk_id)
+        PRIMARY KEY (collection, src, dst, relation_type, chunk_id)
     ) CHARACTER SET utf8mb4
     """,
 )
@@ -71,10 +77,12 @@ class MariaGraphStore:
     """MariaDB-backed graph store. Connections are short-lived per operation to
     stay safe under FastAPI's threaded request handling."""
 
-    def __init__(self, host: str, port: int, user: str, password: str, database: str):
+    def __init__(self, host: str, port: int, user: str, password: str,
+                 database: str, collection: str = "domain_knowledge"):
         import pymysql
 
         self._pymysql = pymysql
+        self._collection = collection
         self._conn_kwargs = dict(host=host, port=port, user=user,
                                  password=password, database=database,
                                  charset="utf8mb4", autocommit=True,
@@ -95,14 +103,14 @@ class MariaGraphStore:
         with self._connect() as conn, conn.cursor() as cur:
             for e in entities:
                 cur.execute(
-                    "INSERT INTO entities (normalized_name, display_name, type, confidence) "
-                    "VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
+                    "INSERT INTO entities (collection, normalized_name, display_name, type, confidence) "
+                    "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
                     "display_name=VALUES(display_name), type=VALUES(type), "
                     "confidence=GREATEST(confidence, VALUES(confidence))",
-                    (e.normalized_name, e.display_name, e.type, e.confidence))
+                    (self._collection, e.normalized_name, e.display_name, e.type, e.confidence))
                 cur.execute(
-                    "INSERT IGNORE INTO entity_chunks (normalized_name, chunk_id) "
-                    "VALUES (%s, %s)", (e.normalized_name, e.chunk_id))
+                    "INSERT IGNORE INTO entity_chunks (collection, normalized_name, chunk_id) "
+                    "VALUES (%s, %s, %s)", (self._collection, e.normalized_name, e.chunk_id))
 
     def upsert_edges(self, edges: list[Edge]) -> None:
         if not edges:
@@ -110,10 +118,10 @@ class MariaGraphStore:
         with self._connect() as conn, conn.cursor() as cur:
             for e in edges:
                 cur.execute(
-                    "INSERT INTO edges (src, dst, relation_type, chunk_id, confidence) "
-                    "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
+                    "INSERT INTO edges (collection, src, dst, relation_type, chunk_id, confidence) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
                     "confidence=GREATEST(confidence, VALUES(confidence))",
-                    (e.src, e.dst, e.relation_type, e.chunk_id, e.confidence))
+                    (self._collection, e.src, e.dst, e.relation_type, e.chunk_id, e.confidence))
 
     def delete_for_chunks(self, chunk_ids: Iterable[str]) -> None:
         ids = list(chunk_ids)
@@ -121,23 +129,36 @@ class MariaGraphStore:
             return
         placeholders = ", ".join(["%s"] * len(ids))
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute(f"DELETE FROM edges WHERE chunk_id IN ({placeholders})", ids)
             cur.execute(
-                f"DELETE FROM entity_chunks WHERE chunk_id IN ({placeholders})", ids)
-            # Drop entities no longer referenced by any chunk.
+                f"DELETE FROM edges WHERE collection=%s AND chunk_id IN ({placeholders})",
+                [self._collection] + ids)
             cur.execute(
-                "DELETE FROM entities WHERE normalized_name NOT IN "
-                "(SELECT normalized_name FROM entity_chunks)")
+                f"DELETE FROM entity_chunks WHERE collection=%s AND chunk_id IN ({placeholders})",
+                [self._collection] + ids)
+            # Drop entities no longer referenced by any chunk in this collection.
+            cur.execute(
+                "DELETE FROM entities WHERE collection=%s AND normalized_name NOT IN "
+                "(SELECT normalized_name FROM entity_chunks WHERE collection=%s)",
+                (self._collection, self._collection))
+
+    def delete_collection(self, name: str) -> None:
+        """Delete all graph data for the named collection (used by the API drop path)."""
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM edges WHERE collection=%s", (name,))
+            cur.execute("DELETE FROM entity_chunks WHERE collection=%s", (name,))
+            cur.execute("DELETE FROM entities WHERE collection=%s", (name,))
 
     def _get_entity_with_cur(self, cur, normalized_name: str) -> Optional[dict]:
         """Fetch an entity using an already-open cursor (no new connection)."""
         cur.execute("SELECT normalized_name, display_name, type, confidence "
-                    "FROM entities WHERE normalized_name=%s", (normalized_name,))
+                    "FROM entities WHERE collection=%s AND normalized_name=%s",
+                    (self._collection, normalized_name))
         row = cur.fetchone()
         if not row:
             return None
-        cur.execute("SELECT chunk_id FROM entity_chunks WHERE normalized_name=%s",
-                    (normalized_name,))
+        cur.execute("SELECT chunk_id FROM entity_chunks "
+                    "WHERE collection=%s AND normalized_name=%s",
+                    (self._collection, normalized_name))
         chunk_ids = [r["chunk_id"] for r in cur.fetchall()]
         return {"name": row["display_name"], "normalized_name": row["normalized_name"],
                 "type": row["type"], "confidence": row["confidence"],
@@ -166,8 +187,8 @@ class MariaGraphStore:
                 for norm in frontier:
                     for direction, col, other in (("out", "src", "dst"), ("in", "dst", "src")):
                         sql = (f"SELECT {other} AS other, relation_type FROM edges "
-                               f"WHERE {col}=%s")
-                        params = [norm]
+                               f"WHERE collection=%s AND {col}=%s")
+                        params = [self._collection, norm]
                         if relation_type:
                             sql += " AND relation_type=%s"
                             params.append(relation_type)
@@ -186,13 +207,13 @@ class MariaGraphStore:
         return {"entity": root, "neighbors": collected}
 
     def list_entities(self, type=None, q=None, limit=50):
-        clauses, params = [], []
+        clauses, params = ["collection=%s"], [self._collection]
         if type:
             clauses.append("type=%s"); params.append(type)
         if q:
             clauses.append("normalized_name LIKE %s")
             params.append(f"%{q.lower().strip()}%")
-        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        where = " WHERE " + " AND ".join(clauses)
         params.append(max(1, min(500, limit)))
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT normalized_name, display_name, type FROM entities"

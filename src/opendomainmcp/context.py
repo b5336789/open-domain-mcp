@@ -40,6 +40,7 @@ def build_context(settings: Settings | None = None, collection: str | None = Non
         host=settings.graph_db_host, port=settings.graph_db_port,
         user=settings.graph_db_user, password=settings.graph_db_password,
         database=settings.graph_db_name,
+        collection=collection or settings.collection_name,
     )
     # Fail loud: required platform dependency. A clear error beats a late failure
     # deep inside ingestion.

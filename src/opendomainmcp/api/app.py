@@ -373,6 +373,7 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     @app.delete("/api/collections/{name}")
     def delete_collection(name: str, ctx: Context = Depends(get_ctx)):
         ctx.store.drop_collection(name)
+        ctx.graph.delete_collection(name)
         app.state.contexts.pop(name, None)
         return {"deleted": name}
 

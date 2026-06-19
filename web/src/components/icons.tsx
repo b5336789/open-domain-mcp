@@ -176,3 +176,26 @@ export const IconSimulator = (p: IconProps) => (
     <path d="M5 3v18l15-9z" />
   </Base>
 );
+
+export const IconGraph = (p: IconProps) => (
+  <Base {...p}>
+    <circle cx="5" cy="6" r="2.5" />
+    <circle cx="19" cy="6" r="2.5" />
+    <circle cx="12" cy="18" r="2.5" />
+    <path d="M7 7.5 10.5 16M17 7.5 13.5 16M7.5 6h9" />
+  </Base>
+);
+
+export const IconMetrics = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M3 3v18h18" />
+    <path d="M7 15l3-4 3 3 4-6" />
+  </Base>
+);
+
+export const IconAdvisor = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.3 1 2.1V17h6v-1.4c0-.8.4-1.5 1-2.1A6 6 0 0 0 12 3z" />
+    <path d="M9 21h6" />
+  </Base>
+);

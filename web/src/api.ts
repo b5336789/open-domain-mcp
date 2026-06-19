@@ -83,6 +83,95 @@ export interface SimulateResult {
   grounding: { hits: number; avg_score: number; knowledge_types: string[] };
 }
 
+// --- Knowledge graph -----------------------------------------------------
+export interface GraphEntity {
+  name: string;
+  normalized_name: string;
+  type: string;
+  confidence?: number;
+  aliases?: string[];
+  chunk_ids?: string[];
+}
+
+export interface GraphNeighbor {
+  entity: GraphEntity;
+  relation_type: string;
+  direction: "in" | "out";
+}
+
+export interface GraphNeighbors {
+  entity: GraphEntity | null;
+  neighbors: GraphNeighbor[];
+}
+
+export interface EntityRef {
+  name: string;
+  normalized_name: string;
+  type: string;
+}
+
+export interface WorkflowStep {
+  order: number;
+  text: string;
+  precondition: string;
+  chunk_id: string;
+}
+
+export interface GraphWorkflow {
+  workflow_name: string;
+  prerequisites: string[];
+  steps: WorkflowStep[];
+}
+
+export interface WorkflowRef {
+  name: string;
+}
+
+// --- Metrics -------------------------------------------------------------
+export interface MetricsView {
+  product: {
+    published_mcps: number;
+    knowledge_objects: number;
+    indexed_sources: number;
+  };
+  agent: {
+    total_events: number;
+    grounding_hit_rate: number;
+    avg_hits: number;
+    avg_score: number;
+    retrieval_precision: number;
+  };
+}
+
+// --- Pre-Execution Advisor ----------------------------------------------
+export interface AdviseResult {
+  action: string;
+  workflow: SearchResult[];
+  risks: SearchResult[];
+  permissions: SearchResult[];
+  dependencies: SearchResult[];
+  constraints: SearchResult[];
+  graph_workflow: GraphWorkflow | null;
+  summary: { counts: Record<string, number>; knowledge_types: string[] };
+}
+
+// --- Source registry -----------------------------------------------------
+export interface SourceInfo {
+  source: string;
+  chunks: number;
+  kinds: string[];
+  review: { approved: number; pending: number; rejected: number; unset: number };
+}
+
+// --- Dynamic MCP endpoints ----------------------------------------------
+export interface McpEndpoint {
+  view: string;
+  title: string;
+  path: string;
+  published: boolean;
+  url: string;
+}
+
 // Knowledge classification vocabulary, kept in sync with the backend.
 export const KNOWLEDGE_TYPES = [
   "Feature", "Workflow", "API", "Permission", "Constraint", "Error",
@@ -223,6 +312,75 @@ export const api = {
       method: "DELETE",
       headers: headers(),
     }).then(json<{ deleted: string }>),
+
+  // -- knowledge graph ----------------------------------------------------
+  graphEntities: (q?: string, type?: string, limit = 100) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (q) params.set("q", q);
+    if (type) params.set("type", type);
+    return fetch(withCollection(`/api/graph/entities?${params}`), { headers: headers() }).then(
+      json<{ items: EntityRef[] }>
+    );
+  },
+
+  graphEntity: (name: string) =>
+    fetch(withCollection(`/api/graph/entity/${encodeURIComponent(name)}`), {
+      headers: headers(),
+    }).then(json<GraphNeighbors>),
+
+  graphWorkflows: (q?: string, limit = 100) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (q) params.set("q", q);
+    return fetch(withCollection(`/api/graph/workflows?${params}`), { headers: headers() }).then(
+      json<{ items: WorkflowRef[] }>
+    );
+  },
+
+  graphWorkflow: (name: string) =>
+    fetch(withCollection(`/api/graph/workflow/${encodeURIComponent(name)}`), {
+      headers: headers(),
+    }).then(json<GraphWorkflow>),
+
+  // -- metrics ------------------------------------------------------------
+  metrics: () => fetch(withCollection("/api/metrics"), { headers: headers() }).then(json<MetricsView>),
+
+  // -- pre-execution advisor ---------------------------------------------
+  advise: (action: string, top_k = 5) =>
+    fetch("/api/advise", {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ action, top_k }),
+    }).then(json<AdviseResult>),
+
+  // -- source registry ----------------------------------------------------
+  sources: () =>
+    fetch(withCollection("/api/sources"), { headers: headers() }).then(
+      json<{ sources: SourceInfo[] }>
+    ),
+
+  deleteSource: (source: string) =>
+    fetch(withCollection("/api/sources"), {
+      method: "DELETE",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ source }),
+    }).then(json<{ deleted: number; source: string }>),
+
+  // -- dynamic MCP endpoints ---------------------------------------------
+  mcpEndpoints: () =>
+    fetch("/api/mcp/endpoints", { headers: headers() }).then(json<McpEndpoint[]>),
+
+  publishMcp: (view: string) =>
+    fetch("/api/mcp/endpoints", {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ view }),
+    }).then(json<McpEndpoint>),
+
+  unpublishMcp: (view: string) =>
+    fetch(`/api/mcp/endpoints/${encodeURIComponent(view)}`, {
+      method: "DELETE",
+      headers: headers(),
+    }).then(json<{ unpublished: string }>),
 };
 
 // Stream a cited answer via Server-Sent Events. Answer text arrives as "delta"

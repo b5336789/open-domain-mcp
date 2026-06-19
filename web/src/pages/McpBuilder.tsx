@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { api, getActiveCollection, ViewsMap } from "../api";
+import { api, getActiveCollection, McpEndpoint, ViewsMap } from "../api";
 import {
   Badge,
   Button,
   Card,
+  EmptyState,
+  IconButton,
   PageHeader,
   Skeleton,
   useToast,
@@ -18,16 +20,28 @@ export default function McpBuilder() {
   const [policy, setPolicy] = useState<Record<string, string | number | boolean>>({});
   const [saving, setSaving] = useState(false);
   const [published, setPublished] = useState<string | null>(null);
+  const [endpoints, setEndpoints] = useState<McpEndpoint[] | null>(null);
   const toast = useToast();
 
   useEffect(() => {
     api.views().then(setViews).catch((e) => toast.show(String(e), "red"));
+    api
+      .mcpEndpoints()
+      .then(setEndpoints)
+      .catch((e) => toast.show(String(e), "red"));
     api.getSettings().then((s) => {
       const p: Record<string, string | number | boolean> = {};
       for (const k of POLICY_KEYS) if (k in s.editable) p[k] = s.editable[k];
       setPolicy(p);
     });
   }, []);
+
+  // Replace a single endpoint row immutably after a publish/unpublish toggle.
+  function updateEndpoint(next: McpEndpoint) {
+    setEndpoints((prev) =>
+      prev ? prev.map((e) => (e.view === next.view ? next : e)) : prev,
+    );
+  }
 
   async function savePolicy() {
     setSaving(true);
@@ -86,6 +100,44 @@ export default function McpBuilder() {
             Save policy
           </Button>
         </div>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            HTTP endpoints
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Publish a view to serve it live over HTTP (SSE) at its endpoint URL.
+          </p>
+        </div>
+
+        {!endpoints && (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        )}
+
+        {endpoints && endpoints.length === 0 && (
+          <EmptyState
+            title="No MCP views available"
+            hint="Define a view to publish it as an HTTP endpoint."
+          />
+        )}
+
+        {endpoints && endpoints.length > 0 && (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {endpoints.map((endpoint) => (
+              <EndpointRow
+                key={endpoint.view}
+                endpoint={endpoint}
+                onChange={updateEndpoint}
+              />
+            ))}
+          </div>
+        )}
       </Card>
 
       {!views && (
@@ -183,6 +235,86 @@ function Toggle({
   );
 }
 
+interface EndpointRowProps {
+  endpoint: McpEndpoint;
+  onChange: (next: McpEndpoint) => void;
+}
+
+function EndpointRow({ endpoint, onChange }: EndpointRowProps) {
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const toast = useToast();
+
+  function copy() {
+    navigator.clipboard.writeText(endpoint.url).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => toast.show("Copy failed", "red"),
+    );
+  }
+
+  async function toggle() {
+    setBusy(true);
+    try {
+      if (endpoint.published) {
+        await api.unpublishMcp(endpoint.view);
+        onChange({ ...endpoint, published: false });
+        toast.show(`Unpublished ${endpoint.title}`, "neutral");
+      } else {
+        const next = await api.publishMcp(endpoint.view);
+        onChange(next);
+        toast.show(`Published ${next.title}`, "green");
+      }
+    } catch (e) {
+      toast.show(String(e), "red");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-slate-900 dark:text-white">
+            {endpoint.title}
+          </span>
+          <Badge tone={endpoint.published ? "green" : "neutral"}>
+            {endpoint.published ? "published" : "unpublished"}
+          </Badge>
+        </div>
+        <div className="mt-1 flex items-center gap-1.5">
+          <code className="scroll-thin overflow-auto rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            {endpoint.url}
+          </code>
+          <IconButton
+            onClick={copy}
+            aria-label="Copy endpoint URL"
+            className="h-7 w-7 shrink-0"
+          >
+            {copied ? (
+              <IconCheck className="h-3.5 w-3.5" />
+            ) : (
+              <IconCopy className="h-3.5 w-3.5" />
+            )}
+          </IconButton>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant={endpoint.published ? "danger" : "primary"}
+        loading={busy}
+        disabled={busy}
+        onClick={toggle}
+      >
+        {endpoint.published ? "Unpublish" : "Publish"}
+      </Button>
+    </div>
+  );
+}
+
 function PublishSnippet({ view }: { view: string }) {
   const collection = getActiveCollection();
   const colArg = collection ? ` --collection ${collection}` : "";
@@ -214,7 +346,7 @@ function PublishSnippet({ view }: { view: string }) {
 
   return (
     <div className="mt-3 space-y-2">
-      <div className="text-xs font-medium text-slate-500">Run the server</div>
+      <div className="text-xs font-medium text-slate-500">Local (stdio)</div>
       <pre className="scroll-thin overflow-auto rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-700 dark:bg-slate-950/60 dark:text-slate-300">
         {command}
       </pre>

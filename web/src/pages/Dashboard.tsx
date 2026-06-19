@@ -1,12 +1,23 @@
 import { ReactNode, useEffect, useState } from "react";
-import { api, Stats } from "../api";
-import { Badge, Card, PageHeader, Skeleton } from "../components/ui";
+import { api, SourceInfo, Stats } from "../api";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  Modal,
+  PageHeader,
+  Skeleton,
+  useToast,
+} from "../components/ui";
 import {
   IconDashboard,
   IconDatabase,
   IconExplore,
   IconIngest,
   IconSparkle,
+  IconTrash,
 } from "../components/icons";
 
 const STAGES = [
@@ -21,6 +32,10 @@ const STAGES = [
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sources, setSources] = useState<SourceInfo[] | null>(null);
+  const [pending, setPending] = useState<SourceInfo | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     api
@@ -28,6 +43,34 @@ export default function Dashboard() {
       .then(setStats)
       .catch((e) => setError(String(e)));
   }, []);
+
+  useEffect(() => {
+    api
+      .sources()
+      .then((r) => setSources(r.sources))
+      .catch(() => setSources([]));
+  }, []);
+
+  async function confirmDelete() {
+    if (!pending) return;
+    const target = pending.source;
+    setDeleting(true);
+    try {
+      const { deleted } = await api.deleteSource(target);
+      setSources((prev) =>
+        prev ? prev.filter((s) => s.source !== target) : prev,
+      );
+      toast.show(`Removed ${target} (${deleted} chunks)`, "green");
+      setPending(null);
+    } catch (e) {
+      toast.show(
+        e instanceof Error ? e.message : `Failed to remove ${target}`,
+        "red",
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -114,6 +157,148 @@ export default function Dashboard() {
           />
         </section>
       )}
+
+      <Card className="p-5">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+          <IconDatabase className="h-4 w-4" /> Sources
+          {sources && (
+            <span className="text-slate-400 dark:text-slate-500">
+              ({sources.length})
+            </span>
+          )}
+        </h3>
+
+        {!sources && (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5 dark:border-slate-800"
+              >
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="ml-auto h-4 w-16" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {sources && sources.length === 0 && (
+          <EmptyState
+            icon={<IconIngest className="h-6 w-6" />}
+            title="No sources ingested yet"
+            hint="Use the Ingest page to add files to this knowledge base."
+          />
+        )}
+
+        {sources && sources.length > 0 && (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {sources.map((s) => (
+              <SourceRow
+                key={s.source}
+                source={s}
+                onDelete={() => setPending(s)}
+                disabled={deleting}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {pending && (
+        <Modal
+          title="Delete source"
+          onClose={() => !deleting && setPending(null)}
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setPending(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmDelete}
+                loading={deleting}
+                disabled={deleting}
+              >
+                Delete
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Delete all {pending.chunks.toLocaleString()} chunks from{" "}
+            <span className="break-all font-mono text-slate-900 dark:text-white">
+              {pending.source}
+            </span>
+            ?
+          </p>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+interface ReviewBucket {
+  key: "approved" | "pending" | "rejected";
+  count: number;
+  tone: "green" | "amber" | "red";
+}
+
+function SourceRow({
+  source,
+  onDelete,
+  disabled,
+}: {
+  source: SourceInfo;
+  onDelete: () => void;
+  disabled: boolean;
+}) {
+  const buckets: ReviewBucket[] = [
+    { key: "approved", count: source.review.approved, tone: "green" },
+    { key: "pending", count: source.review.pending, tone: "amber" },
+    { key: "rejected", count: source.review.rejected, tone: "red" },
+  ];
+  const visibleBuckets = buckets.filter((b) => b.count > 0);
+
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <div
+          className="truncate font-mono text-sm text-slate-900 dark:text-slate-100"
+          title={source.source}
+        >
+          {source.source}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {source.kinds.map((kind) => (
+            <Badge key={kind} tone="neutral">
+              {kind}
+            </Badge>
+          ))}
+          {visibleBuckets.map((b) => (
+            <Badge key={b.key} tone={b.tone}>
+              {b.key} {b.count}
+            </Badge>
+          ))}
+        </div>
+      </div>
+      <div className="shrink-0 text-right text-sm tabular-nums text-slate-500 dark:text-slate-400">
+        {source.chunks.toLocaleString()}
+        <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">
+          chunks
+        </span>
+      </div>
+      <IconButton
+        onClick={onDelete}
+        disabled={disabled}
+        aria-label={`Delete ${source.source}`}
+        className="hover:text-red-600 dark:hover:text-red-400"
+      >
+        <IconTrash className="h-4 w-4" />
+      </IconButton>
     </div>
   );
 }

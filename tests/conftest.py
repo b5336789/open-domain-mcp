@@ -120,6 +120,8 @@ class FakeGraphStore:
                 "entities": {},
                 "entity_chunks": {},
                 "edges": [],
+                "workflow_steps": [],    # list of dicts
+                "workflow_prereqs": [],  # list of dicts
             }
         return self._backing[self._collection]
 
@@ -157,6 +159,8 @@ class FakeGraphStore:
             if not slot["entity_chunks"][norm]:
                 del slot["entity_chunks"][norm]
                 slot["entities"].pop(norm, None)
+        slot["workflow_steps"] = [r for r in slot["workflow_steps"] if r["chunk_id"] not in ids]
+        slot["workflow_prereqs"] = [r for r in slot["workflow_prereqs"] if r["chunk_id"] not in ids]
 
     def delete_collection(self, name: str):
         """Remove all data for the named collection slice."""
@@ -204,6 +208,55 @@ class FakeGraphStore:
                                           "direction": direction})
             frontier = nxt
         return {"entity": root, "neighbors": collected}
+
+    def upsert_workflow(self, workflow_name, chunk_id, chunk_index, steps, prerequisites):
+        if not workflow_name or (not steps and not prerequisites):
+            return
+        from opendomainmcp.graph.normalize import normalize_name
+        key = normalize_name(workflow_name)
+        slot = self._slot()
+        sidx = {(r["workflow_key"], r["chunk_id"], r["step_order"]): r
+                for r in slot["workflow_steps"]}
+        for s in steps:
+            sidx[(key, chunk_id, s.step_order)] = {
+                "workflow_key": key, "workflow_name": workflow_name, "chunk_id": chunk_id,
+                "chunk_index": chunk_index, "step_order": s.step_order,
+                "text": s.text, "precondition": s.precondition}
+        slot["workflow_steps"] = list(sidx.values())
+        pidx = {(r["workflow_key"], r["chunk_id"], r["prerequisite"]): r
+                for r in slot["workflow_prereqs"]}
+        for p in prerequisites:
+            pidx[(key, chunk_id, p)] = {"workflow_key": key, "chunk_id": chunk_id,
+                                        "prerequisite": p}
+        slot["workflow_prereqs"] = list(pidx.values())
+
+    def get_workflow(self, name):
+        from opendomainmcp.graph.normalize import normalize_name
+        key = normalize_name(name)
+        slot = self._slot()
+        rows = sorted((r for r in slot["workflow_steps"] if r["workflow_key"] == key),
+                      key=lambda r: (r["chunk_index"], r["step_order"]))
+        prereqs = []
+        for r in slot["workflow_prereqs"]:
+            if r["workflow_key"] == key and r["prerequisite"] not in prereqs:
+                prereqs.append(r["prerequisite"])
+        if not rows and not prereqs:
+            return None
+        display = rows[0]["workflow_name"] if rows else name
+        steps = [{"order": r["step_order"], "text": r["text"],
+                  "precondition": r["precondition"], "chunk_id": r["chunk_id"]}
+                 for r in rows]
+        return {"workflow_name": display, "prerequisites": prereqs, "steps": steps}
+
+    def list_workflows(self, q=None, limit=50):
+        slot = self._slot()
+        names = {}
+        for r in slot["workflow_steps"]:
+            if q and q.lower().strip() not in r["workflow_key"]:
+                continue
+            names[r["workflow_key"]] = r["workflow_name"]
+        out = [{"name": n} for _, n in sorted(names.items())]
+        return out[:max(1, min(500, limit))]
 
     def list_entities(self, type=None, q=None, limit=50):
         slot = self._slot()

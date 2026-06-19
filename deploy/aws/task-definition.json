@@ -1,0 +1,93 @@
+{
+  "family": "open-domain-mcp-web",
+  "taskRoleArn": "arn:aws:iam::334317074103:role/open-domain-mcp-ecs-task",
+  "executionRoleArn": "arn:aws:iam::334317074103:role/open-domain-mcp-ecs-execution",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "1024",
+  "memory": "2048",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "open-domain-mcp-web",
+      "image": "334317074103.dkr.ecr.ap-east-2.amazonaws.com/open-domain-mcp:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ODM_WEB_HOST",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "ODM_WEB_PORT",
+          "value": "8000"
+        },
+        {
+          "name": "ODM_DATA_DIR",
+          "value": "/data/opendomain"
+        },
+        {
+          "name": "ODM_GRAPH_DB_HOST",
+          "value": "open-domain-mcp-db.c9ok44ak0wmz.ap-east-2.rds.amazonaws.com"
+        },
+        {
+          "name": "ODM_GRAPH_DB_PORT",
+          "value": "3306"
+        },
+        {
+          "name": "ODM_GRAPH_DB_USER",
+          "value": "opendomain"
+        },
+        {
+          "name": "ODM_GRAPH_DB_NAME",
+          "value": "opendomain_graph"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "ODM_GRAPH_DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-east-2:334317074103:secret:open-domain-mcp/rds/password-JG1BB5"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "opendomain-data",
+          "containerPath": "/data/opendomain",
+          "readOnly": false
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/open-domain-mcp-web",
+          "awslogs-region": "ap-east-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "opendomain-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-047117cca0ea5c82b",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": {
+          "accessPointId": "fsap-0e58045b3846e8717",
+          "iam": "ENABLED"
+        }
+      }
+    }
+  ]
+}

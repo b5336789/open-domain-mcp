@@ -27,6 +27,9 @@ def test_get_entity_endpoint_returns_entity_and_neighbors(store, fake_graph):
 def test_get_entity_endpoint_404_for_missing(store, fake_graph):
     resp = _client(store, fake_graph).get("/api/graph/entity/nope")
     assert resp.status_code == 404
+    body = resp.json()
+    assert "error" in body
+    assert "nope" in body["error"]
 
 
 def test_list_entities_endpoint_returns_items(store, fake_graph):
@@ -51,3 +54,10 @@ def test_list_entities_endpoint_filters_by_q(store, fake_graph):
     body = resp.json()
     assert len(body["items"]) == 1
     assert body["items"][0]["normalized_name"] == "auth service"
+
+
+def test_list_entities_endpoint_respects_limit(store, fake_graph):
+    resp = _client(store, fake_graph).get("/api/graph/entities?limit=1")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["items"]) == 1

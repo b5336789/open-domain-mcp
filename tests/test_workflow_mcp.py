@@ -20,3 +20,9 @@ def test_get_workflow_steps_tool(store, fake_graph):
 def test_list_workflows_tool(store, fake_graph):
     h = graph_tool_handlers(_ctx(store, fake_graph))
     assert h["list_workflows"]() == [{"name": "Deploy"}]
+
+
+def test_get_workflow_steps_tool_missing(store, fake_graph):
+    h = graph_tool_handlers(_ctx(store, fake_graph))
+    out = h["get_workflow_steps"](name="missing")
+    assert out == {"workflow_name": "missing", "prerequisites": [], "steps": []}

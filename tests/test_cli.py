@@ -2,9 +2,9 @@ from opendomainmcp import cli
 from opendomainmcp.context import Context
 
 
-def test_cli_ingest_search_stats(monkeypatch, capsys, tmp_path, store, pipeline):
+def test_cli_ingest_search_stats(monkeypatch, capsys, tmp_path, store, pipeline, fake_graph):
     (tmp_path / "calc.py").write_text("def add(a, b):\n    return a + b\n")
-    ctx = Context(settings=pipeline._settings, store=store, pipeline=pipeline)
+    ctx = Context(settings=pipeline._settings, store=store, pipeline=pipeline, graph=fake_graph)
     monkeypatch.setattr(cli, "build_context", lambda: ctx)
 
     assert cli.main(["ingest", str(tmp_path)]) == 0

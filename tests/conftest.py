@@ -93,12 +93,12 @@ def fake_extractor():
 
 
 @pytest.fixture
-def pipeline(store, fake_extractor):
+def pipeline(store, fake_extractor, fake_graph):
     from opendomainmcp.config import Settings
     from opendomainmcp.ingest.pipeline import Pipeline
 
     settings = Settings(chunk_size=200, chunk_overlap=20)
-    return Pipeline(store, fake_extractor, settings)
+    return Pipeline(store, fake_extractor, settings, graph=fake_graph)
 
 
 class FakeGraphStore:

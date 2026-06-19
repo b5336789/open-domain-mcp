@@ -65,13 +65,17 @@ class IngestReport:
 
 
 class Pipeline:
-    def __init__(self, store, extractor, settings, splitter: Optional[RecursiveTextSplitter] = None):
+    def __init__(self, store, extractor, settings,
+                 splitter: Optional[RecursiveTextSplitter] = None, graph=None):
+        from ..graph.store import NullGraphStore
+
         self._store = store
         self._extractor = extractor
         self._settings = settings
         self._splitter = splitter or RecursiveTextSplitter(
             settings.chunk_size, settings.chunk_overlap
         )
+        self._graph = graph or NullGraphStore()
 
     # -- public API -----------------------------------------------------
     def ingest_path(
@@ -189,15 +193,27 @@ class Pipeline:
         stale = self._store.get_ids_for_source(str(path)) - new_ids
         if stale:
             self._store.delete_ids(stale)
+            self._graph.delete_for_chunks(stale)
             report.chunks_pruned += len(stale)
             self._emit(progress, "prune", str(path), detail=f"{len(stale)} stale")
 
         self._emit(progress, "embed", str(path))
         stored = self._store.upsert(chunks)
+        self._write_graph(chunks)
         self._emit(progress, "store", str(path), detail=f"{stored} chunks")
 
         report.files_indexed += 1
         report.chunks_indexed += stored
+
+    def _write_graph(self, chunks: list[Chunk]) -> None:
+        from ..graph.builder import build_graph
+
+        for chunk in chunks:
+            if not (chunk.knowledge and not chunk.knowledge.is_empty()):
+                continue
+            entities, edges = build_graph(chunk.knowledge, chunk.id)
+            self._graph.upsert_entities(entities)
+            self._graph.upsert_edges(edges)
 
     def _extract_all(self, chunks: list[Chunk], path: Path, report: IngestReport):
         """Extract knowledge for each chunk, in parallel when configured.
@@ -236,7 +252,9 @@ class Pipeline:
             if source in seen:
                 continue
             if source == str(root) or source.startswith(prefix):
-                removed = self._store.delete_ids(self._store.get_ids_for_source(source))
+                ids = self._store.get_ids_for_source(source)
+                removed = self._store.delete_ids(ids)
+                self._graph.delete_for_chunks(ids)
                 report.chunks_pruned += removed
                 self._emit(progress, "prune", source, detail="file removed")
 

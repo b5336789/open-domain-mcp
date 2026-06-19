@@ -9,9 +9,9 @@ from opendomainmcp.context import Context
 
 
 @pytest.fixture
-def client(store, pipeline, tmp_path):
+def client(store, pipeline, fake_graph, tmp_path):
     settings = Settings(data_dir=tmp_path)
-    ctx = Context(settings=settings, store=store, pipeline=pipeline)
+    ctx = Context(settings=settings, store=store, pipeline=pipeline, graph=fake_graph)
     app = create_app(context=ctx, context_factory=lambda: ctx)
     return TestClient(app), ctx, tmp_path
 
@@ -118,9 +118,9 @@ def test_upload_streams_to_disk(client):
     assert written.read_bytes() == payload  # full content reached disk intact
 
 
-def test_upload_over_limit_rejected(store, pipeline, tmp_path):
+def test_upload_over_limit_rejected(store, pipeline, fake_graph, tmp_path):
     settings = Settings(data_dir=tmp_path, max_upload_mb=1)
-    ctx = Context(settings=settings, store=store, pipeline=pipeline)
+    ctx = Context(settings=settings, store=store, pipeline=pipeline, graph=fake_graph)
     tc = TestClient(create_app(context=ctx, context_factory=lambda: ctx))
 
     payload = b"y" * (2 * 1024 * 1024)  # 2 MB, over the 1 MB limit
@@ -186,9 +186,9 @@ def test_manual_add_item_is_approved(client):
     assert created["metadata"]["audience"] == "product_manager"
 
 
-def test_search_approved_only_policy(store, pipeline, tmp_path):
+def test_search_approved_only_policy(store, pipeline, fake_graph, tmp_path):
     settings = Settings(data_dir=tmp_path, retrieve_approved_only=True)
-    ctx = Context(settings=settings, store=store, pipeline=pipeline)
+    ctx = Context(settings=settings, store=store, pipeline=pipeline, graph=fake_graph)
     tc = TestClient(create_app(context=ctx, context_factory=lambda: ctx))
     from opendomainmcp.models import Chunk, KnowledgeUnit
 

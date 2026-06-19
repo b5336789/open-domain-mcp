@@ -15,10 +15,10 @@
 |------|--------|--------|
 | Phase 0–1（基礎平台） | 18 | 18 ✅ |
 | Phase 2（M1–M5 typed knowledge） | 22 | 22 ✅ |
-| Phase 2 收尾缺口 | 6 | 0 ⬜ |
+| Phase 2 收尾缺口 | 6 | 3 🔶 |
 | Phase 3（Graphs） | 9 | 0 ⬜ |
-| Phase 4（Pre-Execution Advisor + Metrics） | 8 | 0 ⬜ |
-| 工程品質與強化 | 7 | 0 ⬜ |
+| Phase 4（Pre-Execution Advisor + Metrics） | 8 | 2 🔶 |
+| 工程品質與強化 | 7 | 1 🔶 |
 
 ---
 
@@ -108,11 +108,11 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 3.1 | ⬜ | Medium | GraphQL schema 擷取 | 解析 `.graphql`/SDL，每 type/query/mutation 一 chunk、預分類 API | 新增 `ingest/graphql.py`、`loader.py` |
+| 3.1 | ✅ | Medium | GraphQL schema 擷取 | 解析 `.graphql`/SDL，每 type/query/mutation 一 chunk、預分類 API | 新增 `ingest/graphql.py`、`loader.py` |
 | 3.2 | ⬜ | Low | Wiki export 擷取 | 支援 Confluence/MediaWiki 匯出（XML/HTML bundle） | `ingest/loader.py`、可能新增 `ingest/wiki.py` |
 | 3.3 | ⬜ | Low | 舊資料 review 回填 | CLI `backfill-review --status approved`，替既有 chunk 補 review_status | `cli.py`、`store/` |
-| 3.4 | ⬜ | Medium | Developer 視圖 symbol 精準化 | `get_class/get_function` 改用 symbol/node_type 精準查詢而非僅 kind=code | `views/__init__.py`、`store/build_where` |
-| 3.5 | ⬜ | Low | Version 欄位萃取 | prompt 與 `_parse` 補 `version`（目前欄位存在但未萃取） | `extract/knowledge.py` |
+| 3.4 | ✅ | Medium | Developer 視圖 symbol 精準化 | `get_class/get_function` 改用 symbol/node_type 精準查詢而非僅 kind=code | `views/__init__.py`、`store/build_where` |
+| 3.5 | ✅ | Low | Version 欄位萃取 | prompt 與 `_parse` 補 `version`（目前欄位存在但未萃取） | `extract/knowledge.py` |
 | 3.6 | ⬜ | Low | Workspace 來源登錄 | UI 記錄/管理已擷取來源清單（產品/來源/索引狀態） | `web/src/pages/Dashboard.tsx`、`api/app.py` |
 
 ---
@@ -168,11 +168,11 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 5.4 | ⬜ | Medium | 指標蒐集骨架 | 記錄檢索/問答事件（query、hits、scores、命中類型） | 新增 `metrics/` |
+| 5.4 | ✅ | Medium | 指標蒐集骨架 | 記錄檢索/問答事件（query、hits、scores、命中類型） | 新增 `metrics/` |
 | 5.5 | ⬜ | Low | Product 指標 | Published MCPs、Knowledge Objects、Indexed Sources 計數 | `metrics/`、`api/app.py` |
 | 5.6 | ⬜ | Low | Agent 指標 | Grounding Hit Rate、Retrieval Precision（延伸 Simulator 統計） | `metrics/`、`api/simulate` |
 | 5.7 | ⬜ | Medium | 指標儀表板 | 前端指標頁 | 新增 `web/src/pages/Metrics.tsx` |
-| 5.8 | ⬜ | Medium | 幻覺降低評測 | 建立離線評測集與 grounding 對照基準 | 新增 `evals/` |
+| 5.8 | ✅ | Medium | 幻覺降低評測 | 建立離線評測集與 grounding 對照基準 | 新增 `evals/` |
 
 ---
 
@@ -187,8 +187,101 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 | 6.3 | ⬜ | Medium | 多租戶隔離 | workspace/tenant 邊界與資料隔離 | `context.py`、`store/` |
 | 6.4 | ⬜ | Low | E2E 前端測試 | Review/Builder/Simulator 的端到端測試（Playwright） | 新增 `web/tests/` |
 | 6.5 | ⬜ | Low | CLI 擷取 Git/Zip 文件補強 | CLI `ingest` 說明與 help 補上新來源用法 | `cli.py`、`docs/` |
-| 6.6 | ⬜ | Low | OpenAPI 巢狀 $ref 解析 | 解析 `$ref` 以豐富 operation 文字 | `ingest/openapi.py` |
+| 6.6 | ✅ | Low | OpenAPI 巢狀 $ref 解析 | 解析 `$ref` 以豐富 operation 文字 | `ingest/openapi.py` |
 | 6.7 | ⬜ | Low | 觀測性/日誌 | 結構化日誌與基本 metrics endpoint（`/api/health` 擴充） | `api/app.py` |
+
+---
+
+## 相依性分析（Dependency Analysis）
+
+> 針對所有 ⬜ 未完成任務（30 項），分析彼此的前置相依，標出**可立即啟動**（無未完成前置）與**須等待**的任務，作為並行開發排程依據。
+>
+> 「前置」僅計入**尚未完成**的任務；所有任務皆已建立在 Phase 0–2 的完成基礎之上（embedder / store / pipeline / views / sources / api / web），故不重複列出。
+
+### 相依表
+
+| # | 任務 | 前置相依（未完成） | 可立即啟動 | 主要檔案（並行衝突面） |
+|---|------|--------------------|:---------:|------------------------|
+| 3.1 | GraphQL schema 擷取 | — | ✅ | `ingest/graphql.py`(新)、`loader.py` |
+| 3.2 | Wiki export 擷取 | — | ✅ | `ingest/wiki.py`(新)、`loader.py` |
+| 3.3 | 舊資料 review 回填 | — | ✅ | `cli.py`、`store/` |
+| 3.4 | Developer 視圖 symbol 精準化 | — | ✅ | `views/__init__.py`、`store/build_where` |
+| 3.5 | Version 欄位萃取 | — | ✅ | `extract/knowledge.py` |
+| 3.6 | Workspace 來源登錄 | — | ✅ | `web/Dashboard.tsx`、`api/app.py` |
+| 4.1 | 實體抽取與正規化 | — | ✅ | `graph/entities.py`(新) |
+| 4.2 | 圖儲存層 | — | ✅ | `graph/store.py`(新) |
+| 4.3 | 實體查詢 API/MCP | 4.1, 4.2 | ⬜ | `api/app.py`、`server.py` |
+| 4.4 | 程式碼相依抽取 | 4.2 | ⬜ | `graph/deps.py`(新)、`code_splitter.py` |
+| 4.5 | trace_dependency 升級 | 4.4 | ⬜ | `views/__init__.py`、`graph/` |
+| 4.6 | 工作流步驟抽取 | 4.2 | ⬜ | `graph/workflow.py`(新)、`extract/` |
+| 4.7 | 工作流查詢 | 4.6 | ⬜ | `api/app.py`、`server.py` |
+| 4.8 | 圖瀏覽 UI | 4.9 | ⬜ | `web/pages/Graph.tsx`(新) |
+| 4.9 | 圖 API 端點 | 4.2（資料來源 4.1/4.4/4.6） | ⬜ | `api/app.py` |
+| 5.1 | Advisor 彙整器 | —（Phase 3 可豐富，非硬相依） | ✅ | `advisor/`(新) |
+| 5.2 | Advisor MCP 工具 | 5.1 | ⬜ | `server.py`、`views/` |
+| 5.3 | Advisor API + UI | 5.1 | ⬜ | `api/app.py`、`web/pages/` |
+| 5.4 | 指標蒐集骨架 | — | ✅ | `metrics/`(新) |
+| 5.5 | Product 指標 | 5.4 | ⬜ | `metrics/`、`api/app.py` |
+| 5.6 | Agent 指標 | 5.4 | ⬜ | `metrics/`、`api/simulate` |
+| 5.7 | 指標儀表板 | 5.4, 5.5, 5.6 | ⬜ | `web/pages/Metrics.tsx`(新) |
+| 5.8 | 幻覺降低評測 | — | ✅ | `evals/`(新) |
+| 6.1 | 動態 MCP 端點發布 | — | ✅ | `server.py`、`api/app.py`、`McpBuilder.tsx` |
+| 6.2 | 權限/角色（RBAC） | — | ✅ | `api/app.py`、`config.py` |
+| 6.3 | 多租戶隔離 | — | ✅ | `context.py`、`store/` |
+| 6.4 | E2E 前端測試 | — | ✅ | `web/tests/`(新) |
+| 6.5 | CLI Git/Zip 文件補強 | — | ✅ | `cli.py`、`docs/` |
+| 6.6 | OpenAPI 巢狀 $ref 解析 | — | ✅ | `ingest/openapi.py` |
+| 6.7 | 觀測性/日誌 | — | ✅ | `api/app.py` |
+
+### 相依圖
+
+```mermaid
+flowchart LR
+    subgraph indep["無相依（可立即啟動）"]
+        T31["3.1 GraphQL"]; T32["3.2 Wiki"]; T33["3.3 回填"]
+        T34["3.4 symbol"]; T35["3.5 version"]; T36["3.6 來源登錄"]
+        T41["4.1 實體抽取"]; T42["4.2 圖儲存"]
+        T51["5.1 Advisor 彙整"]; T54["5.4 指標骨架"]; T58["5.8 評測"]
+        T61["6.1 動態端點"]; T62["6.2 RBAC"]; T63["6.3 多租戶"]
+        T64["6.4 E2E"]; T65["6.5 CLI 補強"]; T66["6.6 \$ref"]; T67["6.7 觀測性"]
+    end
+    T41 --> T43["4.3 實體查詢"]
+    T42 --> T43
+    T42 --> T44["4.4 相依抽取"] --> T45["4.5 trace 升級"]
+    T42 --> T46["4.6 工作流抽取"] --> T47["4.7 工作流查詢"]
+    T42 --> T49["4.9 圖 API"] --> T48["4.8 圖 UI"]
+    T51 --> T52["5.2 Advisor MCP"]
+    T51 --> T53["5.3 Advisor API+UI"]
+    T54 --> T55["5.5 Product 指標"]
+    T54 --> T56["5.6 Agent 指標"]
+    T54 --> T57["5.7 指標儀表板"]
+    T55 --> T57
+    T56 --> T57
+```
+
+### 結論
+
+- **無相依、可立即啟動：18 項** — 3.1–3.6、4.1、4.2、5.1、5.4、5.8、6.1–6.7。
+- **須等待前置：12 項** — 4.3、4.4、4.5、4.6、4.7、4.8、4.9、5.2、5.3、5.5、5.6、5.7。
+
+### 並行開發排程（避免檔案衝突）
+
+無相依的 18 項雖皆可獨立啟動，但部分**共用同一檔案**（如 `api/app.py`、`loader.py`、`views/__init__.py`、`store/`），同時改動會造成合併衝突。因此以「**每個共用檔案僅由一個任務持有**」為原則切成數個 wave，wave 內各任務檔案不重疊、可安全並行（每個 subagent 在獨立 git worktree 開發）。
+
+**Wave 1（檔案互斥，已並行完成 ✅）：** 6 個 subagent 各於獨立 git worktree 開發、各自跑過完整測試後合併回本分支；合併後全套件 **133 passed**（基線 106 + 新增 27 個測試），零回歸。
+
+| # | 任務 | 持有檔案 | 狀態 |
+|---|------|----------|------|
+| 3.1 | GraphQL 擷取 | `loader.py`、`pipeline.py`、`ingest/graphql.py`(新) | ✅ |
+| 3.4 | Developer 視圖 symbol | `views/__init__.py`、`store/chroma_store.py` | ✅ |
+| 3.5 | Version 欄位萃取 | `extract/knowledge.py`、`conftest.py` | ✅ |
+| 5.4 | 指標蒐集骨架 | `metrics/`(新) | ✅ |
+| 5.8 | 幻覺降低評測 | `evals/`(新) | ✅ |
+| 6.6 | OpenAPI $ref 解析 | `ingest/openapi.py` | ✅ |
+
+> 註：6.4（E2E 前端測試，Playwright）原列入 Wave 1，但此環境無瀏覽器/未建置前端無法驗證綠燈，移至後續 wave。
+
+**後續 wave（持有 `api/app.py` 等熱點檔，需序列化或分批）：** 3.2（`loader.py`，與 3.1 互斥）、3.3、3.6、4.1、4.2、5.1、6.1、6.2、6.3、6.5、6.7。
 
 ---
 
@@ -206,4 +299,4 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 ---
 
-_最後更新：2026-06-17_
+_最後更新：2026-06-18（加入相依性分析與並行排程；Wave 1 並行完成 3.1/3.4/3.5/5.4/5.8/6.6）_

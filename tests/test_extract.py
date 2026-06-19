@@ -57,6 +57,16 @@ def test_parse_tolerates_missing_classification_keys():
     assert k.confidence == 0.0
 
 
+def test_parse_version_field():
+    # Present: coerced to a stripped string.
+    k = _parse(
+        '{"summary": "s", "concepts": [], "relations": [], "version": " v2.3 "}'
+    )
+    assert k.version == "v2.3"
+    # Missing: defaults to empty string.
+    assert _parse('{"summary": "s", "concepts": [], "relations": []}').version == ""
+
+
 def test_null_extractor_disabled_via_settings():
     from opendomainmcp.config import Settings
     from opendomainmcp.extract import NullExtractor, get_extractor

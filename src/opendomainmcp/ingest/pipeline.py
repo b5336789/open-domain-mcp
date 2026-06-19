@@ -164,9 +164,14 @@ class Pipeline:
             chunks = split_code(doc.text, doc.language, str(path),
                                 self._settings.code_max_chunk_chars)
         elif doc.kind == "api":
-            from .openapi import split_openapi
+            if doc.language == "graphql":
+                from .graphql import split_graphql
 
-            chunks = split_openapi(doc.text, str(path))
+                chunks = split_graphql(doc.text, str(path))
+            else:
+                from .openapi import split_openapi
+
+                chunks = split_openapi(doc.text, str(path))
         else:
             chunks = [Chunk(text=t, source=str(path), kind="text")
                       for t in self._splitter.split(doc.text)]

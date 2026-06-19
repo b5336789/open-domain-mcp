@@ -30,6 +30,8 @@ _SYSTEM = (
     '  "audience": a list of the roles this helps, each one of '
     + ", ".join(AUDIENCES) + ",\n"
     '  "confidence": a number from 0 to 1 for how confident you are,\n'
+    '  "version": a version or release identifier if the snippet clearly '
+    'references one, else an empty string,\n'
     '  "tags": a list of 0-6 short free-form tags (may be empty),\n'
     '  "permissions": a list of permissions/roles required, if any (may be empty),\n'
     '  "references": a list of external identifiers it cites such as URLs, ticket '

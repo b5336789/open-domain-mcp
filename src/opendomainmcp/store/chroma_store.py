@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Scalar metadata fields that support exact-match Chroma filtering. ``audience``
 # is intentionally excluded: it is stored as a joined string (a chunk may serve
 # several audiences), so it is post-filtered in the view layer instead.
-_FILTER_FIELDS = ("kind", "language", "symbol", "knowledge_type", "review_status")
+_FILTER_FIELDS = ("kind", "language", "symbol", "node_type", "knowledge_type", "review_status")
 
 
 def build_where(filters: Optional[dict]) -> Optional[dict]:

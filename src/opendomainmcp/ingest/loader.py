@@ -55,6 +55,9 @@ class UnsupportedFileError(Exception):
 # Structured-spec extensions that may hold an OpenAPI/Swagger document.
 _SPEC_EXTENSIONS = {".json", ".yaml", ".yml"}
 
+# GraphQL SDL extensions, split per top-level definition like OpenAPI.
+_GRAPHQL_EXTENSIONS = {".graphql", ".graphqls", ".gql"}
+
 
 @dataclass
 class LoadedDoc:
@@ -127,6 +130,9 @@ def load_file(path: str | Path) -> LoadedDoc:
         return LoadedDoc(str(path), "text", _extract_docx(path))
     if ext in (".html", ".htm"):
         return LoadedDoc(str(path), "text", _extract_html(path))
+    if ext in _GRAPHQL_EXTENSIONS:
+        # GraphQL SDL is split per top-level definition (see graphql.py).
+        return LoadedDoc(str(path), "api", _read_utf8(path), "graphql")
     if ext in _SPEC_EXTENSIONS:
         # An OpenAPI/Swagger spec is split per-operation; other JSON/YAML is
         # treated as plain text.

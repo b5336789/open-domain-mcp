@@ -99,3 +99,81 @@ def pipeline(store, fake_extractor):
 
     settings = Settings(chunk_size=200, chunk_overlap=20)
     return Pipeline(store, fake_extractor, settings)
+
+
+class FakeGraphStore:
+    """In-memory GraphStoreProtocol implementation for offline tests."""
+
+    def __init__(self):
+        self.entities = {}                 # normalized_name -> dict
+        self.entity_chunks = {}            # normalized_name -> set(chunk_id)
+        self.edges = []                    # list of Edge
+
+    def ensure_schema(self):
+        pass
+
+    def upsert_entities(self, entities):
+        for e in entities:
+            cur = self.entities.get(e.normalized_name)
+            conf = max(e.confidence, cur["confidence"]) if cur else e.confidence
+            self.entities[e.normalized_name] = {
+                "name": e.display_name, "normalized_name": e.normalized_name,
+                "type": e.type, "confidence": conf}
+            self.entity_chunks.setdefault(e.normalized_name, set()).add(e.chunk_id)
+
+    def upsert_edges(self, edges):
+        self.edges.extend(edges)
+
+    def delete_for_chunks(self, chunk_ids):
+        ids = set(chunk_ids)
+        self.edges = [e for e in self.edges if e.chunk_id not in ids]
+        for norm in list(self.entity_chunks):
+            self.entity_chunks[norm] -= ids
+            if not self.entity_chunks[norm]:
+                del self.entity_chunks[norm]
+                self.entities.pop(norm, None)
+
+    def get_entity(self, name):
+        from opendomainmcp.graph.normalize import normalize_name
+        norm = normalize_name(name)
+        row = self.entities.get(norm)
+        if row is None:
+            return None
+        return {**row, "aliases": [], "chunk_ids": sorted(self.entity_chunks.get(norm, set()))}
+
+    def neighbors(self, name, relation_type=None, depth=1):
+        from opendomainmcp.graph.normalize import normalize_name
+        depth = max(1, min(2, depth))
+        root = self.get_entity(name)
+        if root is None:
+            return {"entity": None, "neighbors": []}
+        seen = {root["normalized_name"]}
+        frontier = [root["normalized_name"]]
+        collected = []
+        for _ in range(depth):
+            nxt = []
+            for norm in frontier:
+                for e in self.edges:
+                    if relation_type and e.relation_type != relation_type:
+                        continue
+                    if e.src == norm:
+                        other, direction = e.dst, "out"
+                    elif e.dst == norm:
+                        other, direction = e.src, "in"
+                    else:
+                        continue
+                    if other in seen:
+                        continue
+                    seen.add(other)
+                    nxt.append(other)
+                    ent = self.get_entity(other)
+                    if ent:
+                        collected.append({"entity": ent, "relation_type": e.relation_type,
+                                          "direction": direction})
+            frontier = nxt
+        return {"entity": root, "neighbors": collected}
+
+
+@pytest.fixture
+def fake_graph():
+    return FakeGraphStore()

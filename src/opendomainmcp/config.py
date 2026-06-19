@@ -91,6 +91,13 @@ class Settings(BaseSettings):
     request_timeout: float = 60.0
     max_retries: int = 2
 
+    # --- Knowledge graph store (MariaDB, required platform-wide) ---
+    graph_db_host: str = "localhost"
+    graph_db_port: int = 3306
+    graph_db_user: str = "opendomain"
+    graph_db_password: str = ""
+    graph_db_name: str = "opendomain_graph"
+
     @property
     def overrides_path(self) -> Path:
         return self.data_dir / "settings.json"

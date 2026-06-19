@@ -12,6 +12,7 @@ license = { text = "MIT" }
 dependencies = [
     "pydantic-settings>=2.0",
     "chromadb>=0.5",
+    "pymysql>=1.1",
     "fastembed>=0.3",
     "tree-sitter>=0.23",
     "tree-sitter-python>=0.23",
@@ -58,3 +59,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: tests requiring a live MariaDB (set GRAPH_DB_* env to run)",
+]

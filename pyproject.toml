@@ -42,6 +42,9 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "httpx>=0.27",
+    # docs site generator (docs/build.py): Markdown -> styled HTML with mermaid
+    "markdown>=3.7",
+    "pymdown-extensions>=10.0",
 ]
 
 [project.scripts]

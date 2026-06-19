@@ -52,7 +52,7 @@ def test_collection_isolation_and_delete(maria_store):
     assert store_b.get_entity("svc_b") is not None
     assert store_b.get_entity("svc_a") is None       # not visible across collections
 
-    maria_store.delete_collection(maria_store._collection)
+    maria_store.delete_collection(maria_store.collection)
     assert maria_store.get_entity("svc_a") is None
     assert store_b.get_entity("svc_b") is not None   # b untouched
 

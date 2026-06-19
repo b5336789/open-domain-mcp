@@ -30,3 +30,4 @@ src/opendomainmcp/api/static/
 
 # Claude Code agent worktrees / local state
 .claude/
+.gstack/

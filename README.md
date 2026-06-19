@@ -318,6 +318,36 @@ from HuggingFace on first use — no GPU or torch required. Knowledge extraction
 `ask` use the Anthropic API (`ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL`); set
 `ODM_EXTRACT_KNOWLEDGE=false` to ingest without it.
 
+### Free local-first setup (local ingest + cloud `ask`)
+
+You can run the whole platform at near-zero cost by keeping **ingest fully local**
+and sending only the occasional `ask` to a free cloud LLM. Because the Anthropic
+SDK honours `ANTHROPIC_BASE_URL`, any **Anthropic-compatible** endpoint works with
+no code change — e.g. [OpenRouter](https://openrouter.ai)'s `/v1/messages`.
+
+In `.env`:
+
+```bash
+# Ingest stays local: embeddings only, no API calls, unlimited & offline.
+ODM_EXTRACT_KNOWLEDGE=false
+ODM_EMBEDDER_BACKEND=local
+
+# `ask` runs on the cloud via an Anthropic-compatible endpoint (OpenRouter shown).
+ODM_ANSWER_MODEL=openai/gpt-oss-120b:free
+ANTHROPIC_BASE_URL=https://openrouter.ai/api
+ANTHROPIC_API_KEY=sk-or-...        # sent as the x-api-key header
+```
+
+| Operation | Runs on | Cost |
+| --- | --- | --- |
+| Ingest (chunk + embed) | local (fastembed) | free, unlimited, offline |
+| Search / Explore (hybrid) | local | free, unlimited, offline |
+| Ask (cited Q&A) | cloud LLM | free tier (OpenRouter ≈ 50 req/day; $10 unlocks 1000/day) |
+
+To also extract a knowledge layer during ingest, set `ODM_EXTRACT_KNOWLEDGE=true`
+and `ODM_EXTRACTION_MODEL` to a model id — but note free tiers rate-limit bulk
+extraction hard, so keep `ODM_EXTRACT_CONCURRENCY` low or use a paid/higher tier.
+
 **Frontend (optional — only to rebuild the dashboard):**
 
 ```bash

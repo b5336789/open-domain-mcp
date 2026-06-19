@@ -88,6 +88,10 @@ class MariaGraphStore:
                                  charset="utf8mb4", autocommit=True,
                                  cursorclass=pymysql.cursors.DictCursor)
 
+    @property
+    def collection(self) -> str:
+        return self._collection
+
     def _connect(self):
         # Fail loud: a clear error if MariaDB is unreachable.
         return self._pymysql.connect(**self._conn_kwargs)

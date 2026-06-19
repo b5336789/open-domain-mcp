@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>openDomainMcp · 技術架構</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&family=Lora:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --mint:#34d9b5; --teal:#0d9488; --sky:#0ea5c4; --ink:#13322e;
+    --muted:#587a74; --paper:#f5fbf9; --card:#ffffff; --line:#dcefe9;
+    --shadow:0 18px 40px -24px rgba(13,80,72,.42);
+    --serif:"Noto Serif TC","Lora",Georgia,"Songti TC",serif;
+    --sans:"Noto Sans TC","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono","SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);
+    line-height:1.85;letter-spacing:.1px;-webkit-font-smoothing:antialiased}
+  code,kbd,pre{font-family:var(--mono)}
+  a{color:var(--teal);text-decoration:none}
+  a:hover{text-decoration:underline}
+  h1,h2,h3,h4,.brand{font-family:var(--serif);letter-spacing:.2px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+
+  nav.bar{position:sticky;top:0;z-index:30;backdrop-filter:blur(10px);
+    background:rgba(245,251,249,.84);border-bottom:1px solid var(--line)}
+  nav.bar .wrap{display:flex;align-items:center;gap:18px;height:64px;flex-wrap:wrap}
+  nav.bar .brand{font-weight:700;font-size:1.08rem;display:flex;align-items:center;gap:9px}
+  nav.bar .dot{width:13px;height:13px;border-radius:50%;
+    background:conic-gradient(from 90deg,var(--mint),var(--sky),var(--mint))}
+  nav.bar .links{margin-left:auto;display:flex;gap:18px;font-size:.92rem;font-weight:500}
+  nav.bar .links a{color:var(--muted)}
+  nav.bar .links a:hover{color:var(--teal);text-decoration:none}
+  nav.bar .links a.active{color:var(--teal);font-weight:700}
+
+  header.hero{position:relative;overflow:hidden;padding:62px 0 40px;
+    background:
+      radial-gradient(900px 380px at 12% -10%,rgba(14,165,196,.16),transparent 60%),
+      radial-gradient(760px 420px at 96% 0%,rgba(52,217,181,.26),transparent 55%);}
+  .hero .badge{display:inline-flex;align-items:center;gap:8px;background:var(--card);
+    border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:.82rem;
+    font-weight:600;color:var(--teal);box-shadow:var(--shadow)}
+  .hero h1{font-size:clamp(2rem,4.6vw,3rem);line-height:1.3;font-weight:700;margin:20px 0 14px;
+    display:flex;align-items:center;gap:14px}
+  .hero p.lead{font-size:1.1rem;color:#3f5e59;max-width:680px}
+  .hero .stamp{margin-top:16px;font-size:.82rem;color:var(--muted)}
+
+  main.wrap{padding-top:34px;padding-bottom:60px}
+  main h1{font-size:clamp(1.7rem,3.6vw,2.3rem);margin:38px 0 14px}
+  main h2{font-size:clamp(1.45rem,3vw,1.9rem);margin:34px 0 12px;padding-top:8px;
+    border-top:1px solid var(--line)}
+  main h3{font-size:1.25rem;margin:24px 0 10px}
+  main h4{font-size:1.08rem;margin:18px 0 8px}
+  main p{margin:12px 0}
+  main ul,main ol{margin:12px 0 12px 26px}
+  main li{margin:6px 0}
+  main blockquote{border-left:4px solid var(--mint);background:linear-gradient(120deg,
+    rgba(52,217,181,.1),rgba(14,165,196,.08));border-radius:0 12px 12px 0;
+    padding:12px 18px;margin:16px 0;color:#1c5d54}
+  main blockquote p{margin:4px 0}
+  main hr{border:none;border-top:1px solid var(--line);margin:30px 0}
+
+  main table{border-collapse:collapse;width:100%;margin:18px 0;font-size:.95rem;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  main th,main td{padding:10px 14px;border-bottom:1px solid var(--line);text-align:left}
+  main th{background:linear-gradient(120deg,rgba(52,217,181,.16),rgba(14,165,196,.12));
+    font-family:var(--serif);font-weight:700}
+  main tr:last-child td{border-bottom:none}
+
+  main pre{background:#08231f;color:#cdeee6;border-radius:13px;padding:16px 18px;overflow:auto;
+    font-size:.85rem;line-height:1.7;margin:16px 0;border:1px solid #0c3a33}
+  main pre code{background:none;color:inherit;padding:0;font-size:1em}
+  main p code,main li code,main td code{background:#e4f5f0;color:#0b6257;padding:2px 7px;
+    border-radius:6px;font-size:.85em}
+
+  main .mermaid{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:22px;margin:18px 0;box-shadow:var(--shadow);text-align:center;overflow:auto}
+
+  footer{padding:40px 0;text-align:center;color:var(--muted);
+    border-top:1px solid var(--line);font-size:.9rem}
+</style>
+</head>
+<body>
+
+<nav class="bar"><div class="wrap">
+  <span class="brand"><span class="dot"></span>openDomainMcp</span>
+  <span class="links">
+      <a href="architecture.html" class="active">技術架構</a>
+      <a href="tasks.html">開發任務與進度</a>
+      <a href="prd.html">產品需求文件</a>
+      <a href="index.html">文件首頁</a>
+      <a href="guide.html">使用說明</a>
+      <a href="reference.html">技術文件</a>
+  </span>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <span class="badge">自動生成 · 由 docs/ARCHITECTURE.md</span>
+  <h1><span>🏗️</span>技術架構</h1>
+  <p class="lead">系統實作架構與資料流程，含即時渲染的 mermaid 架構圖。</p>
+  <p class="stamp">最後更新：2026-06-19 15:06　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+</div></header>
+
+<main class="wrap">
+<h1 id="opendomainmcp">OpenDomainMCP — 技術架構文件</h1>
+<blockquote>
+<p>本文件描述系統的實際實作架構（截至 Phase 2 合併後）。所有路徑相對於 repo 根目錄。產品需求見 <a href="./prd.html">PRD.md</a>，任務進度見 <a href="./tasks.html">TASKS.md</a>。</p>
+</blockquote>
+<hr />
+<h2 id="1">1. 系統總覽</h2>
+<p>OpenDomainMCP 採「單一真實來源（single wiring point）+ 三個可互換入口」設計：</p>
+<div class="mermaid">flowchart TD
+    CLI["CLI&lt;br/&gt;opendomainmcp&lt;br/&gt;(cli.py)"]
+    MCP["MCP Server&lt;br/&gt;opendomainmcp-server / -view&lt;br/&gt;(server.py)"]
+    WEB["Web Dashboard&lt;br/&gt;opendomainmcp-web&lt;br/&gt;(api/app.py)"]
+
+    BC["build_context()&lt;br/&gt;唯一接線點 (context.py)"]
+    CTX["Context&lt;br/&gt;{ settings, store, pipeline }"]
+
+    PIPE["Pipeline&lt;br/&gt;(ingest/)"]
+    STORE["ChromaStore&lt;br/&gt;(store/)"]
+    SET["Settings&lt;br/&gt;(config.py)"]
+
+    CLI --&gt; BC
+    MCP --&gt; BC
+    WEB --&gt; BC
+    BC --&gt; CTX
+    CTX --&gt; PIPE
+    CTX --&gt; STORE
+    CTX --&gt; SET</div>
+<ul>
+<li><strong>三個入口都透過 <code>build_context()</code></strong> 取得相同的 <code>settings / store / pipeline</code>，確保行為一致。</li>
+<li>相依元件（store、extractor、embedder、reranker）皆以工廠函式注入，測試可用 fake 全離線執行。</li>
+</ul>
+<hr />
+<h2 id="2-prd">2. 三層架構（對應 PRD）</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>內容</th>
+<th>實作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Layer 1 — Ingestion</strong></td>
+<td>Sources → Parsing → Chunking → Extraction → Embedding</td>
+<td><code>ingest/</code>、<code>extract/</code>、<code>embedding/</code></td>
+</tr>
+<tr>
+<td><strong>Layer 2 — Knowledge Store</strong></td>
+<td>Vector + Structured Domain + Metadata</td>
+<td><code>store/chroma_store.py</code>（Chroma：向量 + 扁平 metadata；BM25 lexical index）</td>
+</tr>
+<tr>
+<td><strong>Layer 3 — MCP View Layer</strong></td>
+<td>同一知識庫產生多個 MCP</td>
+<td><code>views/__init__.py</code>、<code>server.py</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-ingestion-pipeline">3. 擷取流程（Ingestion Pipeline）</h2>
+<p>5 個主要階段 + 2 個維護階段，由 <code>ingest/pipeline.py</code> 的 <code>Pipeline.ingest_path()</code> 編排：</p>
+<div class="mermaid">flowchart LR
+    LOAD --&gt; SPLIT --&gt; EXTRACT --&gt; EMBED --&gt; STORE
+    STORE -.-&gt; PRUNE["PRUNE&lt;br/&gt;(維護)"]
+    STORE -.-&gt; SYNC["SYNC&lt;br/&gt;(維護)"]</div>
+<table>
+<thead>
+<tr>
+<th>階段</th>
+<th>說明</th>
+<th>模組</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LOAD</strong></td>
+<td>型別偵測與文字擷取（code/text/api）</td>
+<td><code>ingest/loader.py</code> → <code>load_file()</code> → <code>LoadedDoc</code></td>
+</tr>
+<tr>
+<td><strong>SPLIT</strong></td>
+<td>code 走 AST、api 走 OpenAPI、text 走遞迴切分</td>
+<td><code>code_splitter.py</code> / <code>openapi.py</code> / <code>text_splitter.py</code></td>
+</tr>
+<tr>
+<td><strong>EXTRACT</strong></td>
+<td>LLM 萃取領域知識（已預分類者跳過）</td>
+<td><code>extract/knowledge.py</code></td>
+</tr>
+<tr>
+<td><strong>EMBED</strong></td>
+<td>以 enriched text（chunk + summary + concepts）產生向量</td>
+<td><code>embedding/</code></td>
+</tr>
+<tr>
+<td><strong>STORE</strong></td>
+<td>Chroma upsert（依 content hash 冪等）</td>
+<td><code>store/chroma_store.py</code></td>
+</tr>
+<tr>
+<td><strong>PRUNE</strong></td>
+<td>檔案編輯後移除過期 chunk</td>
+<td><code>pipeline._ingest_file()</code></td>
+</tr>
+<tr>
+<td><strong>SYNC</strong></td>
+<td><code>sync=True</code> 時移除已刪除檔案的 chunk</td>
+<td><code>pipeline._sync_deletions()</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-2-m4">來源解析（Phase 2 M4）</h3>
+<p><code>Pipeline.ingest_path()</code> 先呼叫 <code>ingest/sources.py</code> 的 <code>prepared_source(spec, data_dir)</code>（context manager）：</p>
+<ul>
+<li><strong>Git</strong>（<code>is_git_spec</code>：<code>git@</code> / <code>git+</code> / <code>ssh://</code> / <code>.git</code> / github|gitlab|bitbucket）→ <code>git clone --depth 1</code> 到 <code>data_dir/.sources/&lt;uuid&gt;/</code>，結束後清理。</li>
+<li><strong>Zip</strong>（<code>is_zip_spec</code>：本機 <code>.zip</code> 檔）→ 安全解壓（zip-slip 防護：解析每個成員目標，拒絕 <code>..</code> 與絕對路徑逃逸）到暫存目錄。</li>
+<li><strong>一般路徑</strong> → 直接沿用，<code>allowed_root</code> 機制限制擷取範圍。</li>
+</ul>
+<h3 id="load-load_file">LOAD 型別路由（<code>load_file</code>）</h3>
+<table>
+<thead>
+<tr>
+<th>副檔名</th>
+<th>kind</th>
+<th>處理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LANGUAGE_BY_EXT</code>（.py/.js/.ts/.go/.rs/.java/.c/.cpp/.cs/.rb/.php/.swift/.kt/.scala/.sh/.lua…）</td>
+<td><code>code</code></td>
+<td>tree-sitter（11 種具 AST wheel；無 wheel 者如 php/swift/kt/scala/lua 退回 line 切分）</td>
+</tr>
+<tr>
+<td><code>.pdf</code> / <code>.docx</code></td>
+<td><code>text</code></td>
+<td>pypdf / python-docx</td>
+</tr>
+<tr>
+<td><code>.html</code> / <code>.htm</code></td>
+<td><code>text</code></td>
+<td>HTMLParser（去除 script/style）</td>
+</tr>
+<tr>
+<td><code>.json</code> / <code>.yaml</code> / <code>.yml</code> 且 <code>looks_like_openapi()</code></td>
+<td><code>api</code></td>
+<td>OpenAPI 解析，language="openapi"</td>
+</tr>
+<tr>
+<td>其他 TEXT_EXTENSIONS（.md/.txt/.rst/.csv/.log/.ini/.toml/.cfg/.xml/.css…）</td>
+<td><code>text</code></td>
+<td>原樣讀取</td>
+</tr>
+<tr>
+<td>未知副檔名</td>
+<td><code>text</code>（若可 UTF-8 解碼）</td>
+<td>否則 <code>UnsupportedFileError</code>（fail loud）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="openapiswagger-ingestopenapipy">OpenAPI/Swagger 解析（<code>ingest/openapi.py</code>）</h3>
+<ul>
+<li><code>parse_spec(text)</code>：先試 JSON 再試 YAML（<code>yaml.safe_load</code>）。</li>
+<li><code>looks_like_openapi(data)</code>：含 <code>openapi</code>/<code>swagger</code> 鍵且有 <code>paths</code> dict。</li>
+<li><code>split_openapi(text, source)</code>：<strong>每個 HTTP operation 一個 Chunk</strong>：</li>
+<li><code>text</code> = method + path + summary + description + 參數 + 回應碼（<code>_operation_text()</code>）</li>
+<li><code>symbol</code> = <code>operationId</code> 或 <code>"METHOD path"</code></li>
+<li>預先分類 <code>KnowledgeUnit</code>：<code>knowledge_type="API"</code>、<code>audience=["engineering"]</code>、<code>confidence=1.0</code></li>
+<li>預分類 chunk 在 <code>pipeline._extract_one()</code> 會<strong>跳過 LLM 擷取</strong>（節省成本）。</li>
+</ul>
+<hr />
+<h2 id="4-knowledge-extraction">4. 知識萃取（Knowledge Extraction）</h2>
+<p><code>extract/knowledge.py</code>：</p>
+<ul>
+<li><strong><code>_SYSTEM</code> prompt</strong>：要求模型只回傳一個 JSON 物件，鍵包含
+  <code>summary</code>、<code>concepts</code>、<code>relations</code>、<code>knowledge_type</code>（限定 <code>KNOWLEDGE_TYPES</code>）、
+  <code>audience</code>（限定 <code>AUDIENCES</code>）、<code>confidence</code>(0–1)、<code>tags</code>、<code>permissions</code>、<code>references</code>。
+  （<code>version</code>、<code>review_status</code> <strong>不</strong>由 LLM 萃取。）</li>
+<li><strong><code>_parse(raw)</code></strong> 防禦性正規化：</li>
+<li><code>confidence</code> clamp 到 [0,1]</li>
+<li><code>knowledge_type</code> 以 <code>_norm_choice</code> 對 <code>KNOWLEDGE_TYPES</code> 做大小寫不敏感比對，不符回 <code>""</code></li>
+<li><code>audience</code> 逐項白名單過濾</li>
+<li>list 欄位以 <code>_str_list</code> 去空白</li>
+<li><strong><code>ClaudeExtractor</code></strong>：呼叫 Anthropic（<code>extraction_model</code>，預設 <code>claude-sonnet-4-6</code>），帶 timeout/retries。</li>
+<li><strong><code>NullExtractor</code></strong>：<code>extract_knowledge=False</code> 時回傳空 <code>KnowledgeUnit</code>。</li>
+<li><strong><code>get_extractor(settings)</code></strong> 工廠選擇上述兩者。</li>
+</ul>
+<h3 id="review-phase-2-m3">Review 狀態（Phase 2 M3）</h3>
+<p><code>pipeline._extract_one()</code>：</p>
+<ul>
+<li>若 <code>settings.review_mode == True</code>：新擷取 chunk 設 <code>review_status="pending"</code>。</li>
+<li>否則沿用 <code>KnowledgeUnit</code> 預設 <code>review_status="approved"</code>（向後相容，舊資料無此欄位視為可見）。</li>
+</ul>
+<hr />
+<h2 id="5-modelspy">5. 資料模型（<code>models.py</code>）</h2>
+<div class="highlight"><pre><span></span><code><span class="n">KNOWLEDGE_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;Feature&quot;</span><span class="p">,</span><span class="s2">&quot;Workflow&quot;</span><span class="p">,</span><span class="s2">&quot;API&quot;</span><span class="p">,</span><span class="s2">&quot;Permission&quot;</span><span class="p">,</span><span class="s2">&quot;Constraint&quot;</span><span class="p">,</span><span class="s2">&quot;Error&quot;</span><span class="p">,</span>
+                   <span class="s2">&quot;Troubleshooting&quot;</span><span class="p">,</span><span class="s2">&quot;Architecture&quot;</span><span class="p">,</span><span class="s2">&quot;Code&quot;</span><span class="p">,</span><span class="s2">&quot;Glossary&quot;</span><span class="p">,</span><span class="s2">&quot;Runbook&quot;</span><span class="p">,</span><span class="s2">&quot;FAQ&quot;</span><span class="p">)</span>
+<span class="n">AUDIENCES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;product_manager&quot;</span><span class="p">,</span><span class="s2">&quot;solutions_architect&quot;</span><span class="p">,</span><span class="s2">&quot;operations&quot;</span><span class="p">,</span><span class="s2">&quot;engineering&quot;</span><span class="p">,</span><span class="s2">&quot;support&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="knowledgeunit"><code>KnowledgeUnit</code>（領域知識）</h3>
+<table>
+<thead>
+<tr>
+<th>欄位</th>
+<th>型別</th>
+<th>預設</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>summary</code></td>
+<td>str</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>concepts</code></td>
+<td>list[str]</td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>relations</code></td>
+<td>list[str]</td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>knowledge_type</code></td>
+<td>str</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>audience</code></td>
+<td>list[str]</td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>confidence</code></td>
+<td>float</td>
+<td><code>0.0</code></td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>str</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>permissions</code></td>
+<td>list[str]</td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>list[str]</td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>references</code></td>
+<td>list[str]</td>
+<td><code>[]</code></td>
+</tr>
+<tr>
+<td><code>review_status</code></td>
+<td>str</td>
+<td><code>"approved"</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="chunk"><code>Chunk</code>（待嵌入儲存單位）</h3>
+<p><code>text, source, kind("text"/"code"/"api"), language, node_type, symbol, start_line, end_line, knowledge</code></p>
+<ul>
+<li><code>content_hash</code> / <code>id</code>：<code>sha256(source:start-end + text)</code>，冪等 upsert 用。</li>
+<li><code>embedding_text()</code>：text + <code>Summary:</code> + <code>Concepts:</code>，讓檢索貼近語意。</li>
+<li><code>metadata()</code>：扁平化成 Chroma 友善 dict（list → <code>", "</code> 或 <code>" | "</code> join；丟棄 None/空值）。</li>
+</ul>
+<h3 id="searchresult"><code>SearchResult</code></h3>
+<p><code>id, text, score, metadata</code></p>
+<hr />
+<h2 id="6-storechroma_storepy">6. 知識儲存（<code>store/chroma_store.py</code>）</h2>
+<ul>
+<li><strong>向量 + 結構化 + metadata</strong>：皆存於 Chroma（PersistentClient，cosine）。metadata 為扁平 scalar。</li>
+<li><strong>Lexical index</strong>：記憶體內 BM25（<code>retrieval/lexical.py</code>），lazy-build、upsert/delete 後標記 dirty。</li>
+<li><strong>過濾</strong>：<code>build_where(filters)</code> 支援 <code>_FILTER_FIELDS = ("kind","language","symbol","knowledge_type","review_status")</code>；單條件回 <code>{k:v}</code>，多條件回 <code>{"$and":[...]}</code>。</li>
+<li><code>audience</code> <strong>不在</strong> Chroma 過濾欄位（存成 join 字串），改在 view 層 client-side 後過濾。</li>
+<li><strong>CRUD / 管理</strong>：<code>upsert / search / get_items / get_item / update_metadata / delete_item / get_ids_for_source / delete_ids / get_all_sources / list_collections / create_collection / drop_collection / stats / clear</code>。</li>
+<li><strong>Resilience</strong>：<code>_retry()</code> 對 transient 失敗指數退避重試（<code>max_retries</code>）。</li>
+</ul>
+<hr />
+<h2 id="7-retrieval">7. 檢索引擎（Retrieval）</h2>
+<p><code>store.search(query, top_k, where, mode, source_contains)</code>：</p>
+<ol>
+<li><strong>Vector</strong>：dense embedding cosine（<code>mode="vector"</code>，預設）。</li>
+<li><strong>Hybrid</strong>：dense + BM25，以 <strong>RRF</strong> 融合（k=60，over-fetch ×5 再裁切）。</li>
+<li><strong>Filters</strong>：<code>where</code>（Chroma）+ <code>source_contains</code>（後過濾）。</li>
+<li><strong>Re-rank</strong>（選用）：<code>retrieval/rerank.py</code> cross-encoder（<code>Xenova/ms-marco-MiniLM-L-6-v2</code>），給所有候選統一分數。</li>
+</ol>
+<hr />
+<h2 id="8-rag-queryragpy">8. RAG 問答（<code>query/rag.py</code>）</h2>
+<ul>
+<li><code>answer_question(query, store, settings, top_k)</code>：檢索 top-k → 組成編號 sources → Claude 合成帶 <code>[n]</code> 引用的答案 → 回 <code>{answer, citations}</code>。</li>
+<li><code>answer_question_stream(...)</code>：先 yield <code>delta</code> token 事件，最後 yield <code>citations</code> 事件（SSE）。</li>
+<li>無檢索結果則短路（不捏造）；缺 <code>ANTHROPIC_API_KEY</code> 拋 <code>AnswerError</code>（fail loud）。</li>
+</ul>
+<hr />
+<h2 id="9-mcp-serverpy-views__init__py">9. MCP 層（<code>server.py</code> + <code>views/__init__.py</code>）</h2>
+<h3 id="server">通用 server（預設）</h3>
+<p><code>ingest_path</code>、<code>search_knowledge</code>、<code>ask</code>、<code>get_stats</code>、<code>list_collections</code>。</p>
+<h3 id="phase-2-m2">角色視圖（Phase 2 M2）</h3>
+<ul>
+<li><code>ViewTool(name, description, filters, default_top_k=5)</code>、<code>ViewSpec(name, title, purpose, tools)</code>，宣告於 <code>VIEWS</code> dict。</li>
+<li><code>build_view_server(view_name)</code>：依 <code>VIEWS</code> 動態註冊每個工具，工具實作呼叫 <code>run_view_tool()</code>。</li>
+<li><code>get_server(view)</code>：<code>"generic"/""</code> 回通用 server，否則回對應視圖。</li>
+<li><code>main()</code>：解析 <code>--view</code>（或 <code>ODM_MCP_VIEW</code> 環境變數，預設 <code>generic</code>）。</li>
+</ul>
+<h3 id="run_view_tool"><code>run_view_tool()</code> 行為</h3>
+<ul>
+<li>從 filters 取出 <code>audience</code> 做 client-side 後過濾（over-fetch ×3）。</li>
+<li>若 <code>settings.retrieve_approved_only</code>：注入 <code>review_status="approved"</code>。</li>
+<li>其餘 filters 經 <code>build_where()</code> 套用。</li>
+</ul>
+<h3 id="_1">工具 → 過濾條件對照</h3>
+<table>
+<thead>
+<tr>
+<th>View</th>
+<th>Tool</th>
+<th>Filter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>product</td>
+<td>get_feature</td>
+<td>knowledge_type=Feature</td>
+</tr>
+<tr>
+<td>product</td>
+<td>get_workflow</td>
+<td>knowledge_type=Workflow</td>
+</tr>
+<tr>
+<td>product</td>
+<td>get_constraint</td>
+<td>knowledge_type=Constraint</td>
+</tr>
+<tr>
+<td>product</td>
+<td>search_product_knowledge</td>
+<td>audience=product_manager</td>
+</tr>
+<tr>
+<td>operations</td>
+<td>get_runbook</td>
+<td>knowledge_type=Runbook</td>
+</tr>
+<tr>
+<td>operations</td>
+<td>get_troubleshooting</td>
+<td>knowledge_type=Troubleshooting</td>
+</tr>
+<tr>
+<td>operations</td>
+<td>get_incident_response</td>
+<td>knowledge_type=Runbook, audience=operations</td>
+</tr>
+<tr>
+<td>operations</td>
+<td>get_rollback_procedure</td>
+<td>knowledge_type=Runbook</td>
+</tr>
+<tr>
+<td>developer</td>
+<td>search_code</td>
+<td>kind=code</td>
+</tr>
+<tr>
+<td>developer</td>
+<td>get_class</td>
+<td>kind=code</td>
+</tr>
+<tr>
+<td>developer</td>
+<td>get_function</td>
+<td>kind=code</td>
+</tr>
+<tr>
+<td>developer</td>
+<td>trace_dependency</td>
+<td>kind=code</td>
+</tr>
+<tr>
+<td>developer</td>
+<td>get_api_implementation</td>
+<td>knowledge_type=API</td>
+</tr>
+<tr>
+<td>support</td>
+<td>get_known_issue</td>
+<td>knowledge_type=Error</td>
+</tr>
+<tr>
+<td>support</td>
+<td>get_error_explanation</td>
+<td>knowledge_type=Error</td>
+</tr>
+<tr>
+<td>support</td>
+<td>get_resolution_steps</td>
+<td>knowledge_type=Troubleshooting</td>
+</tr>
+<tr>
+<td>support</td>
+<td>search_faq</td>
+<td>knowledge_type=FAQ</td>
+</tr>
+<tr>
+<td>architecture</td>
+<td>get_component</td>
+<td>knowledge_type=Architecture</td>
+</tr>
+<tr>
+<td>architecture</td>
+<td>get_dependency</td>
+<td>knowledge_type=Architecture</td>
+</tr>
+<tr>
+<td>architecture</td>
+<td>get_dataflow</td>
+<td>knowledge_type=Architecture</td>
+</tr>
+<tr>
+<td>architecture</td>
+<td>search_architecture</td>
+<td>audience=solutions_architect</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>註：<code>get_class/get_function/trace_dependency</code> 目前皆僅以 <code>kind=code</code> 過濾，尚未做 symbol 精準對應（列為改進待辦）。</p>
+</blockquote>
+<hr />
+<h2 id="10-web-apiapiapppyfastapi">10. Web API（<code>api/app.py</code>，FastAPI）</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/health</code></td>
+<td>健康檢查</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/stats</code></td>
+<td>統計</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/search</code></td>
+<td>混合搜尋（套用 approved-only 政策）</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/ask</code></td>
+<td>RAG 問答</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/ask/stream</code></td>
+<td>RAG SSE 串流</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/upload</code></td>
+<td>串流上傳（大小上限）</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/ingest/stream</code></td>
+<td>擷取 SSE 串流</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/items</code></td>
+<td>列出 chunk（<code>?limit&amp;offset&amp;kind&amp;review_status&amp;knowledge_type</code>）</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/items</code></td>
+<td><strong>手動新增知識</strong>（<code>ItemCreate</code>，自動 approved）</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/items/{id}</code></td>
+<td>取單筆</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/items/{id}</code></td>
+<td>編輯 metadata</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/items/{id}</code></td>
+<td>刪除</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/items/{id}/approve</code></td>
+<td><strong>核准</strong> → review_status=approved</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/items/{id}/reject</code></td>
+<td><strong>拒絕</strong> → review_status=rejected</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/settings</code></td>
+<td>讀設定</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/settings</code></td>
+<td>改設定（<code>{values}</code>，限 editable）</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/views</code></td>
+<td><strong>列出 5 個 MCP 視圖與工具</strong></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/simulate</code></td>
+<td><strong>Agent Simulator</strong>：跑某視圖工具，回 grounding</td>
+</tr>
+<tr>
+<td>GET/POST/DELETE</td>
+<td><code>/api/collections[...]</code></td>
+<td>知識庫 CRUD</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Collection 經 <code>?collection=</code> 或 <code>x-collection</code> header 選擇；SPA 由 <code>api/static/</code> 提供。</li>
+<li><code>/api/simulate</code> 回傳 <code>{view, tools:[{tool, results}], grounding:{hits, avg_score, knowledge_types}}</code>。</li>
+</ul>
+<hr />
+<h2 id="11-web-webreact-18-vite-tailwind">11. Web 前端（<code>web/</code>，React 18 + Vite + Tailwind）</h2>
+<ul>
+<li><strong>路由</strong>（<code>main.tsx</code>，hash router）：<code>/</code>(Dashboard)、<code>ingest</code>、<code>explore</code>、<code>ask</code>、<code>browse</code>、<code>review</code>、<code>mcp</code>、<code>simulator</code>、<code>settings</code>。</li>
+<li><strong>新頁面</strong>（Phase 2 M5）：<code>Review.tsx</code>（審核佇列：tabs + 核准/拒絕/編輯 + 手動新增 Modal）、<code>McpBuilder.tsx</code>（視圖/政策設定 + 發布指令片段）、<code>Simulator.tsx</code>（任務輸入 + grounding 統計）。</li>
+<li><strong>共用</strong>：<code>components/ui.tsx</code>（Button/Card/Modal/Badge/Input/Select/Toast…）、<code>components/icons.tsx</code>（新增 IconReview/IconBuilder/IconSimulator）、<code>api.ts</code>（新增 <code>approveItem/rejectItem/addItem/views/simulate</code> 與型別、<code>KNOWLEDGE_TYPES</code>/<code>AUDIENCES</code> 常數）。</li>
+</ul>
+<hr />
+<h2 id="12-cliclipy">12. CLI（<code>cli.py</code>）</h2>
+<div class="highlight"><pre><span></span><code>opendomainmcp [--collection NAME] &lt;command&gt;
+  ingest PATH [--sync]      # 擷取檔案/目錄/Git/Zip/OpenAPI
+  search QUERY [--top-k --kind --language --symbol --source]
+  ask QUERY [--top-k]
+  stats
+  clear
+  collections
+</code></pre></div>
+<hr />
+<h2 id="13-configpyenv-odm_">13. 設定（<code>config.py</code>，env 前綴 <code>ODM_</code>）</h2>
+<p>可在 web UI 編輯的欄位 <code>EDITABLE_FIELDS</code>：
+<code>embedder_backend, embedder_model, extract_knowledge, extraction_model, chunk_size, chunk_overlap, code_max_chunk_chars, extract_concurrency, search_mode, rerank_enabled, answer_model, review_mode, retrieve_approved_only</code></p>
+<p>Phase 2 新增設定：
+- <code>review_mode: bool = False</code> — 新擷取標為 <code>pending</code>，需審核。
+- <code>retrieve_approved_only: bool = False</code> — 檢索僅回 <code>approved</code>。</p>
+<p>其餘：storage、security（<code>ingest_root</code>、<code>max_upload_mb</code>）、embedding、chunking、retrieval、RAG、resilience（<code>request_timeout</code>、<code>max_retries</code>）。憑證（<code>ANTHROPIC_API_KEY</code> 等）僅由 env 讀取，不可由 UI 編輯。</p>
+<hr />
+<h2 id="14-pyprojecttoml">14. 入口點與相依（<code>pyproject.toml</code>）</h2>
+<p><strong>Console scripts</strong>：
+<div class="highlight"><pre><span></span><code>opendomainmcp        → cli:main
+opendomainmcp-server → server:main        # 通用 MCP（或 --view）
+opendomainmcp-view   → server:main        # 角色視圖 MCP
+opendomainmcp-web    → api.app:main       # Web Dashboard
+</code></pre></div></p>
+<p><strong>主要相依</strong>：<code>chromadb</code>、<code>fastembed</code>、<code>rank-bm25</code>、<code>tree-sitter</code>(+11 語言 wheel)、<code>pypdf</code>、<code>python-docx</code>、<code>pyyaml</code>、<code>anthropic</code>、<code>mcp</code>、<code>fastapi</code>、<code>uvicorn</code>、<code>sse-starlette</code>、<code>pydantic-settings</code>、<code>python-multipart</code>。Python <code>&gt;=3.11</code>。</p>
+<hr />
+<h2 id="15-tests">15. 測試策略（<code>tests/</code>）</h2>
+<ul>
+<li><strong>106 個測試 / 21 檔</strong>，全離線：<code>FakeEmbedder</code>（64 維 bag-of-words）、<code>FakeExtractor</code>（已延伸回傳 <code>knowledge_type/audience/confidence</code>）、Chroma <code>EphemeralClient</code>。</li>
+<li>涵蓋：loader、code/text splitter、pipeline（含 review_mode/sync/security/concurrency）、extract（含分類正規化）、models（含分類欄位扁平化與向後相容）、store/hybrid（含 knowledge_type/review_status 過濾）、retrieval/RRF、rerank、rag/streaming、collections、resilience、api（含 review/simulate/views 端點）、views、openapi、sources（含 zip-slip）、config、cli。</li>
+<li>原則：offline-first、deterministic、fail-loud、idempotent upsert、security-first、backward-compatible。</li>
+</ul>
+<hr />
+<p><em>最後更新：2026-06-17</em></p>
+</main>
+
+<footer><div class="wrap">
+  openDomainMcp · 文件由 Markdown 自動生成　|　<a href="index.html">文件首頁</a>
+</div></footer>
+
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+mermaid.initialize({
+  startOnLoad:true,
+  theme:"base",
+  fontFamily:'"Noto Sans TC",system-ui,sans-serif',
+  themeVariables:{
+    primaryColor:"#e4f5f0", primaryBorderColor:"#0d9488", primaryTextColor:"#13322e",
+    lineColor:"#0ea5c4", secondaryColor:"#f5fbf9", tertiaryColor:"#ffffff"
+  }
+});
+</script>
+</body>
+</html>

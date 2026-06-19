@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>openDomainMcp · 產品需求文件</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&family=Lora:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --mint:#34d9b5; --teal:#0d9488; --sky:#0ea5c4; --ink:#13322e;
+    --muted:#587a74; --paper:#f5fbf9; --card:#ffffff; --line:#dcefe9;
+    --shadow:0 18px 40px -24px rgba(13,80,72,.42);
+    --serif:"Noto Serif TC","Lora",Georgia,"Songti TC",serif;
+    --sans:"Noto Sans TC","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono","SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);
+    line-height:1.85;letter-spacing:.1px;-webkit-font-smoothing:antialiased}
+  code,kbd,pre{font-family:var(--mono)}
+  a{color:var(--teal);text-decoration:none}
+  a:hover{text-decoration:underline}
+  h1,h2,h3,h4,.brand{font-family:var(--serif);letter-spacing:.2px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+
+  nav.bar{position:sticky;top:0;z-index:30;backdrop-filter:blur(10px);
+    background:rgba(245,251,249,.84);border-bottom:1px solid var(--line)}
+  nav.bar .wrap{display:flex;align-items:center;gap:18px;height:64px;flex-wrap:wrap}
+  nav.bar .brand{font-weight:700;font-size:1.08rem;display:flex;align-items:center;gap:9px}
+  nav.bar .dot{width:13px;height:13px;border-radius:50%;
+    background:conic-gradient(from 90deg,var(--mint),var(--sky),var(--mint))}
+  nav.bar .links{margin-left:auto;display:flex;gap:18px;font-size:.92rem;font-weight:500}
+  nav.bar .links a{color:var(--muted)}
+  nav.bar .links a:hover{color:var(--teal);text-decoration:none}
+  nav.bar .links a.active{color:var(--teal);font-weight:700}
+
+  header.hero{position:relative;overflow:hidden;padding:62px 0 40px;
+    background:
+      radial-gradient(900px 380px at 12% -10%,rgba(14,165,196,.16),transparent 60%),
+      radial-gradient(760px 420px at 96% 0%,rgba(52,217,181,.26),transparent 55%);}
+  .hero .badge{display:inline-flex;align-items:center;gap:8px;background:var(--card);
+    border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:.82rem;
+    font-weight:600;color:var(--teal);box-shadow:var(--shadow)}
+  .hero h1{font-size:clamp(2rem,4.6vw,3rem);line-height:1.3;font-weight:700;margin:20px 0 14px;
+    display:flex;align-items:center;gap:14px}
+  .hero p.lead{font-size:1.1rem;color:#3f5e59;max-width:680px}
+  .hero .stamp{margin-top:16px;font-size:.82rem;color:var(--muted)}
+
+  main.wrap{padding-top:34px;padding-bottom:60px}
+  main h1{font-size:clamp(1.7rem,3.6vw,2.3rem);margin:38px 0 14px}
+  main h2{font-size:clamp(1.45rem,3vw,1.9rem);margin:34px 0 12px;padding-top:8px;
+    border-top:1px solid var(--line)}
+  main h3{font-size:1.25rem;margin:24px 0 10px}
+  main h4{font-size:1.08rem;margin:18px 0 8px}
+  main p{margin:12px 0}
+  main ul,main ol{margin:12px 0 12px 26px}
+  main li{margin:6px 0}
+  main blockquote{border-left:4px solid var(--mint);background:linear-gradient(120deg,
+    rgba(52,217,181,.1),rgba(14,165,196,.08));border-radius:0 12px 12px 0;
+    padding:12px 18px;margin:16px 0;color:#1c5d54}
+  main blockquote p{margin:4px 0}
+  main hr{border:none;border-top:1px solid var(--line);margin:30px 0}
+
+  main table{border-collapse:collapse;width:100%;margin:18px 0;font-size:.95rem;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  main th,main td{padding:10px 14px;border-bottom:1px solid var(--line);text-align:left}
+  main th{background:linear-gradient(120deg,rgba(52,217,181,.16),rgba(14,165,196,.12));
+    font-family:var(--serif);font-weight:700}
+  main tr:last-child td{border-bottom:none}
+
+  main pre{background:#08231f;color:#cdeee6;border-radius:13px;padding:16px 18px;overflow:auto;
+    font-size:.85rem;line-height:1.7;margin:16px 0;border:1px solid #0c3a33}
+  main pre code{background:none;color:inherit;padding:0;font-size:1em}
+  main p code,main li code,main td code{background:#e4f5f0;color:#0b6257;padding:2px 7px;
+    border-radius:6px;font-size:.85em}
+
+  main .mermaid{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:22px;margin:18px 0;box-shadow:var(--shadow);text-align:center;overflow:auto}
+
+  footer{padding:40px 0;text-align:center;color:var(--muted);
+    border-top:1px solid var(--line);font-size:.9rem}
+</style>
+</head>
+<body>
+
+<nav class="bar"><div class="wrap">
+  <span class="brand"><span class="dot"></span>openDomainMcp</span>
+  <span class="links">
+      <a href="architecture.html">技術架構</a>
+      <a href="tasks.html">開發任務與進度</a>
+      <a href="prd.html" class="active">產品需求文件</a>
+      <a href="index.html">文件首頁</a>
+      <a href="guide.html">使用說明</a>
+      <a href="reference.html">技術文件</a>
+  </span>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <span class="badge">自動生成 · 由 docs/PRD.md</span>
+  <h1><span>📝</span>產品需求文件</h1>
+  <p class="lead">產品目標、使用情境與功能需求。</p>
+  <p class="stamp">最後更新：2026-06-19 15:06　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+</div></header>
+
+<main class="wrap">
+<h1 id="opendomainmcp-prd">OpenDomainMCP — 產品需求文件（PRD）</h1>
+<blockquote>
+<p>本文件彙整 OpenDomainMCP 自啟動至今的產品需求，整合 PRD v1（隱含於初版實作）與 <strong>PRD v2</strong>（現行版本），作為產品面的單一真實來源。技術實作細節見 <a href="./architecture.html">ARCHITECTURE.md</a>，開發任務與進度見 <a href="./tasks.html">TASKS.md</a>。</p>
+</blockquote>
+<hr />
+<h2 id="1-executive-summary">1. Executive Summary（執行摘要）</h2>
+<p>OpenDomainMCP 是一個將<strong>企業產品知識</strong>轉換為 <strong>MCP 可存取的領域智慧（domain intelligence）</strong> 的平台，供 AI agent 使用。</p>
+<p>平台會擷取文件、原始碼、API 規格、維運程序與支援知識，萃取出結構化的領域理解，並發布專用的 MCP 端點，讓 agent 在執行動作<strong>之前</strong>能先查詢。</p>
+<p><strong>目標</strong>：降低幻覺（hallucination）、提升維運準確度，並為 AI 驅動的工作流提供領域接地（domain grounding）。</p>
+<hr />
+<h2 id="2-problem">2. Problem（問題）</h2>
+<p>AI agent 常因缺乏產品專屬理解而失敗，例如：</p>
+<ul>
+<li>錯誤的設定步驟</li>
+<li>無效的 API 用法</li>
+<li>遺漏權限要求</li>
+<li>不正確的故障排除程序</li>
+<li>誤解業務術語</li>
+</ul>
+<p>現行 RAG 方案聚焦於<strong>文件檢索</strong>，並未對<strong>領域知識建模</strong>。</p>
+<hr />
+<h2 id="3-vision">3. Vision（願景）</h2>
+<p>讓每個軟體產品都能發布自己的領域感知 MCP。</p>
+<p>AI agent 在採取行動前，應能詢問：</p>
+<blockquote>
+<p>「我做這件事之前該知道什麼？（What should I know before doing this?）」</p>
+</blockquote>
+<hr />
+<h2 id="4-product-principles">4. Product Principles（產品原則）</h2>
+<ol>
+<li><strong>Upload once</strong> — 上傳一次</li>
+<li><strong>Extract automatically</strong> — 自動萃取</li>
+<li><strong>Review visually</strong> — 視覺化審核</li>
+<li><strong>Publish MCPs</strong> — 發布 MCP</li>
+<li><strong>Ground agents before execution</strong> — 執行前先接地</li>
+</ol>
+<hr />
+<h2 id="5-user-personas">5. User Personas（使用者角色）</h2>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>需求</th>
+<th>成功定義</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Product Manager</strong></td>
+<td>產品工作流知識、功能描述、限制</td>
+<td>Agent 理解產品行為</td>
+</tr>
+<tr>
+<td><strong>Solutions Architect</strong></td>
+<td>系統架構、相依性、整合</td>
+<td>Agent 能推理系統設計</td>
+</tr>
+<tr>
+<td><strong>Operations Team</strong></td>
+<td>SOP、Runbook、故障排除</td>
+<td>Agent 正確執行維運程序</td>
+</tr>
+<tr>
+<td><strong>Engineering Team</strong></td>
+<td>程式碼理解、API 對應、元件擁有權</td>
+<td>Coding agent 理解實作細節</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-scope">6. Scope（範圍）</h2>
+<h3 id="in-scope">In Scope（範圍內）</h3>
+<table>
+<thead>
+<tr>
+<th>類別</th>
+<th>來源格式</th>
+<th>實作狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Documentation</strong></td>
+<td>PDF、Markdown、HTML、DOCX、Wiki exports</td>
+<td>✅ PDF/MD/HTML/DOCX 已支援；⬜ Wiki exports 未特別處理</td>
+</tr>
+<tr>
+<td><strong>Source Code</strong></td>
+<td>Git repositories、Zip packages</td>
+<td>✅ 已支援（Phase 2 M4）</td>
+</tr>
+<tr>
+<td><strong>API Specifications</strong></td>
+<td>Swagger、OpenAPI、GraphQL</td>
+<td>✅ OpenAPI/Swagger 已支援；⬜ GraphQL 未支援</td>
+</tr>
+<tr>
+<td><strong>Support Knowledge</strong></td>
+<td>FAQ、KB Articles、Troubleshooting Guides</td>
+<td>✅ 以一般文件擷取 + 知識類型分類支援</td>
+</tr>
+<tr>
+<td><strong>Operational Knowledge</strong></td>
+<td>Runbooks、SOPs、Incident Response Guides</td>
+<td>✅ 以一般文件擷取 + 知識類型分類支援</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>註：Wiki exports 與 GraphQL 屬範圍內但尚未實作，列為待辦（見 TASKS.md）。</p>
+</blockquote>
+<hr />
+<h2 id="7-architecture">7. Architecture（架構分層）</h2>
+<p>平台採三層架構：</p>
+<div class="mermaid">flowchart TD
+    subgraph L1["Layer 1 — Knowledge Ingestion（知識擷取）"]
+        direction LR
+        SRC[Sources] --&gt; PARSE[Parsing] --&gt; CHUNK[Chunking] --&gt; EXT[Knowledge Extraction] --&gt; EMB[Embedding]
+    end
+    subgraph L2["Layer 2 — Knowledge Store（知識儲存）"]
+        direction LR
+        VS[Vector Store] --- SDS[Structured Domain Store] --- MS[Metadata Store]
+    end
+    subgraph L3["Layer 3 — MCP View Layer（MCP 視圖層）"]
+        MCPS["從同一知識庫產生多個 MCP"]
+    end
+    L1 --&gt; L2 --&gt; L3</div>
+<p>技術實作對應見 <a href="./architecture.html">ARCHITECTURE.md</a>。</p>
+<hr />
+<h2 id="8-knowledge-model">8. Knowledge Model（知識模型）</h2>
+<p>每個知識項目（knowledge item）包含下列屬性：</p>
+<table>
+<thead>
+<tr>
+<th>屬性</th>
+<th>說明</th>
+<th>實作欄位</th>
+<th>狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Knowledge Type</td>
+<td>知識類型（見下）</td>
+<td><code>knowledge_type</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Source Type</td>
+<td>來源類型（code/text/api）</td>
+<td><code>kind</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Audience</td>
+<td>目標對象</td>
+<td><code>audience</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Confidence</td>
+<td>信心分數 0–1</td>
+<td><code>confidence</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Version</td>
+<td>版本</td>
+<td><code>version</code></td>
+<td>✅（欄位存在，LLM 暫不主動萃取）</td>
+</tr>
+<tr>
+<td>Related Entities</td>
+<td>關聯實體</td>
+<td><code>relations</code> / <code>concepts</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Permissions</td>
+<td>權限</td>
+<td><code>permissions</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Tags</td>
+<td>標籤</td>
+<td><code>tags</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>References</td>
+<td>外部參照（URL/票號）</td>
+<td><code>references</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Review Status</td>
+<td>審核狀態</td>
+<td><code>review_status</code></td>
+<td>✅（Phase 2 新增）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="knowledge-types-12">Knowledge Types（知識類型，共 12 種）</h3>
+<p><code>Feature</code>、<code>Workflow</code>、<code>API</code>、<code>Permission</code>、<code>Constraint</code>、<code>Error</code>、<code>Troubleshooting</code>、<code>Architecture</code>、<code>Code</code>、<code>Glossary</code>、<code>Runbook</code>、<code>FAQ</code></p>
+<h3 id="audiences-5">Audiences（對象，共 5 種）</h3>
+<p><code>product_manager</code>、<code>solutions_architect</code>、<code>operations</code>、<code>engineering</code>、<code>support</code></p>
+<hr />
+<h2 id="9-mcp-viewsmcp">9. MCP Views（MCP 視圖）</h2>
+<p>同一知識庫可產生多個角色專屬 MCP，每個工具皆為「帶過濾的檢索」。<strong>5 個視圖皆已實作（Phase 2 M2）</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>View</th>
+<th>Purpose</th>
+<th>Tools</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Product MCP</strong></td>
+<td>產品使用理解</td>
+<td><code>get_feature()</code>、<code>get_workflow()</code>、<code>get_constraint()</code>、<code>search_product_knowledge()</code></td>
+</tr>
+<tr>
+<td><strong>Operations MCP</strong></td>
+<td>執行指引</td>
+<td><code>get_runbook()</code>、<code>get_troubleshooting()</code>、<code>get_incident_response()</code>、<code>get_rollback_procedure()</code></td>
+</tr>
+<tr>
+<td><strong>Developer MCP</strong></td>
+<td>程式碼理解</td>
+<td><code>search_code()</code>、<code>get_class()</code>、<code>get_function()</code>、<code>trace_dependency()</code>、<code>get_api_implementation()</code></td>
+</tr>
+<tr>
+<td><strong>Support MCP</strong></td>
+<td>客戶支援</td>
+<td><code>get_known_issue()</code>、<code>get_error_explanation()</code>、<code>get_resolution_steps()</code>、<code>search_faq()</code></td>
+</tr>
+<tr>
+<td><strong>Architecture MCP</strong></td>
+<td>系統理解</td>
+<td><code>get_component()</code>、<code>get_dependency()</code>、<code>get_dataflow()</code>、<code>search_architecture()</code></td>
+</tr>
+</tbody>
+</table>
+<p>工具→過濾條件對照見 <a href="./architecture.html">ARCHITECTURE.md</a> §MCP Views。</p>
+<hr />
+<h2 id="10-web-dashboard">10. Web Dashboard（網頁主控台）</h2>
+<table>
+<thead>
+<tr>
+<th>模組</th>
+<th>功能</th>
+<th>對應頁面</th>
+<th>狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Workspace</strong></td>
+<td>管理產品、來源、索引</td>
+<td>Dashboard、Ingest、Settings</td>
+<td>✅ 基本版</td>
+</tr>
+<tr>
+<td><strong>Knowledge Explorer</strong></td>
+<td>瀏覽/搜尋/篩選（依類型/來源/對象）</td>
+<td>Explore、Browse</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Knowledge Review</strong></td>
+<td>核准/編輯/拒絕擷取、手動新增</td>
+<td>Review</td>
+<td>✅（Phase 2 M5）</td>
+</tr>
+<tr>
+<td><strong>MCP Builder</strong></td>
+<td>建立 MCP 視圖、設定檢索政策、指派權限、發布端點</td>
+<td>McpBuilder</td>
+<td>✅ 視圖/政策設定；⬜ 動態發布 HTTP 端點與權限指派待辦</td>
+</tr>
+<tr>
+<td><strong>Agent Simulator</strong></td>
+<td>輸入任務、模擬 MCP 呼叫、檢視脈絡、驗證接地品質</td>
+<td>Simulator</td>
+<td>✅（Phase 2 M5）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="11-retrieval-engine">11. Retrieval Engine（檢索引擎）</h2>
+<ul>
+<li><strong>Hybrid Search</strong>：Vector Search + Keyword Search（BM25）以 RRF 融合 ✅</li>
+<li><strong>Metadata Filtering</strong>：依 <code>kind/language/symbol/knowledge_type/review_status</code> 過濾 ✅</li>
+<li><strong>Re-ranking</strong>：選用 cross-encoder ✅</li>
+<li><strong>Policy Enforcement</strong>：<code>retrieve_approved_only</code> 限定已核准知識 ✅（基礎版；完整 RBAC 待辦）</li>
+</ul>
+<hr />
+<h2 id="12-success-metrics">12. Success Metrics（成功指標）</h2>
+<h3 id="product-metrics">Product Metrics</h3>
+<ul>
+<li>Published MCPs（已發布 MCP 數）</li>
+<li>Knowledge Objects（知識物件數）</li>
+<li>Indexed Sources（已索引來源數）</li>
+</ul>
+<h3 id="agent-metrics">Agent Metrics</h3>
+<ul>
+<li>Grounding Hit Rate（接地命中率）</li>
+<li>Task Success Rate（任務成功率）</li>
+<li>Retrieval Precision（檢索精確度）</li>
+<li>Hallucination Reduction（幻覺降低）</li>
+</ul>
+<blockquote>
+<p>現況：Agent Simulator 提供單次 grounding 統計（hits、avg_score、knowledge_types）。系統性指標蒐集與儀表板<strong>尚未實作</strong>，列為 Phase 4 前置待辦（見 TASKS.md）。</p>
+</blockquote>
+<hr />
+<h2 id="13-roadmap">13. Roadmap（路線圖）</h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>內容</th>
+<th>狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Phase 1</strong></td>
+<td>Document + Code Ingestion、Vector Retrieval、Basic MCP</td>
+<td>✅ 已完成</td>
+</tr>
+<tr>
+<td><strong>Phase 2</strong></td>
+<td>Knowledge Classification、Knowledge Review、Multiple MCP Views</td>
+<td>✅ 已完成</td>
+</tr>
+<tr>
+<td><strong>Phase 3</strong></td>
+<td>Workflow Graph、Dependency Graph、Entity Graph</td>
+<td>⬜ 未開始</td>
+</tr>
+<tr>
+<td><strong>Phase 4</strong></td>
+<td>Agent Pre-Execution Advisor</td>
+<td>⬜ 未開始</td>
+</tr>
+</tbody>
+</table>
+<h3 id="phase-4-pre-execution-advisor">Phase 4 願景：Pre-Execution Advisor</h3>
+<p>Agent 詢問：「執行動作 X 之前需要哪些知識？」</p>
+<p>系統在執行前回傳：<strong>Workflow、Risks、Permissions、Dependencies、Constraints</strong>。</p>
+<hr />
+<p><em>最後更新：2026-06-17</em></p>
+</main>
+
+<footer><div class="wrap">
+  openDomainMcp · 文件由 Markdown 自動生成　|　<a href="index.html">文件首頁</a>
+</div></footer>
+
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+mermaid.initialize({
+  startOnLoad:true,
+  theme:"base",
+  fontFamily:'"Noto Sans TC",system-ui,sans-serif',
+  themeVariables:{
+    primaryColor:"#e4f5f0", primaryBorderColor:"#0d9488", primaryTextColor:"#13322e",
+    lineColor:"#0ea5c4", secondaryColor:"#f5fbf9", tertiaryColor:"#ffffff"
+  }
+});
+</script>
+</body>
+</html>

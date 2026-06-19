@@ -16,7 +16,7 @@
 | Phase 0–1（基礎平台） | 18 | 18 ✅ |
 | Phase 2（M1–M5 typed knowledge） | 22 | 22 ✅ |
 | Phase 2 收尾缺口 | 6 | 3 🔶 |
-| Phase 3（Graphs） | 9 | 0 ⬜ |
+| Phase 3（Graphs） | 9 | 3 🔶 |
 | Phase 4（Pre-Execution Advisor + Metrics） | 8 | 2 🔶 |
 | 工程品質與強化 | 7 | 1 🔶 |
 
@@ -125,9 +125,9 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 4.1 | ⬜ | Medium | 實體抽取與正規化 | 從 `concepts`/`relations` 聚合實體、去重、別名合併 | 新增 `graph/entities.py` |
-| 4.2 | ⬜ | Medium | 圖儲存層 | 持久化 nodes/edges（SQLite 或 networkx + 檔案），與 chunk 關聯 | 新增 `graph/store.py` |
-| 4.3 | ⬜ | Low | 實體查詢 API/MCP | `get_entity`、`list_related_entities` | `api/app.py`、`server.py` |
+| 4.1 | ✅ | Medium | 實體抽取與正規化 | LLM 單次呼叫疊加有型別 entities/typed_relations；正規化/去重/別名合併（PR #12） | `extract/knowledge.py`、`graph/normalize.py`、`graph/builder.py` |
+| 4.2 | ✅ | Medium | 圖儲存層 | 持久化 nodes/edges 於 **MariaDB**（PyMySQL，非 SQLite）；與 chunk 關聯、依 collection 隔離、隨向量增量同步（PR #12） | `graph/store.py`、`context.py`、`pipeline.py` |
+| 4.3 | ✅ | Low | 實體查詢 API/MCP | `get_entity`、`list_related_entities`（depth≤2）+ `/api/graph/*`（PR #12） | `api/app.py`、`server.py`、`views/__init__.py` |
 
 ### 3B — Dependency Graph（相依圖）
 
@@ -299,4 +299,9 @@ flowchart LR
 
 ---
 
-_最後更新：2026-06-18（加入相依性分析與並行排程；Wave 1 並行完成 3.1/3.4/3.5/5.4/5.8/6.6）_
+_最後更新：2026-06-19（Phase 3 子專案① Entity Graph 基礎完成 4.1/4.2/4.3，PR #12 併入 main）_
+
+> **Phase 3 進展備註（2026-06-19）：** 子專案①（Entity Graph 基礎，4.1/4.2/4.3）已完成併入 main。設計與計畫見 `docs/superpowers/specs/2026-06-19-entity-graph-foundation-design.md` 與 `docs/superpowers/plans/2026-06-19-entity-graph-foundation.md`。
+> - 4.2 圖儲存採 **MariaDB**（全平台必需依賴），向量仍在 Chroma；圖依 collection 隔離。
+> - 4.2 完成後解鎖 4.4（程式碼相依抽取）、4.6（工作流步驟抽取）、4.9（圖 API）。
+> - 已知延後項（記於 review）：圖寫入目前逐 chunk（每檔可批次化 + 連線重用），留待子專案②；`graph rebuild` 回填 CLI 暫緩（既有索引需重新擷取才有圖）。

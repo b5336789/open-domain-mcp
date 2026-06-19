@@ -21,3 +21,10 @@ class Edge:
     relation_type: str
     chunk_id: str
     confidence: float = 1.0
+
+
+@dataclass
+class WorkflowStep:
+    step_order: int
+    text: str
+    precondition: str = ""

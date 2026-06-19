@@ -184,6 +184,9 @@ class Pipeline:
             self._emit(progress, "skip", str(path), detail="no content")
             return
 
+        for i, chunk in enumerate(chunks):
+            chunk.chunk_index = i
+
         self._emit(progress, "extract", str(path), detail=f"{len(chunks)} chunks")
         self._extract_all(chunks, path, report)
 
@@ -200,6 +203,7 @@ class Pipeline:
         self._emit(progress, "embed", str(path))
         stored = self._store.upsert(chunks)
         self._write_graph(chunks)
+        self._write_workflow(chunks)
         self._emit(progress, "store", str(path), detail=f"{stored} chunks")
 
         report.files_indexed += 1
@@ -214,6 +218,18 @@ class Pipeline:
             entities, edges = build_graph(chunk.knowledge, chunk.id)
             self._graph.upsert_entities(entities)
             self._graph.upsert_edges(edges)
+
+    def _write_workflow(self, chunks: list[Chunk]) -> None:
+        from ..graph.workflow import build_workflow
+
+        for chunk in chunks:
+            if not chunk.knowledge:
+                continue
+            steps, prerequisites, name = build_workflow(chunk.knowledge)
+            if not name:
+                continue
+            self._graph.upsert_workflow(name, chunk.id, chunk.chunk_index or 0,
+                                        steps, prerequisites)
 
     def _extract_all(self, chunks: list[Chunk], path: Path, report: IngestReport):
         """Extract knowledge for each chunk, in parallel when configured.

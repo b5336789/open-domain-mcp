@@ -20,6 +20,10 @@ class GraphStoreProtocol(Protocol):
                   depth: int = 1) -> dict: ...
     def list_entities(self, type: Optional[str] = None, q: Optional[str] = None,
                       limit: int = 50) -> list[dict]: ...
+    def upsert_workflow(self, workflow_name: str, chunk_id: str, chunk_index: int,
+                        steps: list, prerequisites: list[str]) -> None: ...
+    def get_workflow(self, name: str) -> Optional[dict]: ...
+    def list_workflows(self, q: Optional[str] = None, limit: int = 50) -> list[dict]: ...
 
 
 class NullGraphStore:
@@ -37,6 +41,15 @@ class NullGraphStore:
         return {"entity": None, "neighbors": []}
 
     def list_entities(self, type=None, q=None, limit=50):
+        return []
+
+    def upsert_workflow(self, workflow_name, chunk_id, chunk_index, steps, prerequisites):
+        pass
+
+    def get_workflow(self, name):
+        return None
+
+    def list_workflows(self, q=None, limit=50):
         return []
 
 
@@ -68,6 +81,28 @@ _SCHEMA = (
         chunk_id      VARCHAR(128) NOT NULL,
         confidence    FLOAT        NOT NULL DEFAULT 1.0,
         PRIMARY KEY (collection, src, dst, relation_type, chunk_id)
+    ) CHARACTER SET utf8mb4
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS workflow_steps (
+        collection    VARCHAR(255) NOT NULL,
+        workflow_key  VARCHAR(255) NOT NULL,
+        workflow_name VARCHAR(512) NOT NULL,
+        chunk_id      VARCHAR(128) NOT NULL,
+        chunk_index   INT          NOT NULL DEFAULT 0,
+        step_order    INT          NOT NULL,
+        text          TEXT         NOT NULL,
+        precondition  TEXT,
+        PRIMARY KEY (collection, workflow_key, chunk_id, step_order)
+    ) CHARACTER SET utf8mb4
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS workflow_prereqs (
+        collection   VARCHAR(255) NOT NULL,
+        workflow_key VARCHAR(255) NOT NULL,
+        chunk_id     VARCHAR(128) NOT NULL,
+        prerequisite VARCHAR(512) NOT NULL,
+        PRIMARY KEY (collection, workflow_key, chunk_id, prerequisite(191))
     ) CHARACTER SET utf8mb4
     """,
 )
@@ -144,6 +179,12 @@ class MariaGraphStore:
                 "DELETE FROM entities WHERE collection=%s AND normalized_name NOT IN "
                 "(SELECT normalized_name FROM entity_chunks WHERE collection=%s)",
                 (self._collection, self._collection))
+            cur.execute(
+                f"DELETE FROM workflow_steps WHERE collection=%s AND chunk_id IN ({placeholders})",
+                [self._collection] + ids)
+            cur.execute(
+                f"DELETE FROM workflow_prereqs WHERE collection=%s AND chunk_id IN ({placeholders})",
+                [self._collection] + ids)
 
     def delete_collection(self, name: str) -> None:
         """Delete all graph data for the named collection (used by the API drop path)."""
@@ -151,6 +192,8 @@ class MariaGraphStore:
             cur.execute("DELETE FROM edges WHERE collection=%s", (name,))
             cur.execute("DELETE FROM entity_chunks WHERE collection=%s", (name,))
             cur.execute("DELETE FROM entities WHERE collection=%s", (name,))
+            cur.execute("DELETE FROM workflow_steps WHERE collection=%s", (name,))
+            cur.execute("DELETE FROM workflow_prereqs WHERE collection=%s", (name,))
 
     def _get_entity_with_cur(self, cur, normalized_name: str) -> Optional[dict]:
         """Fetch an entity using an already-open cursor (no new connection)."""
@@ -224,3 +267,58 @@ class MariaGraphStore:
                         f"{where} ORDER BY normalized_name LIMIT %s", params)
             return [{"name": r["display_name"], "normalized_name": r["normalized_name"],
                      "type": r["type"]} for r in cur.fetchall()]
+
+    def upsert_workflow(self, workflow_name, chunk_id, chunk_index, steps, prerequisites):
+        if not workflow_name or (not steps and not prerequisites):
+            return
+        from .normalize import normalize_name
+        key = normalize_name(workflow_name)
+        with self._connect() as conn, conn.cursor() as cur:
+            for s in steps:
+                cur.execute(
+                    "INSERT INTO workflow_steps (collection, workflow_key, workflow_name, "
+                    "chunk_id, chunk_index, step_order, text, precondition) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
+                    "workflow_name=VALUES(workflow_name), chunk_index=VALUES(chunk_index), "
+                    "text=VALUES(text), precondition=VALUES(precondition)",
+                    (self._collection, key, workflow_name, chunk_id, chunk_index,
+                     s.step_order, s.text, s.precondition))
+            for p in prerequisites:
+                cur.execute(
+                    "INSERT IGNORE INTO workflow_prereqs (collection, workflow_key, "
+                    "chunk_id, prerequisite) VALUES (%s, %s, %s, %s)",
+                    (self._collection, key, chunk_id, p))
+
+    def get_workflow(self, name):
+        from .normalize import normalize_name
+        key = normalize_name(name)
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT workflow_name, step_order, text, precondition, chunk_id "
+                "FROM workflow_steps WHERE collection=%s AND workflow_key=%s "
+                "ORDER BY chunk_index, step_order", (self._collection, key))
+            rows = cur.fetchall()
+            cur.execute(
+                "SELECT DISTINCT prerequisite FROM workflow_prereqs "
+                "WHERE collection=%s AND workflow_key=%s", (self._collection, key))
+            prereqs = [r["prerequisite"] for r in cur.fetchall()]
+        if not rows and not prereqs:
+            return None
+        display = rows[0]["workflow_name"] if rows else name
+        steps = [{"order": r["step_order"], "text": r["text"],
+                  "precondition": r["precondition"] or "", "chunk_id": r["chunk_id"]}
+                 for r in rows]
+        return {"workflow_name": display, "prerequisites": prereqs, "steps": steps}
+
+    def list_workflows(self, q=None, limit=50):
+        clauses, params = ["collection=%s"], [self._collection]
+        if q:
+            clauses.append("workflow_key LIKE %s")
+            params.append(f"%{q.lower().strip()}%")
+        params.append(max(1, min(500, limit)))
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT workflow_key, MAX(workflow_name) AS workflow_name FROM workflow_steps "
+                f"WHERE {' AND '.join(clauses)} GROUP BY workflow_key "
+                "ORDER BY workflow_name LIMIT %s", params)
+            return [{"name": r["workflow_name"]} for r in cur.fetchall()]

@@ -391,6 +391,19 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
                        ctx: Context = Depends(get_ctx)):
         return {"items": ctx.graph.list_entities(type=type, q=q, limit=limit)}
 
+    @app.get("/api/graph/workflow/{name}")
+    def graph_workflow(name: str, ctx: Context = Depends(get_ctx)):
+        result = ctx.graph.get_workflow(name)
+        if result is None:
+            return JSONResponse(status_code=404,
+                                content={"error": f"workflow not found: {name}"})
+        return result
+
+    @app.get("/api/graph/workflows")
+    def graph_workflows(q: str | None = None, limit: int = 50,
+                        ctx: Context = Depends(get_ctx)):
+        return {"items": ctx.graph.list_workflows(q=q, limit=limit)}
+
     # -- static SPA (built frontend), if present ------------------------
     if STATIC_DIR.exists():
         app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

@@ -46,7 +46,12 @@ _SYSTEM = (
     + ", ".join(ENTITY_TYPES) + " (may be empty),\n"
     '  "typed_relations": a list of {"src", "dst", "type"} directed relations '
     "between entity names, each type one of "
-    + ", ".join(RELATION_TYPES) + " (may be empty).\n"
+    + ", ".join(RELATION_TYPES) + " (may be empty),\n"
+    '  "workflow": if this snippet is a runbook, workflow, or step-by-step '
+    'procedure, an object {"name": a short title, "prerequisites": [conditions '
+    'that must hold before starting], "steps": [{"order": 1-based integer, '
+    '"text": what to do, "precondition": an optional condition for this step}]}; '
+    'otherwise an empty object {}.\n'
     "Do not include any prose outside the JSON object."
 )
 
@@ -101,6 +106,33 @@ def _parse_relations(values) -> list[dict]:
     return out
 
 
+def _parse_workflow(value) -> dict:
+    """Normalize the optional ``workflow`` object. Requires a name and at least
+    one non-empty step, else returns {} (the snippet is not a real procedure)."""
+    if not isinstance(value, dict):
+        return {}
+    name = str(value.get("name", "")).strip()
+    raw_steps = value.get("steps", [])
+    steps = []
+    if isinstance(raw_steps, list):
+        for i, s in enumerate(raw_steps, start=1):
+            if not isinstance(s, dict):
+                continue
+            text = str(s.get("text", "")).strip()
+            if not text:
+                continue
+            try:
+                order = int(s.get("order", i))
+            except (TypeError, ValueError):
+                order = i
+            steps.append({"order": order, "text": text,
+                          "precondition": str(s.get("precondition", "")).strip()})
+    if not name or not steps:
+        return {}
+    return {"name": name, "prerequisites": _str_list(value.get("prerequisites", [])),
+            "steps": steps}
+
+
 def _str_list(values) -> list[str]:
     if not isinstance(values, list):
         return []
@@ -142,6 +174,7 @@ def _parse(raw: str) -> KnowledgeUnit:
         references=_str_list(data.get("references", [])),
         entities=_parse_entities(data.get("entities", [])),
         typed_relations=_parse_relations(data.get("typed_relations", [])),
+        workflow=_parse_workflow(data.get("workflow", {})),
     )
 
 

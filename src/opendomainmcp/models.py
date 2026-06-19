@@ -63,6 +63,9 @@ class KnowledgeUnit:
     # {"src", "dst", "type"}. Default empty so older indexes stay valid.
     entities: list[dict] = field(default_factory=list)
     typed_relations: list[dict] = field(default_factory=list)
+    # Ordered procedure extracted from Workflow/Runbook chunks (see graph.workflow).
+    # {"name", "prerequisites": [str], "steps": [{"order", "text", "precondition"}]}.
+    workflow: dict = field(default_factory=dict)
 
     def is_empty(self) -> bool:
         return not (
@@ -87,6 +90,9 @@ class Chunk:
     symbol: Optional[str] = None
     start_line: Optional[int] = None
     end_line: Optional[int] = None
+    # Position of this chunk within its source document (set by the pipeline).
+    # Used to order workflow steps across chunks. NOT part of content_hash/id.
+    chunk_index: Optional[int] = None
     knowledge: Optional[KnowledgeUnit] = None
 
     @property

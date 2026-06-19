@@ -104,7 +104,16 @@ def graph_tool_handlers(ctx):
     def list_related_entities(name: str, relation_type: str | None = None, depth: int = 1):
         return ctx.graph.neighbors(name, relation_type=relation_type, depth=depth)
 
-    return {"get_entity": get_entity, "list_related_entities": list_related_entities}
+    def get_workflow_steps(name: str):
+        result = ctx.graph.get_workflow(name)
+        return result if result is not None else {"workflow_name": name,
+                                                  "prerequisites": [], "steps": []}
+
+    def list_workflows(q: str | None = None, limit: int = 50):
+        return ctx.graph.list_workflows(q=q, limit=limit)
+
+    return {"get_entity": get_entity, "list_related_entities": list_related_entities,
+            "get_workflow_steps": get_workflow_steps, "list_workflows": list_workflows}
 
 
 # -- role-specific views ------------------------------------------------------
@@ -145,6 +154,26 @@ def build_view_server(view_name: str) -> FastMCP:
                         description="Fetch an entity and its direct neighbors from the knowledge graph.")
         server.add_tool(_list_related_entities, name="list_related_entities",
                         description="List entities related to a given entity (depth clamped to 1–2).")
+
+    # Register workflow tools on Operations view (list + get_steps) and
+    # Product view (get_steps only).
+    if view_name in ("operations", "product"):
+        def _get_workflow_steps(name: str, collection: Optional[str] = None) -> dict:
+            """Fetch a workflow's ordered steps and prerequisites. Returns an empty
+            shape when the workflow is not found."""
+            return graph_tool_handlers(_context(collection))["get_workflow_steps"](name=name)
+
+        server.add_tool(_get_workflow_steps, name="get_workflow_steps",
+                        description="Fetch a workflow's ordered steps and prerequisites.")
+
+    if view_name in ("operations",):
+        def _list_workflows(q: Optional[str] = None, limit: int = 50,
+                            collection: Optional[str] = None) -> list:
+            """List available workflows, optionally filtered by a search string."""
+            return graph_tool_handlers(_context(collection))["list_workflows"](q=q, limit=limit)
+
+        server.add_tool(_list_workflows, name="list_workflows",
+                        description="List available workflows, optionally filtered by a search string.")
 
     return server
 

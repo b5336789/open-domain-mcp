@@ -8,8 +8,9 @@
 - ECS cluster: open-domain-mcp
 - ECS service: open-domain-mcp-web
 - ECR repository: open-domain-mcp
-- RDS DB identifier: open-domain-mcp-db
+- RDS DB identifier: open-domain-mcp-db-enc
 - RDS DB name: opendomain_graph
+- RDS storage encryption: enabled
 - EFS file system: fs-047117cca0ea5c82b
 - EFS access point: fsap-0e58045b3846e8717
 - EFS mount path in container: /data/opendomain
@@ -32,7 +33,7 @@ Required environment:
 ODM_WEB_HOST=0.0.0.0
 ODM_WEB_PORT=8000
 ODM_DATA_DIR=/data/opendomain
-ODM_GRAPH_DB_HOST=open-domain-mcp-db.c9ok44ak0wmz.ap-east-2.rds.amazonaws.com
+ODM_GRAPH_DB_HOST=open-domain-mcp-db-enc.c9ok44ak0wmz.ap-east-2.rds.amazonaws.com
 ODM_GRAPH_DB_PORT=3306
 ODM_GRAPH_DB_USER=opendomain
 ODM_GRAPH_DB_NAME=opendomain_graph

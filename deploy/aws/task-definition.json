@@ -39,7 +39,7 @@
         },
         {
           "name": "ODM_GRAPH_DB_HOST",
-          "value": "open-domain-mcp-db.c9ok44ak0wmz.ap-east-2.rds.amazonaws.com"
+          "value": "open-domain-mcp-db-enc.c9ok44ak0wmz.ap-east-2.rds.amazonaws.com"
         },
         {
           "name": "ODM_GRAPH_DB_PORT",

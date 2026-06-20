@@ -328,6 +328,18 @@ class ChromaStore:
         )
         self._lexical_dirty = True
 
+    def sibling(self, collection_name: str) -> "ChromaStore":
+        """A store over another collection in the SAME client/embedder.
+
+        Used to keep synthesized articles in a separate collection without
+        opening a second on-disk client or reconnecting the graph store.
+        """
+        return ChromaStore(
+            self._embedder, data_dir=None, collection_name=collection_name,
+            client=self._client, max_retries=self._max_retries,
+            reranker=self._reranker,
+        )
+
     # -- collection administration (shared client) ----------------------
     def list_collections(self) -> list[dict]:
         out = []

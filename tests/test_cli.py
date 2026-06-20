@@ -78,3 +78,32 @@ def test_ingest_help_documents_newer_sources():
     help_text = sub["ingest"].format_help()
     for term in ("Git", "zip", "OpenAPI", "GraphQL"):
         assert term in help_text
+
+
+class _FakeCtx:
+    """Minimal context double for synthesize tests."""
+
+    def __init__(self):
+        self.store = None
+        self.settings = None
+        self.graph = None
+
+
+def test_synthesize_command_prints_report(monkeypatch, capsys):
+    from opendomainmcp.synthesis import SynthesisReport
+
+    captured = {}
+
+    def fake_synth(store, settings, *, graph=None, limit=None, dry_run=False):
+        captured["limit"] = limit
+        captured["dry_run"] = dry_run
+        return SynthesisReport(topics_gated=2, articles_written=2, stored=1,
+                               rejected=[{"topic": "x", "verdict": {}}])
+
+    monkeypatch.setattr(cli, "build_context", lambda **kw: _FakeCtx())
+    monkeypatch.setattr("opendomainmcp.synthesis.synthesize_articles", fake_synth)
+    rc = cli.main(["synthesize", "--limit", "5"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert captured["limit"] == 5 and captured["dry_run"] is False
+    assert "Stored 1" in out and "Rejected 1" in out

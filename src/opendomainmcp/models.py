@@ -154,6 +154,55 @@ class Chunk:
 
 
 @dataclass
+class Article:
+    """A synthesized, business-meaning article over several chunks.
+
+    Duck-types the storage interface used by ``ChromaStore.upsert``/``search``
+    (``id`` / ``text`` / ``embedding_text`` / ``metadata``) so articles reuse the
+    same store with no special-casing. ``id`` is a content hash of the topic plus
+    its sorted member chunk ids → re-synthesis is idempotent.
+    """
+
+    title: str
+    topic: str
+    body: str
+    business_relevance: float = 0.0
+    source_chunk_ids: list[str] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)
+    cross_validated: bool = False
+    critic_verdict: dict = field(default_factory=dict)
+
+    @property
+    def id(self) -> str:
+        members = "\n".join(sorted(self.source_chunk_ids))
+        digest = hashlib.sha256(f"{self.topic}\n{members}".encode("utf-8"))
+        return digest.hexdigest()
+
+    @property
+    def text(self) -> str:
+        return self.body
+
+    def embedding_text(self) -> str:
+        """Title + topic + body, so retrieval matches the article's subject."""
+        return f"{self.title}\n{self.topic}\n{self.body}"
+
+    def metadata(self) -> dict:
+        v = self.critic_verdict or {}
+        meta = {
+            "kind": "article",
+            "title": self.title,
+            "topic": self.topic,
+            "business_relevance": self.business_relevance,
+            "cross_validated": self.cross_validated,
+            "grounded": bool(v.get("grounded")),
+            "business_meaningful": bool(v.get("business_meaningful")),
+            "sources": " | ".join(self.sources),
+            "source_chunk_ids": ", ".join(self.source_chunk_ids),
+        }
+        return {k: val for k, val in meta.items() if val is not None and val != ""}
+
+
+@dataclass
 class SearchResult:
     id: str
     text: str

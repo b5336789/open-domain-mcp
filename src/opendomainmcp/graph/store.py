@@ -80,7 +80,11 @@ _SCHEMA = (
         relation_type VARCHAR(64)  NOT NULL,
         chunk_id      VARCHAR(128) NOT NULL,
         confidence    FLOAT        NOT NULL DEFAULT 1.0,
-        PRIMARY KEY (collection, src, dst, relation_type, chunk_id)
+        -- Prefix lengths on the varchar key columns keep the composite key
+        -- under InnoDB's 3072-byte index limit for utf8mb4 (4 bytes/char):
+        -- (150+150+150+64+128)*4 = 2568 bytes. Mirrors the prefix-index pattern
+        -- used by workflow_prereqs below.
+        PRIMARY KEY (collection(150), src(150), dst(150), relation_type, chunk_id)
     ) CHARACTER SET utf8mb4
     """,
     """
@@ -102,7 +106,10 @@ _SCHEMA = (
         workflow_key VARCHAR(255) NOT NULL,
         chunk_id     VARCHAR(128) NOT NULL,
         prerequisite VARCHAR(512) NOT NULL,
-        PRIMARY KEY (collection, workflow_key, chunk_id, prerequisite(191))
+        -- Prefix lengths keep the composite key under InnoDB's 3072-byte limit
+        -- for utf8mb4: (150+150+128+150)*4 = 2312 bytes. The prior single-column
+        -- prefix on prerequisite alone was insufficient given the other columns.
+        PRIMARY KEY (collection(150), workflow_key(150), chunk_id, prerequisite(150))
     ) CHARACTER SET utf8mb4
     """,
 )

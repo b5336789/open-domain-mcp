@@ -1,7 +1,7 @@
 # Knowledge Synthesis — Business-Meaning Articles
 
 **Date:** 2026-06-20
-**Status:** Design approved (outline) + revised for full autonomy, pending spec review
+**Status:** Design approved; open questions resolved. Ready for implementation plan.
 
 ## Problem
 
@@ -190,9 +190,14 @@ to reintroduce a human gate.
 - Both LLM calls (author + critic) are **injected** fakes returning canned JSON, so
   the suite stays offline, matching the existing extractor test pattern.
 
-## Open questions for spec review
+## Resolved decisions
 
-1. Topic source for stage 1: graph `entities` only, or also free-form `concepts`?
-2. Should `ask` prefer the `articles` collection now, or strictly a later phase?
-3. Critic strength: single critic call (cheaper) vs. best-of-N votes (more robust,
-   more expensive) for the initial implementation.
+1. **Topic source (stage 1):** use graph `entities` as the backbone **and** fold in
+   free-form `concepts`, normalized/deduped together (case-insensitive). Entities are
+   clean and typed; concepts widen recall on legacy systems with sparse graphs.
+2. **`ask` integration:** **deferred** to a follow-up. This slice produces and stores
+   articles in the `articles` collection; making `ask`/search prefer that collection
+   is a later phase.
+3. **Critic strength:** **single critic call** for v1 (simpler, cheaper). Best-of-N
+   voting is the documented escalation if the report shows poor precision — not part
+   of the initial build.

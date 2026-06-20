@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { IconClose } from "./icons";
 
 function cx(...parts: (string | false | null | undefined)[]): string {
@@ -321,7 +322,10 @@ export function Modal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  // Render through a portal to document.body so the overlay escapes any
+  // ancestor stacking context (e.g. the `position: sticky` sidebar), which
+  // would otherwise trap `fixed`/`z-50` and let page content paint over it.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-fade-in"
       onMouseDown={onClose}
@@ -343,7 +347,8 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

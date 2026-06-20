@@ -26,6 +26,7 @@ import {
   IconMetrics,
   IconMoon,
   IconPlus,
+  IconTrash,
   IconReview,
   IconSettings,
   IconSimulator,
@@ -69,6 +70,7 @@ function CollectionSwitcher() {
   const [collections, setCollections] = useState<Collection[] | null>(null);
   const [active, setActive] = useState<string>("");
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const toast = useToast();
@@ -96,6 +98,21 @@ function CollectionSwitcher() {
       await api.createCollection(trimmed);
       toast.show(`Created knowledge base “${trimmed}”`, "green");
       choose(trimmed);
+    } catch (e) {
+      toast.show(String(e), "red");
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    try {
+      await api.deleteCollection(active);
+      toast.show(`Deleted knowledge base “${active}”`, "neutral");
+      // Switch to a remaining collection (reloads the console).
+      const next = collections?.find((c) => c.name !== active);
+      setActiveCollection(next ? next.name : null);
+      window.location.reload();
     } catch (e) {
       toast.show(String(e), "red");
       setBusy(false);
@@ -139,6 +156,15 @@ function CollectionSwitcher() {
         >
           <IconPlus className="h-4 w-4" />
         </IconButton>
+        <IconButton
+          onClick={() => setDeleting(true)}
+          disabled={!collections || collections.length <= 1 || !active}
+          title="Delete knowledge base"
+          aria-label="Delete knowledge base"
+          className="h-9 w-9 border border-slate-200 dark:border-slate-700"
+        >
+          <IconTrash className="h-4 w-4" />
+        </IconButton>
       </div>
 
       {creating && (
@@ -171,6 +197,35 @@ function CollectionSwitcher() {
           />
           <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             A separate vector collection. Switching reloads the console.
+          </p>
+        </Modal>
+      )}
+
+      {deleting && (
+        <Modal
+          title="Delete knowledge base?"
+          onClose={() => !busy && setDeleting(false)}
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setDeleting(false)}
+                disabled={busy}
+              >
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={remove} loading={busy}>
+                Delete
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            This permanently removes the collection{" "}
+            <span className="font-semibold text-slate-900 dark:text-white">
+              “{active}”
+            </span>{" "}
+            and all of its indexed chunks. This cannot be undone.
           </p>
         </Modal>
       )}

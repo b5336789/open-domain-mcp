@@ -78,3 +78,31 @@ def test_dry_run_counts_stored_but_does_not_persist(store):
     assert report.stored >= 1
     assert _arts(store).stats()["count"] == 0, \
         "dry_run must not write to the sibling article collection"
+
+
+def test_cross_validated_comes_from_gate_not_evidence(store, monkeypatch):
+    # Seed so "billing engine" appears in BOTH a code and a doc chunk
+    # → TopicCandidate.cross_validated is True (the gate truth).
+    _seed(store)
+
+    # Capture the real search so we can find the code chunk's id.
+    real_search = store.search
+    code_results = [r for r in real_search("Billing Engine", top_k=8, mode="hybrid")
+                    if r.metadata.get("kind") == "code"]
+    assert code_results, "precondition: at least one code result must exist"
+
+    # Monkeypatch search to return ONLY the code-side result.
+    # An evidence-derived cross_validated would be False (no doc hit).
+    monkeypatch.setattr(store, "search", lambda *a, **k: code_results[:1])
+
+    report = synthesize_articles(store, Settings(), writer=_Writer(),
+                                 critic=_Critic(keep=True))
+    assert report.stored >= 1, "article should have been stored"
+
+    # Read back the stored article and check its cross_validated metadata.
+    arts = _arts(store)
+    stored_items = arts.get_items(limit=10)
+    assert stored_items, "article store must have at least one item"
+    cv_values = [item["metadata"].get("cross_validated") for item in stored_items]
+    assert any(cv_values), \
+        "cross_validated must be True (from the gate), not False (from code-only evidence)"

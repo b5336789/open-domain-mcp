@@ -17,22 +17,19 @@ class SynthesisReport:
     errors: list[dict] = field(default_factory=list)
 
 
-def _evidence_block(results) -> tuple[str, list[str], list[str], bool, bool]:
+def _evidence_block(results) -> tuple[str, list[str], list[str]]:
     """Number the evidence and collect provenance. Returns
-    (text, chunk_ids, sources, in_code, in_docs)."""
+    (text, chunk_ids, sources)."""
     lines, ids, sources = [], [], []
-    in_code = in_docs = False
     for n, r in enumerate(results, 1):
         meta = r.metadata or {}
         src = meta.get("source", "?")
         loc = f"{src}:{meta.get('start_line')}" if meta.get("start_line") else src
         side = "code" if str(meta.get("kind", "")).lower() == "code" else "doc"
-        in_code = in_code or side == "code"
-        in_docs = in_docs or side == "doc"
         lines.append(f"[{n}] ({side}) {loc}\n{r.text}")
         ids.append(r.id)
         sources.append(loc)
-    return "\n\n".join(lines), ids, sources, in_code, in_docs
+    return "\n\n".join(lines), ids, sources
 
 
 def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None,
@@ -41,7 +38,14 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
         w, c = get_article_llms(settings)
         writer, critic = writer or w, critic or c
 
-    items = store.get_items(limit=10_000)
+    PAGE = 1000
+    items, off = [], 0
+    while True:
+        page = store.get_items(limit=PAGE, offset=off)
+        items.extend(page)
+        if len(page) < PAGE:
+            break
+        off += PAGE
     extra = []
     if graph is not None:
         extra = [e.get("name", "") for e in graph.list_entities(limit=500)]
@@ -61,7 +65,7 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
                     {"topic": tc.name, "verdict": {"note": "no evidence retrieved"}}
                 )
                 continue
-            evidence, ids, sources, in_code, in_docs = _evidence_block(results)
+            evidence, ids, sources = _evidence_block(results)
             draft = writer.write(tc.name, evidence)
             report.articles_written += 1
             verdict = critic.judge(tc.name, draft["body"], evidence)
@@ -72,7 +76,7 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
                 title=draft["title"], topic=tc.name, body=draft["body"],
                 business_relevance=draft["business_relevance"],
                 source_chunk_ids=ids, sources=sources,
-                cross_validated=in_code and in_docs, critic_verdict=verdict,
+                cross_validated=tc.cross_validated, critic_verdict=verdict,
             )
             if not dry_run:
                 article_store.upsert([article])

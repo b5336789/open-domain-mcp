@@ -10,6 +10,7 @@ from .topics import gather_topics
 @dataclass
 class SynthesisReport:
     topics_gated: int = 0
+    # drafts produced (passed to the critic); not all are stored.
     articles_written: int = 0
     stored: int = 0
     rejected: list[dict] = field(default_factory=list)
@@ -55,6 +56,10 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
         try:
             results = store.search(tc.name, top_k=8, mode="hybrid")
             if not results:
+                # Fail Loud: record the topic so it is accounted for in the report.
+                report.rejected.append(
+                    {"topic": tc.name, "verdict": {"note": "no evidence retrieved"}}
+                )
                 continue
             evidence, ids, sources, in_code, in_docs = _evidence_block(results)
             draft = writer.write(tc.name, evidence)

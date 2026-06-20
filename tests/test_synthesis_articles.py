@@ -56,3 +56,25 @@ def test_synthesize_is_idempotent(store):
     synthesize_articles(store, Settings(), writer=_Writer(), critic=_Critic(keep=True))
     # Same topic + same member chunks → same Article id → no duplicate row.
     assert _arts(store).stats()["count"] == 1
+
+
+def test_empty_evidence_is_recorded_not_dropped(store, monkeypatch):
+    # Seed so topics are gated, then force search to return nothing.
+    _seed(store)
+    monkeypatch.setattr(store, "search", lambda *a, **k: [])
+    report = synthesize_articles(store, Settings(), writer=_Writer(),
+                                 critic=_Critic(keep=True))
+    assert report.stored == 0
+    assert any(
+        entry.get("verdict", {}).get("note") == "no evidence retrieved"
+        for entry in report.rejected
+    ), "gated topic with no evidence must appear in report.rejected"
+
+
+def test_dry_run_counts_stored_but_does_not_persist(store):
+    _seed(store)
+    report = synthesize_articles(store, Settings(), writer=_Writer(),
+                                 critic=_Critic(keep=True), dry_run=True)
+    assert report.stored >= 1
+    assert _arts(store).stats()["count"] == 0, \
+        "dry_run must not write to the sibling article collection"

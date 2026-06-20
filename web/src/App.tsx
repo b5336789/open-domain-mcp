@@ -13,6 +13,7 @@ import {
 } from "./components/ui";
 import {
   IconAdvisor,
+  IconArticles,
   IconAsk,
   IconBrowse,
   IconBuilder,
@@ -39,6 +40,7 @@ const links = [
   { to: "/explore", label: "Explore", icon: IconExplore },
   { to: "/ask", label: "Ask", icon: IconAsk },
   { to: "/browse", label: "Browse / Edit", icon: IconBrowse },
+  { to: "/articles", label: "Articles", icon: IconArticles },
   { to: "/review", label: "Review", icon: IconReview },
   { to: "/graph", label: "Graph", icon: IconGraph },
   { to: "/advisor", label: "Advisor", icon: IconAdvisor },

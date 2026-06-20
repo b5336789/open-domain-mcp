@@ -163,6 +163,17 @@ export interface SourceInfo {
   review: { approved: number; pending: number; rejected: number; unset: number };
 }
 
+// --- Articles ------------------------------------------------------------
+export interface Article {
+  id: string;
+  title: string;
+  topic: string;
+  business_relevance: number;
+  cross_validated: boolean;
+  sources: string[];
+  body: string;
+}
+
 // --- Dynamic MCP endpoints ----------------------------------------------
 export interface McpEndpoint {
   view: string;
@@ -364,6 +375,10 @@ export const api = {
       headers: headers({ "Content-Type": "application/json" }),
       body: JSON.stringify({ source }),
     }).then(json<{ deleted: number; source: string }>),
+
+  // -- articles -----------------------------------------------------------
+  articles: () =>
+    fetch("/api/articles", { headers: headers() }).then(json<Article[]>),
 
   // -- dynamic MCP endpoints ---------------------------------------------
   mcpEndpoints: () =>

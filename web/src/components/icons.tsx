@@ -199,3 +199,11 @@ export const IconAdvisor = (p: IconProps) => (
     <path d="M9 21h6" />
   </Base>
 );
+
+export const IconArticles = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M6 3h8l4 4v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+    <path d="M14 3v4h4" />
+    <path d="M8 12h8M8 16h8" />
+  </Base>
+);

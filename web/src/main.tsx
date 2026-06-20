@@ -8,6 +8,7 @@ import Ingest from "./pages/Ingest";
 import Explore from "./pages/Explore";
 import Ask from "./pages/Ask";
 import Browse from "./pages/Browse";
+import Articles from "./pages/Articles";
 import Review from "./pages/Review";
 import McpBuilder from "./pages/McpBuilder";
 import Simulator from "./pages/Simulator";
@@ -27,6 +28,7 @@ const router = createHashRouter([
       { path: "explore", element: <Explore /> },
       { path: "ask", element: <Ask /> },
       { path: "browse", element: <Browse /> },
+      { path: "articles", element: <Articles /> },
       { path: "review", element: <Review /> },
       { path: "graph", element: <Graph /> },
       { path: "advisor", element: <Advisor /> },

@@ -153,7 +153,10 @@ def _parse(raw: str) -> KnowledgeUnit:
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
         raise ExtractionError(f"No JSON object in model output: {raw[:120]!r}")
-    data = json.loads(text[start: end + 1])
+    # strict=False tolerates literal control characters (newlines/tabs) inside
+    # string values, which some models — local OpenAI-compatible ones especially
+    # — emit instead of escaping them.
+    data = json.loads(text[start: end + 1], strict=False)
     # Audience may come back as a single string or a list; normalise to a list
     # and drop anything outside the allowed vocabulary (Fail Loud is too harsh
     # here — the model occasionally invents terms; we keep the valid ones).
@@ -213,9 +216,46 @@ class ClaudeExtractor:
         return _parse(raw)
 
 
+class OpenAIExtractor:
+    """Extractor backed by the OpenAI chat-completions API, so any
+    OpenAI-compatible endpoint (e.g. a local LM Studio / vLLM server, via
+    ``OPENAI_BASE_URL``) can perform extraction. ``client`` is injectable for
+    tests; otherwise a client is built lazily from the environment."""
+
+    def __init__(self, model: str, max_tokens: int = 900,
+                 timeout: float = 60.0, max_retries: int = 2, client=None):
+        if client is None:
+            from openai import OpenAI
+
+            # OpenAI() reads OPENAI_API_KEY / OPENAI_BASE_URL from the env.
+            client = OpenAI(timeout=timeout, max_retries=max_retries)
+        self._client = client
+        self._model = model
+        self._max_tokens = max_tokens
+
+    def extract(self, text: str, kind: str, language=None) -> KnowledgeUnit:
+        label = f"{kind}" + (f" ({language})" if language else "")
+        resp = self._client.chat.completions.create(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            messages=[
+                {"role": "system", "content": _SYSTEM},
+                {"role": "user", "content": f"Snippet type: {label}\n\n{text}"},
+            ],
+        )
+        raw = resp.choices[0].message.content or ""
+        return _parse(raw)
+
+
 def get_extractor(settings: Settings):
     if not settings.extract_knowledge:
         return NullExtractor()
+    if settings.llm_backend.lower() == "openai":
+        return OpenAIExtractor(
+            settings.extraction_model,
+            timeout=settings.request_timeout,
+            max_retries=settings.max_retries,
+        )
     return ClaudeExtractor(
         settings.extraction_model,
         timeout=settings.request_timeout,

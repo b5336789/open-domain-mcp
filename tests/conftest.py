@@ -40,6 +40,19 @@ class FakeEmbedder(Embedder):
         return _DIM
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_settings(monkeypatch):
+    """Keep tests offline and reproducible: never read a developer's project
+    ``.env``. Without this, a deployment ``.env`` (e.g. ODM_LLM_BACKEND=openai)
+    would leak into ``Settings()`` and change test behaviour."""
+    from opendomainmcp.config import Settings
+
+    monkeypatch.setattr(
+        Settings, "model_config",
+        {**Settings.model_config, "env_file": None},
+    )
+
+
 @pytest.fixture
 def fake_embedder():
     return FakeEmbedder()

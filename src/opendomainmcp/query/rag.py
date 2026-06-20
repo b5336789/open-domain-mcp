@@ -80,6 +80,76 @@ def _claude_synthesize_stream(model: str, system: str, user: str,
         ) from exc
 
 
+def _openai_synthesize(model: str, system: str, user: str,
+                       timeout: float = 60.0, max_retries: int = 2) -> str:
+    """Synthesize via the OpenAI chat-completions API (works against any
+    OpenAI-compatible endpoint set through ``OPENAI_BASE_URL``)."""
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(timeout=timeout, max_retries=max_retries)
+        resp = client.chat.completions.create(
+            model=model, max_tokens=800,
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user}],
+        )
+        return resp.choices[0].message.content or ""
+    except Exception as exc:  # no key, no SDK, or API error -> fail loud
+        raise AnswerError(
+            f"answer synthesis failed ({exc!r}); check OPENAI_API_KEY / "
+            "OPENAI_BASE_URL for the openai backend"
+        ) from exc
+
+
+def _openai_synthesize_stream(model: str, system: str, user: str,
+                              timeout: float = 60.0, max_retries: int = 2):
+    """Yield answer text deltas from an OpenAI-compatible streaming response."""
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(timeout=timeout, max_retries=max_retries)
+        stream = client.chat.completions.create(
+            model=model, max_tokens=800, stream=True,
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user}],
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
+    except Exception as exc:  # no key, no SDK, or API error -> fail loud
+        raise AnswerError(
+            f"answer synthesis failed ({exc!r}); check OPENAI_API_KEY / "
+            "OPENAI_BASE_URL for the openai backend"
+        ) from exc
+
+
+def _synthesize(settings, system: str, user: str) -> str:
+    """Pick the configured LLM backend for a single (non-streaming) answer."""
+    if settings.llm_backend.lower() == "openai":
+        return _openai_synthesize(
+            settings.answer_model, system, user,
+            timeout=settings.request_timeout, max_retries=settings.max_retries,
+        )
+    return _claude_synthesize(
+        settings.answer_model, system, user,
+        timeout=settings.request_timeout, max_retries=settings.max_retries,
+    )
+
+
+def _synthesize_stream(settings, system: str, user: str):
+    """Pick the configured LLM backend for a streaming answer."""
+    if settings.llm_backend.lower() == "openai":
+        return _openai_synthesize_stream(
+            settings.answer_model, system, user,
+            timeout=settings.request_timeout, max_retries=settings.max_retries,
+        )
+    return _claude_synthesize_stream(
+        settings.answer_model, system, user,
+        timeout=settings.request_timeout, max_retries=settings.max_retries,
+    )
+
+
 def answer_question(query, store, settings, top_k: int = 6, synthesize=None) -> dict:
     results = store.search(query, top_k=top_k, mode=settings.search_mode)
     if not results:
@@ -88,10 +158,7 @@ def answer_question(query, store, settings, top_k: int = 6, synthesize=None) -> 
     if synthesize is not None:
         answer = synthesize(settings.answer_model, _SYSTEM, user)
     else:
-        answer = _claude_synthesize(
-            settings.answer_model, _SYSTEM, user,
-            timeout=settings.request_timeout, max_retries=settings.max_retries,
-        )
+        answer = _synthesize(settings, _SYSTEM, user)
     return {"answer": answer, "citations": _citations(results)}
 
 
@@ -111,10 +178,7 @@ def answer_question_stream(query, store, settings, top_k: int = 6, synthesize_st
     if synthesize_stream is not None:
         stream = synthesize_stream(settings.answer_model, _SYSTEM, user)
     else:
-        stream = _claude_synthesize_stream(
-            settings.answer_model, _SYSTEM, user,
-            timeout=settings.request_timeout, max_retries=settings.max_retries,
-        )
+        stream = _synthesize_stream(settings, _SYSTEM, user)
     for delta in stream:
         yield {"type": "delta", "text": delta}
     yield {"type": "citations", "citations": _citations(results)}

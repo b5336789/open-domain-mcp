@@ -74,3 +74,13 @@ def test_null_extractor_disabled_via_settings():
     extractor = get_extractor(Settings(extract_knowledge=False))
     assert isinstance(extractor, NullExtractor)
     assert extractor.extract("x", "text").is_empty()
+
+
+def test_parse_tolerates_control_characters_in_strings():
+    # Local OpenAI-compatible models sometimes emit a literal newline/tab inside
+    # a JSON string value, which strict json.loads rejects. Extraction should
+    # still recover the content rather than dropping the whole chunk.
+    raw = '{"summary": "line one\nline two", "concepts": ["a\tb"], "audience": []}'
+    k = _parse(raw)
+    assert "line one" in k.summary and "line two" in k.summary
+    assert k.concepts == ["a\tb"]

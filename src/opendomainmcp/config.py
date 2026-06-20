@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     embedder_backend: str = "local"  # local | openai | voyage
     embedder_model: str = "BAAI/bge-small-en-v1.5"
 
+    # LLM backend for extraction + RAG answering. "anthropic" uses the Anthropic
+    # Messages API (ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL); "openai" uses the
+    # OpenAI chat-completions API (OPENAI_API_KEY / OPENAI_BASE_URL), which lets
+    # any OpenAI-compatible endpoint — e.g. a local LM Studio / vLLM server —
+    # drive both. The model ids below name the model on the chosen backend.
+    llm_backend: str = "anthropic"  # anthropic | openai
+
     # Domain-knowledge extraction (Anthropic)
     extract_knowledge: bool = True
     extraction_model: str = "claude-sonnet-4-6"

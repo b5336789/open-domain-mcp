@@ -26,6 +26,18 @@ def test_collections_are_isolated(fake_embedder):
     assert a._collection_name in names and b._collection_name in names
 
 
+def test_list_collections_hides_articles_siblings(fake_embedder):
+    client = chromadb.EphemeralClient()
+    base = f"kb_{uuid.uuid4().hex}"
+    s = _store(client, base, fake_embedder)
+    # The synthesis feature stores articles in a `<base>__articles` sibling; it is
+    # an internal implementation detail and must not appear as a selectable KB.
+    s.create_collection(f"{base}__articles")
+    names = {c["name"] for c in s.list_collections()}
+    assert base in names
+    assert f"{base}__articles" not in names
+
+
 def test_create_and_drop_collection(fake_embedder):
     client = chromadb.EphemeralClient()
     s = _store(client, f"base_{uuid.uuid4().hex}", fake_embedder)

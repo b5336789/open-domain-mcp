@@ -147,6 +147,7 @@ flowchart TD
 | 模組 | 功能 | 對應頁面 | 狀態 |
 |------|------|----------|------|
 | **Workspace** | 管理產品、來源、索引 | Dashboard、Ingest、Settings | ✅ 基本版 |
+| **知識庫管理** | 建立 / 切換 / 刪除知識庫（collection） | 側欄切換器（➕ 建立、🗑 刪除＋確認） | ✅（刪除 UI 於 2026-06-20 補上，PR #18） |
 | **Knowledge Explorer** | 瀏覽/搜尋/篩選（依類型/來源/對象） | Explore、Browse | ✅ |
 | **Knowledge Review** | 核准/編輯/拒絕擷取、手動新增 | Review | ✅（Phase 2 M5） |
 | **MCP Builder** | 建立 MCP 視圖、設定檢索政策、指派權限、發布端點 | McpBuilder | ✅ 視圖/政策設定；✅ 動態發布 HTTP/SSE 端點（`/mcp/{view}` + `/api/mcp/endpoints`）；✅ 視圖層級 RBAC（API key→role→views） |

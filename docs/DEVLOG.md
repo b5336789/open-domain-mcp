@@ -109,3 +109,37 @@ commit `df8c9fa`。
 - 後端：`pytest` → **276 passed, 3 skipped**（含 `test_integration_wiring.py` 對完整 `create_app` 的端到端接線驗證；3 skipped 為需 MariaDB 的整合測試）。基線 187 → 276，+89 測試、零回歸。
 - 前端：`tsc` 綠燈、`vite build` 成功、Playwright E2E **7 passed**。
 - 文件：`docs/*.html` 由 Markdown 重新生成，導覽含 功能說明 / 技術架構 / 任務 / PRD / 開發記錄。
+
+---
+
+## 4. 2026-06-20 — 瀏覽器全功能實測與前端修正
+
+以 Playwright 驅動瀏覽器（先用內建 Chromium，使用者安裝 Chrome 後改用其本機 Chrome）對運行中的 `opendomainmcp-web`（`127.0.0.1:8088`）做全功能實測，並把整個專案拿來自我分析，端到端驗證擷取流程。
+
+### 4.1 實測範圍與結果
+
+- **12 個頁面全部渲染正常**、無 console error / network 失敗。
+- **互動流程全通過**：Explore 混合搜尋（回傳評分與 concepts）、Ask SSE 串流問答（含 `[n]` 引用）、Advisor 五 facet、Simulator（Developer MCP view 命中 8 筆）、Graph 實體詳情、Metrics 聚合、Settings 存檔持久化（改 150→160 經後端確認再復原）。
+- **完整生命週期走查**：新建 collection → 擷取 → 切段/萃取/向量化/存庫 → 分析 → 刪除。
+
+### 4.2 自我擷取（dogfooding）
+
+新建 `project_self` 知識庫，擷取 `src/opendomainmcp/`：
+
+- **切段**：tree-sitter AST，**42 檔 / 296 chunks**（`node_type=block` + 行號；最大 `api/app.py` 44、`graph/store.py`/`ingest/pipeline.py` 各 20）。
+- **萃取**：本地 LLM（LM Studio `qwen3-coder-30b`）產出 summary/concepts/knowledge_type，~82% 成功；少數回非法 JSON 由 pipeline fail-soft 處理（仍照常切段+向量化入庫）。
+- **向量化**：`qwen3-embedding-0.6b`，**dim 1024**。
+- **存庫**：Chroma collection `project_self`，count 296。
+- **接地驗證**：Explore 命中 `ingest/pipeline.py`（"load→split→extract→embed→store … Fail Loud"）；Ask 對「本專案架構」「混合檢索如何用 RRF 融合 dense+BM25」皆給出有引用的正確答案；Metrics grounding hit rate **92.3%**。
+
+### 4.3 發現與修正（PR #18，merge commit `22b7137`）
+
+1. **新建 collection 對話框被遮蔽**（使用者回報）。根因：Modal 是 `fixed inset-0 z-50`，但被渲染在 `position: sticky` 側欄內，`sticky` 建立的 stacking context 把 `z-50` 困住，`<main>`（DOM 順序在後）整片蓋上。以 `elementFromPoint` 在對話框中心取到的是 dashboard 卡片而非 Modal，程式化確認。**修法**：`Modal` 改用 `createPortal` 掛到 `document.body`（`web/src/components/ui.tsx`），一次修好所有 Modal。
+2. **UI 無法刪除 collection**。`api.deleteCollection` 與後端 `DELETE /api/collections/{name}` 都在，但 UI 從未呼叫。**修法**：側欄加 🗑 按鈕 + 確認框（`web/src/App.tsx`）；僅剩一個知識庫時停用、刪除後自動切換並重載。實測：建立 `ui_delete_test` → 刪除 → 消失，`project_self`/`domain_knowledge` 完好。
+3. **更正前一輪誤判**：先前以 path-style URL（`/ingest`）測試而誤報「deep-link 會 404」；實際應用為 **HashRouter**（`#/ingest`），deep-link 與 F5 重新整理皆正常。
+4. **已知小問題（未修）**：知識庫下拉的 chunk 數標籤需重載 console 才更新（純顯示）。
+
+### 4.4 驗證
+
+- `vite build` 成功（新 bundle）；修正後以獨立 headless 瀏覽器回歸：Modal portal 對話框 5 取樣點全落在 Modal 內（0 miss）、刪除流程通過、無 console error。
+- PR #18 已併入 `main`，工作樹乾淨。

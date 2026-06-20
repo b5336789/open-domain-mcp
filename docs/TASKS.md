@@ -19,11 +19,16 @@
 | Phase 3（Graphs） | 9 | 9 ✅ |
 | Phase 4（Pre-Execution Advisor + Metrics） | 8 | 8 ✅ |
 | 工程品質與強化 | 7 | 7 ✅ |
+| Phase 5（瀏覽器實測與前端修正） | 2 | 2 ✅ |
 
 > **2026-06-19 衝刺：PRD 全功能完成。** 所有先前 ⬜ 任務（3.2/3.3/3.6、4.4/4.5/4.8、
 > 5.1/5.2/5.3/5.5/5.6/5.7、6.1/6.2/6.3/6.4/6.5/6.7）已於本輪以三個並行 wave 完成並併入，
 > 全套件 **268 passed, 3 skipped**（後端）＋ 前端 `tsc` 綠燈、`vite build` 成功、Playwright E2E **7 passed**。
 > 詳細過程見 [DEVLOG.md](./DEVLOG.md)，功能說明見 [FEATURES.md](./FEATURES.md)。
+>
+> **2026-06-20：瀏覽器全功能實測。** 以 Playwright（Chrome）逐一實測 12 個 Web 頁面與互動流程，
+> 並把整個專案 `src/opendomainmcp`（42 檔 / 296 chunks）擷取進 `project_self` 知識庫，
+> 端到端驗證 chunk→extract→embed→store 流程。修正 2 項前端缺陷（PR #18 已併入 main，見 Phase 5）。
 
 ---
 
@@ -194,6 +199,19 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 | 6.5 | ✅ | Low | CLI 擷取 Git/Zip 文件補強 | CLI `ingest` 說明與 help 補上新來源用法 | `cli.py`、`docs/` |
 | 6.6 | ✅ | Low | OpenAPI 巢狀 $ref 解析 | 解析 `$ref` 以豐富 operation 文字 | `ingest/openapi.py` |
 | 6.7 | ✅ | Low | 觀測性/日誌 | 結構化日誌與基本 metrics endpoint（`/api/health` 擴充） | `api/app.py` |
+
+---
+
+## ✅ Phase 5：瀏覽器實測與前端修正（已完成，2026-06-20）
+
+以 Playwright（使用者本機 Chrome）對 Web Dashboard 做全功能實測，並以「自我擷取」（把本專案原始碼擷取進 `project_self` 知識庫）端到端驗證擷取流程。實測中發現並修正兩項前端缺陷。詳見 [DEVLOG.md](./DEVLOG.md) 2026-06-20 章節。
+
+| # | 狀態 | Effort | 任務 | 內容 | 位置 |
+|---|------|--------|------|------|------|
+| 7.1 | ✅ | Low | Modal portal 修正 | 「New knowledge base」對話框被側欄 `position: sticky` 的 stacking context 困住，主內容蓋住對話框 → 改用 React `createPortal` 掛到 `document.body`，修正所有 Modal | `web/src/components/ui.tsx` |
+| 7.2 | ✅ | Low | 刪除知識庫 UI | `api.deleteCollection` 與後端 `DELETE /api/collections/{name}` 已存在但 UI 從未呼叫 → 側欄加 🗑 按鈕 + 確認框；僅剩一個知識庫時停用、刪除後自動切換並重載 | `web/src/App.tsx` |
+
+> **驗證**：12 頁全綠、互動流程（Explore/Ask/Advisor/Simulator/Graph/Metrics/Settings）全通過；自我擷取 `src/opendomainmcp` → 42 檔 / 296 chunks（dim 1024），search/ask 對自身程式碼可正確接地（grounding 92.3%）。兩項修正以 **PR #18** 併入 main（merge commit `22b7137`）。同時更正前一輪一項誤判：應用為 **HashRouter**，deep-link/F5 不會 404。
 
 ---
 

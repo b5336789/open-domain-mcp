@@ -24,9 +24,10 @@
 |------|------|------|
 | **Phase 1** | 文件/程式碼擷取、向量+混合檢索、單一 MCP、Web Console | ✅ 已完成 |
 | **Phase 2** | 知識類型分類、Knowledge Review、多 MCP Views、Git/Zip/OpenAPI 擷取、Review/Builder/Simulator UI | ✅ 已完成（PR #6 已併入 main） |
-| **Phase 3** | Workflow / Dependency / Entity Graph | ⬜ 未開始 |
-| **Phase 4** | Agent Pre-Execution Advisor | ⬜ 未開始 |
+| **Phase 3** | Workflow / Dependency / Entity Graph | ✅ 已完成 |
+| **Phase 4** | Agent Pre-Execution Advisor + Metrics | ✅ 已完成 |
+| **Phase 5** | 瀏覽器全功能實測、自我擷取驗證、前端修正（Modal portal、刪除 collection UI） | ✅ 已完成（PR #18 已併入 main） |
 
-詳細任務拆解與勾稽請見 [TASKS.md](./TASKS.md)。
+詳細任務拆解與勾稽請見 [TASKS.md](./TASKS.md)；本輪實測與修正過程見 [DEVLOG.md](./DEVLOG.md) 2026-06-20 章節。
 
-_最後更新：2026-06-17_
+_最後更新：2026-06-20_

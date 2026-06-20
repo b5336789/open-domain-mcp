@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/FEATURES.md</span>
   <h1><span>🧩</span>系統功能說明</h1>
   <p class="lead">每項系統功能的詳細說明：用途、使用方式（CLI / HTTP / MCP / Web）與設定。</p>
-  <p class="stamp">最後更新：2026-06-19 20:54　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-20 20:43　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -591,15 +591,19 @@
 <tbody>
 <tr>
 <td>列出 / 作用中</td>
-<td>CLI <code>collections</code>；<code>GET /api/collections</code></td>
+<td>CLI <code>collections</code>；<code>GET /api/collections</code>；Web 側欄下拉切換器</td>
 </tr>
 <tr>
 <td>建立</td>
-<td><code>POST /api/collections</code>（<code>{name}</code>）</td>
+<td><code>POST /api/collections</code>（<code>{name}</code>）；Web 側欄 ➕「New knowledge base」對話框</td>
+</tr>
+<tr>
+<td>切換</td>
+<td><code>?collection=</code> / <code>X-Collection</code>；Web 側欄下拉（切換後重載 console）</td>
 </tr>
 <tr>
 <td>刪除（連同圖）</td>
-<td><code>DELETE /api/collections/{name}</code></td>
+<td><code>DELETE /api/collections/{name}</code>；Web 側欄 🗑「Delete knowledge base」對話框</td>
 </tr>
 <tr>
 <td>清空</td>
@@ -611,6 +615,9 @@
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong>Web 知識庫切換器</strong>（<code>web/src/App.tsx</code> 的 <code>CollectionSwitcher</code>）：下拉切換 + ➕ 建立 + 🗑 刪除（含確認對話框）。刪除防護：僅剩一個知識庫時停用刪除鈕，刪除後自動切換到其餘知識庫並重載。建立／刪除對話框經 React portal 掛到 <code>document.body</code>，避免被 <code>position: sticky</code> 側欄的 stacking context 遮蔽（見 <a href="./devlog.html">DEVLOG.md</a> 2026-06-20 修正）。</p>
+</blockquote>
 <hr />
 <h2 id="17-settings">17. 設定（Settings）</h2>
 <p>env 前綴 <code>ODM_</code>，可選 <code>.env</code>；UI 可編輯子集存於 <code>data_dir/settings.json</code>。</p>
@@ -715,9 +722,10 @@
 <li><strong>GraphQL chunk 的 <code>kind</code></strong>：<code>loader.load_file</code> 對 GraphQL 回 <code>LoadedDoc(kind="api")</code>，但 <code>split_graphql</code> 產生的 <code>Chunk.kind</code> 為 <code>"text"</code>（<code>language="graphql"</code>、<code>knowledge_type="API"</code>）。後果：Developer MCP 的 <code>get_api_implementation</code>（依 <code>knowledge_type=API</code>）可命中 GraphQL；但 <code>search_code</code>（依 <code>kind=code</code>）不會。OpenAPI 同樣不是 <code>kind=code</code>，行為一致，惟與「API spec 屬程式碼面」的直覺略有出入，使用者依 <code>knowledge_type</code> 過濾即可。</li>
 <li><strong>Confluence Wiki 尚未接線</strong>：<code>wiki.py</code> 已有 <code>looks_like_confluence_html</code>，但 <code>loader.load_file</code> 的 <code>.xml</code> 分支只處理 MediaWiki；Confluence HTML 目前走一般 HTML 文件路徑，未做 per-page 展平。</li>
 <li><strong>PRD 對照</strong>：PRD 將 Metrics 儀表、Wiki、GraphQL、Dependency Graph、Advisor、RBAC 列為待辦/未實作；本 sprint 後這些皆已落地（對應 Web 頁面與 API 端點如上）。以本文件與 ARCHITECTURE.md 為實作面真實來源。</li>
+<li><strong>知識庫下拉的 chunk 數標籤</strong>：<code>CollectionSwitcher</code> 於載入時抓一次 <code>GET /api/collections</code> 的 count 並顯示於下拉（如 <code>project_self (296)</code>），擷取/刪除後該數字要重載 console 才更新（純顯示，不影響實際資料；Dashboard 的 INDEXED CHUNKS 即時正確）。</li>
 </ol>
 <hr />
-<p><em>最後更新：2026-06-19</em></p>
+<p><em>最後更新：2026-06-20</em></p>
 </main>
 
 <footer><div class="wrap">

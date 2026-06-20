@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/TASKS.md</span>
   <h1><span>✅</span>開發任務與進度</h1>
   <p class="lead">自專案起始至今的所有任務，含進度總覽與各 Phase 拆解。</p>
-  <p class="stamp">最後更新：2026-06-19 20:54　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-20 20:43　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -159,6 +159,11 @@
 <td>7</td>
 <td>7 ✅</td>
 </tr>
+<tr>
+<td>Phase 5（瀏覽器實測與前端修正）</td>
+<td>2</td>
+<td>2 ✅</td>
+</tr>
 </tbody>
 </table>
 <blockquote>
@@ -166,6 +171,9 @@
 5.1/5.2/5.3/5.5/5.6/5.7、6.1/6.2/6.3/6.4/6.5/6.7）已於本輪以三個並行 wave 完成並併入，
 全套件 <strong>268 passed, 3 skipped</strong>（後端）＋ 前端 <code>tsc</code> 綠燈、<code>vite build</code> 成功、Playwright E2E <strong>7 passed</strong>。
 詳細過程見 <a href="./devlog.html">DEVLOG.md</a>，功能說明見 <a href="./features.html">FEATURES.md</a>。</p>
+<p><strong>2026-06-20：瀏覽器全功能實測。</strong> 以 Playwright（Chrome）逐一實測 12 個 Web 頁面與互動流程，
+並把整個專案 <code>src/opendomainmcp</code>（42 檔 / 296 chunks）擷取進 <code>project_self</code> 知識庫，
+端到端驗證 chunk→extract→embed→store 流程。修正 2 項前端缺陷（PR #18 已併入 main，見 Phase 5）。</p>
 </blockquote>
 <hr />
 <h2 id="phase-01">✅ Phase 0–1：基礎平台（已完成）</h2>
@@ -952,6 +960,42 @@
 </tr>
 </tbody>
 </table>
+<hr />
+<h2 id="phase-52026-06-20">✅ Phase 5：瀏覽器實測與前端修正（已完成，2026-06-20）</h2>
+<p>以 Playwright（使用者本機 Chrome）對 Web Dashboard 做全功能實測，並以「自我擷取」（把本專案原始碼擷取進 <code>project_self</code> 知識庫）端到端驗證擷取流程。實測中發現並修正兩項前端缺陷。詳見 <a href="./devlog.html">DEVLOG.md</a> 2026-06-20 章節。</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>狀態</th>
+<th>Effort</th>
+<th>任務</th>
+<th>內容</th>
+<th>位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7.1</td>
+<td>✅</td>
+<td>Low</td>
+<td>Modal portal 修正</td>
+<td>「New knowledge base」對話框被側欄 <code>position: sticky</code> 的 stacking context 困住，主內容蓋住對話框 → 改用 React <code>createPortal</code> 掛到 <code>document.body</code>，修正所有 Modal</td>
+<td><code>web/src/components/ui.tsx</code></td>
+</tr>
+<tr>
+<td>7.2</td>
+<td>✅</td>
+<td>Low</td>
+<td>刪除知識庫 UI</td>
+<td><code>api.deleteCollection</code> 與後端 <code>DELETE /api/collections/{name}</code> 已存在但 UI 從未呼叫 → 側欄加 🗑 按鈕 + 確認框；僅剩一個知識庫時停用、刪除後自動切換並重載</td>
+<td><code>web/src/App.tsx</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>驗證</strong>：12 頁全綠、互動流程（Explore/Ask/Advisor/Simulator/Graph/Metrics/Settings）全通過；自我擷取 <code>src/opendomainmcp</code> → 42 檔 / 296 chunks（dim 1024），search/ask 對自身程式碼可正確接地（grounding 92.3%）。兩項修正以 <strong>PR #18</strong> 併入 main（merge commit <code>22b7137</code>）。同時更正前一輪一項誤判：應用為 <strong>HashRouter</strong>，deep-link/F5 不會 404。</p>
+</blockquote>
 <hr />
 <h2 id="dependency-analysis">相依性分析（Dependency Analysis）</h2>
 <blockquote>

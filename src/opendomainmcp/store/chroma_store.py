@@ -345,6 +345,10 @@ class ChromaStore:
         out = []
         for c in self._client.list_collections():
             name = getattr(c, "name", c)
+            # Hide internal article siblings (see synthesis): they back the
+            # Articles view but are not user-selectable knowledge bases.
+            if name.endswith("__articles"):
+                continue
             out.append({"name": name, "count": self._client.get_collection(name).count()})
         return sorted(out, key=lambda d: d["name"])
 

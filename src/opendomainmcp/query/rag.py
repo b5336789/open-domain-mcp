@@ -47,7 +47,7 @@ def _citations(results: list[SearchResult]) -> list[dict]:
             symbol = None
             type_ = "article"
         else:
-            source = r.metadata.get("source")  # bare path — CLI appends ::symbol itself
+            source = r.metadata.get("source", "?")  # bare path — CLI appends ::symbol itself
             symbol = r.metadata.get("symbol")
             type_ = "chunk"
         cites.append({

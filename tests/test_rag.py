@@ -111,6 +111,7 @@ def test_ask_includes_article_body_and_marks_citation_type(store):
     assert "manager sign-off" in captured["user"]
     types = {c["type"] for c in out["citations"]}
     assert "article" in types
+    assert "chunk" in types
     art_cite = next(c for c in out["citations"] if c["type"] == "article")
     assert art_cite["source"] == "Order Approval Rule"
 

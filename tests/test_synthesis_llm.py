@@ -36,6 +36,19 @@ class _FakeAnthropic:
         return type("M", (), {"content": [block]})()
 
 
+class _FakeOpenAI:
+    """Minimal stand-in for OpenAI returning a chat-completion response shape."""
+    def __init__(self, text):
+        self._text = text
+        self.chat = type("Chat", (), {})()
+        self.chat.completions = self  # .chat.completions.create(...)
+
+    def create(self, **kw):
+        message = type("Msg", (), {"content": self._text})()
+        choice = type("Choice", (), {"message": message})()
+        return type("Resp", (), {"choices": [choice]})()
+
+
 def test_writer_and_critic_parse_injected_client_output():
     writer = ArticleWriter(model="m", client=_FakeAnthropic(
         '{"title": "Billing", "body": "Body [1]", "business_relevance": 0.7}'))
@@ -43,3 +56,24 @@ def test_writer_and_critic_parse_injected_client_output():
     critic = ArticleCritic(model="m", client=_FakeAnthropic(
         '{"grounded": true, "business_meaningful": true, "note": "ok"}'))
     assert keep_article(critic.judge("billing", "Body [1]", "evidence")) is True
+
+
+def test_writer_and_critic_with_openai_backend():
+    """Verify OpenAI caller branch wiring works end-to-end."""
+    writer = ArticleWriter(model="m", backend="openai", client=_FakeOpenAI(
+        '{"title": "Cache", "body": "Caching pattern [1]", "business_relevance": 0.8}'))
+    result = writer.write("caching", "evidence")
+    assert result["title"] == "Cache"
+    assert result["body"] == "Caching pattern [1]"
+    assert result["business_relevance"] == 0.8
+
+    critic = ArticleCritic(model="m", backend="openai", client=_FakeOpenAI(
+        '{"grounded": true, "business_meaningful": true, "note": "solid"}'))
+    verdict = critic.judge("caching", "Caching pattern [1]", "evidence")
+    assert keep_article(verdict) is True
+
+
+def test_parse_article_raises_on_non_json():
+    """Verify parse_article rejects input with no extractable body."""
+    with pytest.raises(SynthesisError):
+        parse_article("not json at all")

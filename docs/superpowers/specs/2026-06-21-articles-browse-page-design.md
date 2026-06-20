@@ -1,7 +1,7 @@
 # Articles Browse Page (read-only)
 
 **Date:** 2026-06-21
-**Status:** Design approved (outline), pending spec review
+**Status:** Design approved; open questions resolved. Ready for implementation plan.
 
 ## Problem
 
@@ -77,7 +77,9 @@ A single page with in-page master/detail (mirrors `Browse.tsx` structure and reu
 - Loads `api.articles()` on mount; `Skeleton` while loading; `EmptyState`
   ("No articles yet — run `synthesize` to generate them.") when empty.
 - **List (master):** one `Card` per article showing `title`, `topic`, a
-  `business_relevance` `Badge`, and a `cross-validated` `Badge` when true.
+  `business_relevance` `Badge`, and a `cross-validated` `Badge` when true. The list
+  is sorted by `business_relevance` descending (client-side). No body preview on the
+  card.
 - **Reader (detail):** selecting an article shows its `body` in a
   `whitespace-pre-wrap` block (same treatment as `Ask.tsx`) and its `sources` as a
   `file:line` list.
@@ -109,11 +111,11 @@ In `tests/test_api.py`, reusing the existing `client`/`store` fixtures:
   helper convention) a listed article opens its body. Confirm the helper/mock
   approach the other specs use during planning and match it.
 
-## Open questions for spec review
+## Resolved decisions
 
-1. Nav placement: put "Articles" right after "Ask" (reading-oriented) or after
-   "Browse / Edit" (content-oriented)?
-2. Should the list show a short body preview/snippet on each card, or only
-   title/topic/badges (cleaner)?
-3. Sort order of the list: by `business_relevance` desc (most relevant first), or by
-   title A–Z?
+1. **Nav placement:** "Articles" goes immediately after "Browse / Edit" — it groups
+   the two content-browsing surfaces (raw chunks vs. synthesized articles).
+2. **Card content:** title / topic / badges only — no body preview snippet on the
+   card (cleaner; the body is shown in the reader pane on selection).
+3. **Sort order:** by `business_relevance` descending (most business-meaningful
+   first); ties keep `get_items` order.

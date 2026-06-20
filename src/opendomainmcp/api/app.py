@@ -226,6 +226,26 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
         return EventSourceResponse(events())
 
     # -- browse, edit & review -----------------------------------------
+    @app.get("/api/articles")
+    def list_articles(limit: int = 200, offset: int = 0,
+                      ctx: Context = Depends(get_ctx)):
+        arts = ctx.store.sibling(f"{ctx.store.stats()['collection']}__articles")
+        out = []
+        for row in arts.get_items(limit=limit, offset=offset):
+            meta = row.get("metadata") or {}
+            sources = [s.strip() for s in str(meta.get("sources", "")).split(" | ")
+                       if s.strip()]
+            out.append({
+                "id": row["id"],
+                "title": meta.get("title") or meta.get("topic") or row["id"],
+                "topic": meta.get("topic", ""),
+                "business_relevance": float(meta.get("business_relevance", 0) or 0),
+                "cross_validated": bool(meta.get("cross_validated", False)),
+                "sources": sources,
+                "body": row.get("text", ""),
+            })
+        return out
+
     @app.get("/api/items")
     def list_items(limit: int = 50, offset: int = 0, kind: str | None = None,
                    review_status: str | None = None,

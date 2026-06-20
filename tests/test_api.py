@@ -249,6 +249,32 @@ def test_api_search_returns_article_hit(client, monkeypatch):
     assert any(item["metadata"].get("kind") == "article" for item in data)
 
 
+def test_list_articles_returns_mapped_records(client):
+    from opendomainmcp.models import Article
+    tc, ctx, _ = client
+    arts = ctx.store.sibling(f"{ctx.store.stats()['collection']}__articles")
+    arts.upsert([Article(
+        title="Order Approval Rule", topic="order approval",
+        body="Orders above $10k require manager sign-off [1].",
+        business_relevance=0.8, source_chunk_ids=["a"],
+        sources=["rules.md:1", "approve.py:5"], cross_validated=True,
+        critic_verdict={"grounded": True, "business_meaningful": True})])
+    data = tc.get("/api/articles").json()
+    assert len(data) == 1
+    a = data[0]
+    assert a["title"] == "Order Approval Rule"
+    assert a["topic"] == "order approval"
+    assert a["business_relevance"] == 0.8
+    assert a["cross_validated"] is True
+    assert a["sources"] == ["rules.md:1", "approve.py:5"]
+    assert "manager sign-off" in a["body"]
+
+
+def test_list_articles_empty_when_none(client):
+    tc, _, _ = client
+    assert tc.get("/api/articles").json() == []
+
+
 def test_settings_roundtrip_and_validation(client):
     tc, _, _ = client
     assert tc.get("/api/settings").json()["editable"]["chunk_size"] == 1200

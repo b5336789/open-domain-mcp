@@ -106,6 +106,24 @@ def _cmd_collections(ctx, args) -> int:
     return 0
 
 
+def _cmd_synthesize(ctx, args) -> int:
+    from .synthesis import synthesize_articles
+
+    report = synthesize_articles(
+        ctx.store, ctx.settings, graph=ctx.graph,
+        limit=args.limit, dry_run=args.dry_run,
+    )
+    print(f"Gated {report.topics_gated} topic(s); wrote {report.articles_written}.")
+    print(f"Stored {report.stored} article(s). Rejected {len(report.rejected)}.")
+    for r in report.rejected:
+        print(f"  rejected: {r['topic']}  {r['verdict']}", file=sys.stderr)
+    if report.errors:
+        print(f"Errors: {len(report.errors)}", file=sys.stderr)
+        for e in report.errors:
+            print(f"  {e['topic']}: {e['error']}", file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="opendomainmcp", description=__doc__)
     parser.add_argument("--collection", default=None, help="Knowledge base to use")
@@ -174,6 +192,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Re-stamp every chunk, not just those missing a review_status",
     )
     p_backfill.set_defaults(func=_cmd_backfill_review)
+
+    p_synth = sub.add_parser(
+        "synthesize",
+        help="Autonomously synthesize business-meaning articles from indexed content",
+    )
+    p_synth.add_argument("--limit", type=int, default=None,
+                         help="Cap topics processed (cost control); default: all gated")
+    p_synth.add_argument("--dry-run", action="store_true",
+                         help="Synthesize and critique but do not store")
+    p_synth.set_defaults(func=_cmd_synthesize)
     return parser
 
 

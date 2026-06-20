@@ -89,6 +89,56 @@ class _FakeCtx:
         self.graph = None
 
 
+def test_cli_search_includes_article_with_marker(monkeypatch, capsys):
+    from opendomainmcp.models import SearchResult
+
+    class _FakeSettings:
+        search_mode = "vector"
+
+    class _FakeCtxSearch:
+        store = None
+        settings = _FakeSettings()
+        graph = None
+
+    def fake_unified(store, query, *, top_k, mode, settings, where=None,
+                     source_contains=None):
+        return [SearchResult(id="art", text="body", score=0.9,
+                             metadata={"kind": "article", "title": "Order Rule"})]
+
+    monkeypatch.setattr(cli, "build_context", lambda **kw: _FakeCtxSearch())
+    monkeypatch.setattr("opendomainmcp.retrieval.search_unified", fake_unified)
+    rc = cli.main(["search", "approval"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "[article]" in out and "Order Rule" in out
+
+
+def test_cli_search_prints_chunk_output_unchanged(monkeypatch, capsys):
+    from opendomainmcp.models import SearchResult
+
+    class _FakeSettings:
+        search_mode = "vector"
+
+    class _FakeCtxSearch:
+        store = None
+        settings = _FakeSettings()
+        graph = None
+
+    def fake_unified(store, query, *, top_k, mode, settings, where=None,
+                     source_contains=None):
+        return [SearchResult(id="c1", text="python decorators wrap functions", score=0.8,
+                             metadata={"kind": "code", "source": "deco.py", "symbol": "wrap"})]
+
+    monkeypatch.setattr(cli, "build_context", lambda **kw: _FakeCtxSearch())
+    monkeypatch.setattr("opendomainmcp.retrieval.search_unified", fake_unified)
+    rc = cli.main(["search", "decorators"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "deco.py::wrap" in out
+    assert "python decorators wrap functions" in out
+    assert "[article]" not in out
+
+
 def test_synthesize_command_prints_report(monkeypatch, capsys):
     from opendomainmcp.synthesis import SynthesisReport
 

@@ -30,21 +30,26 @@ def _cmd_ingest(ctx, args) -> int:
 
 def _cmd_search(ctx, args) -> int:
     from .store import build_where
+    from .retrieval import search_unified
 
     where = build_where({"kind": args.kind, "language": args.language, "symbol": args.symbol})
-    results = ctx.store.search(
-        args.query, top_k=args.top_k, where=where,
-        mode=ctx.settings.search_mode, source_contains=args.source,
+    results = search_unified(
+        ctx.store, args.query, top_k=args.top_k, where=where,
+        mode=ctx.settings.search_mode, settings=ctx.settings,
+        source_contains=args.source,
     )
     if not results:
         print("No results.")
         return 0
     for i, r in enumerate(results, 1):
         meta = r.metadata
-        loc = meta.get("source", "?")
-        if meta.get("symbol"):
-            loc += f"::{meta['symbol']}"
-        print(f"\n#{i}  score={r.score:.3f}  {loc}")
+        if meta.get("kind") == "article":
+            print(f"\n#{i}  score={r.score:.3f}  [article] {meta.get('title', '?')}")
+        else:
+            loc = meta.get("source", "?")
+            if meta.get("symbol"):
+                loc += f"::{meta['symbol']}"
+            print(f"\n#{i}  score={r.score:.3f}  {loc}")
         if meta.get("summary"):
             print(f"    summary: {meta['summary']}")
         snippet = r.text.strip().replace("\n", " ")

@@ -19,3 +19,11 @@ def test_save_overrides_rejects_non_editable(tmp_path):
         assert False, "expected ValueError"
     except ValueError:
         pass
+
+
+def test_retrieve_include_articles_defaults_on_and_is_editable(tmp_path):
+    s = Settings(data_dir=tmp_path)
+    assert s.retrieve_include_articles is True
+    # runtime-editable: update_editable must accept it without "Not editable"
+    updated = s.save_overrides({"retrieve_include_articles": False})
+    assert updated.retrieve_include_articles is False

@@ -233,6 +233,22 @@ def test_simulate_endpoint_returns_grounding(client):
     assert tc.post("/api/simulate", json={"view": "nope", "query": "x"}).status_code == 404
 
 
+def test_api_search_returns_article_hit(client, monkeypatch):
+    tc, ctx, _ = client
+    from opendomainmcp.models import SearchResult
+
+    def fake_unified(store, query, *, top_k, mode, settings, where=None,
+                     source_contains=None):
+        return [SearchResult(id="art", text="body", score=0.9,
+                             metadata={"kind": "article", "title": "Order Rule"})]
+
+    monkeypatch.setattr("opendomainmcp.retrieval.search_unified", fake_unified)
+    resp = tc.post("/api/search", json={"query": "approval", "top_k": 5})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert any(item["metadata"].get("kind") == "article" for item in data)
+
+
 def test_settings_roundtrip_and_validation(client):
     tc, _, _ = client
     assert tc.get("/api/settings").json()["editable"]["chunk_size"] == 1200

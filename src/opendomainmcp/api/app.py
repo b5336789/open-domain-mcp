@@ -95,14 +95,16 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     @app.post("/api/search")
     def search(req: SearchRequest, ctx: Context = Depends(get_ctx)):
         from ..store import build_where
+        from ..retrieval import search_unified
 
         filters = {"kind": req.kind, "language": req.language, "symbol": req.symbol}
         if ctx.settings.retrieve_approved_only:
             filters["review_status"] = "approved"
         where = build_where(filters)
-        results = ctx.store.search(
-            req.query, top_k=req.top_k, where=where,
-            mode=ctx.settings.search_mode, source_contains=req.source_contains,
+        results = search_unified(
+            ctx.store, req.query, top_k=req.top_k, where=where,
+            mode=ctx.settings.search_mode, settings=ctx.settings,
+            source_contains=req.source_contains,
         )
         out = [r.to_dict() for r in results]
         insight_routes.record_retrieval(ctx, "search", req.query, out)

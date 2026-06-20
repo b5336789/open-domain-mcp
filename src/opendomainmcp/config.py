@@ -38,6 +38,7 @@ EDITABLE_FIELDS = (
     "answer_model",
     "review_mode",
     "retrieve_approved_only",
+    "retrieve_include_articles",
 )
 
 
@@ -99,6 +100,10 @@ class Settings(BaseSettings):
     # only approved knowledge. Both default off so existing behaviour is intact.
     review_mode: bool = False
     retrieve_approved_only: bool = False
+
+    # Include synthesized articles (the <base>__articles collection) in ask/search
+    # retrieval, fused with chunks. Off or no-articles == today's behavior.
+    retrieve_include_articles: bool = True
 
     # Resilience for external API calls (Anthropic): per-request timeout in
     # seconds and the number of automatic retries on transient errors.

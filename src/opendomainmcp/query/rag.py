@@ -21,25 +21,42 @@ class AnswerError(Exception):
     pass
 
 
+def _source_label(r) -> str:
+    meta = r.metadata
+    if meta.get("kind") == "article":
+        return meta.get("title") or meta.get("topic") or r.id
+    loc = meta.get("source", "?")
+    if meta.get("symbol"):
+        loc += f"::{meta['symbol']}"
+    return loc
+
+
 def _format_sources(results: list[SearchResult]) -> str:
     blocks = []
     for i, r in enumerate(results, 1):
-        loc = r.metadata.get("source", "?")
-        if r.metadata.get("symbol"):
-            loc += f"::{r.metadata['symbol']}"
-        blocks.append(f"[{i}] {loc}\n{r.text}")
+        blocks.append(f"[{i}] {_source_label(r)}\n{r.text}")
     return "\n\n".join(blocks)
 
 
 def _citations(results: list[SearchResult]) -> list[dict]:
     cites = []
     for i, r in enumerate(results, 1):
+        is_article = r.metadata.get("kind") == "article"
+        if is_article:
+            source = _source_label(r)   # title / topic / id
+            symbol = None
+            type_ = "article"
+        else:
+            source = r.metadata.get("source", "?")  # bare path — CLI appends ::symbol itself
+            symbol = r.metadata.get("symbol")
+            type_ = "chunk"
         cites.append({
             "n": i,
             "id": r.id,
-            "source": r.metadata.get("source"),
-            "symbol": r.metadata.get("symbol"),
+            "source": source,
+            "symbol": symbol,
             "score": r.score,
+            "type": type_,
         })
     return cites
 
@@ -151,7 +168,9 @@ def _synthesize_stream(settings, system: str, user: str):
 
 
 def answer_question(query, store, settings, top_k: int = 6, synthesize=None) -> dict:
-    results = store.search(query, top_k=top_k, mode=settings.search_mode)
+    from ..retrieval import search_unified
+    results = search_unified(store, query, top_k=top_k,
+                             mode=settings.search_mode, settings=settings)
     if not results:
         return {"answer": "No indexed content matched this question.", "citations": []}
     user = f"Question: {query}\n\nSources:\n{_format_sources(results)}"
@@ -169,7 +188,9 @@ def answer_question_stream(query, store, settings, top_k: int = 6, synthesize_st
     ``{"type": "citations", "citations": [...]}``. ``synthesize_stream`` lets
     tests inject an offline token generator.
     """
-    results = store.search(query, top_k=top_k, mode=settings.search_mode)
+    from ..retrieval import search_unified
+    results = search_unified(store, query, top_k=top_k,
+                             mode=settings.search_mode, settings=settings)
     if not results:
         yield {"type": "delta", "text": "No indexed content matched this question."}
         yield {"type": "citations", "citations": []}

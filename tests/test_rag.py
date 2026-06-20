@@ -1,7 +1,7 @@
 import pytest
 
 from opendomainmcp.config import Settings
-from opendomainmcp.models import Chunk
+from opendomainmcp.models import Article, Chunk
 from opendomainmcp.query import AnswerError, answer_question, answer_question_stream
 
 
@@ -84,3 +84,68 @@ def test_missing_key_fails_loud(monkeypatch):
     monkeypatch.setattr(anthropic, "Anthropic", boom)
     with pytest.raises(rag.AnswerError):
         rag._claude_synthesize("m", "system", "user")
+
+
+def _arts(store):
+    return store.sibling(f"{store.stats()['collection']}__articles")
+
+
+def test_ask_includes_article_body_and_marks_citation_type(store):
+    store.upsert([Chunk(text="approval needs a manager", source="r.md", kind="text",
+                        start_line=1, end_line=1)])
+    _arts(store).upsert([Article(
+        title="Order Approval Rule", topic="order approval",
+        body="Orders above $10k require manager sign-off.",
+        source_chunk_ids=["a"], sources=["r.md:1"])])
+
+    captured = {}
+
+    def fake_synth(model, system, user):
+        captured["user"] = user
+        return "Per the rule [1]."
+
+    # signature is answer_question(query, store, settings, top_k=..., synthesize=...)
+    out = answer_question("when is approval needed?", store, Settings(),
+                          top_k=5, synthesize=fake_synth)
+    # the article body reached the LLM prompt
+    assert "manager sign-off" in captured["user"]
+    types = {c["type"] for c in out["citations"]}
+    assert "article" in types
+    assert "chunk" in types
+    art_cite = next(c for c in out["citations"] if c["type"] == "article")
+    assert art_cite["source"] == "Order Approval Rule"
+
+
+def test_chunk_citation_source_is_bare_path_not_symbol_qualified():
+    """_citations must return bare source path for code chunks, not 'source::symbol'.
+
+    cli.py:_cmd_ask appends '::symbol' itself when rendering, so if _citations
+    already returned 'source::symbol' the symbol would be printed twice.
+    """
+    from opendomainmcp.models import SearchResult
+    from opendomainmcp.query.rag import _citations
+
+    r = SearchResult(
+        id="abc",
+        text="def rrf_fuse(): ...",
+        score=0.9,
+        metadata={"kind": "code", "source": "f.py", "symbol": "foo"},
+    )
+    cites = _citations([r])
+    assert len(cites) == 1
+    c = cites[0]
+    assert c["source"] == "f.py", f"expected bare path, got {c['source']!r}"
+    assert c["symbol"] == "foo"
+    assert c["type"] == "chunk"
+
+
+def test_format_sources_handles_article_metadata_without_source_key():
+    from opendomainmcp.models import SearchResult
+    from opendomainmcp.query.rag import _citations, _format_sources
+    r = SearchResult(id="x", text="body", score=0.5,
+                     metadata={"kind": "article", "title": "T", "topic": "tp",
+                               "sources": "f.py:1 | g.md:2"})
+    block = _format_sources([r])
+    assert "T" in block and "body" in block          # title used as the label
+    cites = _citations([r])
+    assert cites[0]["type"] == "article" and cites[0]["source"] == "T"

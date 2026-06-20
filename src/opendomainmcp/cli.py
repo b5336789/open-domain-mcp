@@ -6,6 +6,7 @@ import argparse
 import sys
 
 from .context import build_context
+from .store.chroma_store import VALID_REVIEW_STATUSES
 
 
 def _cmd_ingest(ctx, args) -> int:
@@ -89,6 +90,14 @@ def _cmd_clear(ctx, args) -> int:
     return 0
 
 
+def _cmd_backfill_review(ctx, args) -> int:
+    updated = ctx.store.backfill_review_status(
+        status=args.status, only_missing=not args.all
+    )
+    print(f"Back-filled review_status={args.status} on {updated} chunk(s).")
+    return 0
+
+
 def _cmd_collections(ctx, args) -> int:
     active = ctx.store.stats()["collection"]
     for c in ctx.store.list_collections():
@@ -102,8 +111,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--collection", default=None, help="Knowledge base to use")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_ingest = sub.add_parser("ingest", help="Ingest a file or directory")
-    p_ingest.add_argument("path")
+    p_ingest = sub.add_parser(
+        "ingest",
+        help="Ingest a file, directory, Git repo, zip, or API spec",
+        description=(
+            "Ingest content into the knowledge base. The PATH may be:\n"
+            "  - a single file (code, Markdown/text, PDF, DOCX, HTML)\n"
+            "  - a directory (walked recursively)\n"
+            "  - a Git repository URL (shallow-cloned, then ingested)\n"
+            "  - a .zip archive (safely extracted, then ingested)\n"
+            "  - an OpenAPI/Swagger spec (JSON or YAML, split per operation)\n"
+            "  - a GraphQL SDL file (.graphql/.graphqls/.gql, split per definition)\n"
+            "\n"
+            "Git URLs are recognised by scheme (git@, git+, ssh://, git://), a\n"
+            "trailing .git, or a known host (github.com, gitlab.com, bitbucket.org)."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_ingest.add_argument(
+        "path",
+        help="File, directory, Git repo URL, .zip archive, or OpenAPI/GraphQL spec",
+    )
     p_ingest.add_argument(
         "--sync", action="store_true",
         help="Remove stored chunks for files deleted under the directory",
@@ -132,6 +160,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_cols = sub.add_parser("collections", help="List knowledge bases (collections)")
     p_cols.set_defaults(func=_cmd_collections)
+
+    p_backfill = sub.add_parser(
+        "backfill-review",
+        help="Set review_status on stored chunks that lack one",
+    )
+    p_backfill.add_argument(
+        "--status", choices=list(VALID_REVIEW_STATUSES), default="approved",
+        help="Review status to apply (default: approved)",
+    )
+    p_backfill.add_argument(
+        "--all", action="store_true",
+        help="Re-stamp every chunk, not just those missing a review_status",
+    )
+    p_backfill.set_defaults(func=_cmd_backfill_review)
     return parser
 
 

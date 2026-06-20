@@ -12,14 +12,17 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from ..config import get_settings
 from ..context import Context, build_context
+from . import insight_routes, mcp_endpoints, source_routes
+from .auth import auth_dependency, require_view_access
+from .deps import get_ctx
+from .observability import RequestLoggingMiddleware, health_payload, setup_logging
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -71,26 +74,16 @@ class SimulateRequest(BaseModel):
 
 def create_app(context: Context | None = None, context_factory=build_context) -> FastAPI:
     app = FastAPI(title="openDomainMcp")
+    setup_logging()
+    app.add_middleware(RequestLoggingMiddleware)
     app.state.context = context          # pinned single context (tests / single use)
     app.state.contexts = {}              # per-collection cache (real multi-collection)
     app.state.context_factory = context_factory
 
-    def get_ctx(request: Request) -> Context:
-        if app.state.context is not None:
-            return app.state.context
-        name = (
-            request.query_params.get("collection")
-            or request.headers.get("x-collection")
-            or get_settings().collection_name
-        )
-        if name not in app.state.contexts:
-            app.state.contexts[name] = app.state.context_factory(collection=name)
-        return app.state.contexts[name]
-
     # -- status & search ------------------------------------------------
     @app.get("/api/health")
-    def health():
-        return {"status": "ok"}
+    def health(ctx: Context = Depends(get_ctx)):
+        return health_payload(ctx)
 
     @app.get("/api/stats")
     def stats(ctx: Context = Depends(get_ctx)):
@@ -111,16 +104,24 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
             req.query, top_k=req.top_k, where=where,
             mode=ctx.settings.search_mode, source_contains=req.source_contains,
         )
-        return [r.to_dict() for r in results]
+        out = [r.to_dict() for r in results]
+        insight_routes.record_retrieval(ctx, "search", req.query, out)
+        return out
 
     @app.post("/api/ask")
     def ask(req: AskRequest, ctx: Context = Depends(get_ctx)):
         from ..query import AnswerError, answer_question
 
         try:
-            return answer_question(req.query, ctx.store, ctx.settings, top_k=req.top_k)
+            result = answer_question(req.query, ctx.store, ctx.settings, top_k=req.top_k)
         except AnswerError as exc:
             raise HTTPException(status_code=503, detail=str(exc))
+        citations = result.get("citations", []) if isinstance(result, dict) else []
+        insight_routes.record_retrieval(
+            ctx, "ask", req.query,
+            [{"score": c.get("score", 0.0), "metadata": {}} for c in citations],
+        )
+        return result
 
     @app.get("/api/ask/stream")
     async def ask_stream(query: str, top_k: int = 6, ctx: Context = Depends(get_ctx)):
@@ -330,12 +331,16 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
         }
 
     @app.post("/api/simulate")
-    def simulate(req: SimulateRequest, ctx: Context = Depends(get_ctx)):
+    def simulate(req: SimulateRequest, ctx: Context = Depends(get_ctx),
+                 principal: dict = Depends(auth_dependency)):
         from ..views import VIEWS, run_view_tool
 
         spec = VIEWS.get(req.view)
         if spec is None:
             raise HTTPException(status_code=404, detail=f"unknown view {req.view!r}")
+        # RBAC: a scoped API key may only simulate views it is granted (no-op when
+        # auth is disabled — the anonymous principal has full access).
+        require_view_access(principal, req.view)
 
         tools_out, all_results, seen = [], [], set()
         for tool in spec.tools:
@@ -355,6 +360,7 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
             "avg_score": round(sum(scores) / len(scores), 4) if scores else 0.0,
             "knowledge_types": types,
         }
+        insight_routes.record_retrieval(ctx, "search", req.query, all_results)
         return {"view": req.view, "tools": tools_out, "grounding": grounding}
 
     # -- collections (knowledge bases) ----------------------------------
@@ -403,6 +409,16 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     def graph_workflows(q: str | None = None, limit: int = 50,
                         ctx: Context = Depends(get_ctx)):
         return {"items": ctx.graph.list_workflows(q=q, limit=limit)}
+
+    # -- pre-execution advisor, metrics, source registry ----------------
+    app.include_router(insight_routes.router)
+    app.include_router(source_routes.router, dependencies=[Depends(auth_dependency)])
+
+    # -- dynamic MCP endpoints (real HTTP/SSE transports) ---------------
+    # Mounts /mcp/{view} SSE apps and the publish registry. Must be registered
+    # before the catch-all static mount at "/" below, or it would shadow them.
+    mcp_endpoints.mount_mcp_apps(app)
+    app.include_router(mcp_endpoints.router, dependencies=[Depends(auth_dependency)])
 
     # -- static SPA (built frontend), if present ------------------------
     if STATIC_DIR.exists():

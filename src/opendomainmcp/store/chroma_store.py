@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 # several audiences), so it is post-filtered in the view layer instead.
 _FILTER_FIELDS = ("kind", "language", "symbol", "node_type", "knowledge_type", "review_status")
 
+# Valid review states; back-filling to anything else is rejected (Fail Loud).
+VALID_REVIEW_STATUSES = ("approved", "pending", "rejected")
+
 
 def build_where(filters: Optional[dict]) -> Optional[dict]:
     """Translate simple equality filters into a Chroma ``where`` clause."""
@@ -205,6 +208,40 @@ class ChromaStore:
         self._collection.update(ids=[item_id], metadatas=[metadata])
         return True
 
+    def backfill_review_status(self, status: str = "approved", *, only_missing: bool = True) -> int:
+        """Stamp ``review_status`` onto stored chunks, returning the count updated.
+
+        With ``only_missing=True`` (default) only chunks whose ``review_status``
+        metadata is absent or empty are touched -- this back-fills data ingested
+        before the review feature existed. With ``only_missing=False`` every
+        chunk is re-stamped. Fail Loud on an invalid ``status``.
+        """
+        if status not in VALID_REVIEW_STATUSES:
+            raise ValueError(
+                f"invalid review status {status!r}; expected one of {VALID_REVIEW_STATUSES}"
+            )
+
+        res = self._collection.get(include=["metadatas"])
+        ids = res["ids"]
+        metas = res["metadatas"]
+
+        update_ids: list[str] = []
+        update_metas: list[dict] = []
+        for _id, meta in zip(ids, metas):
+            meta = meta or {}
+            if only_missing and meta.get("review_status"):
+                continue
+            update_ids.append(_id)
+            # Immutable update: build a new metadata dict rather than mutating.
+            update_metas.append({**meta, "review_status": status})
+
+        if update_ids:
+            self._retry(
+                "update",
+                lambda: self._collection.update(ids=update_ids, metadatas=update_metas),
+            )
+        return len(update_ids)
+
     def delete_item(self, item_id: str) -> bool:
         if self.get_item(item_id) is None:
             return False
@@ -223,6 +260,51 @@ class ChromaStore:
             self._collection.delete(ids=ids)
             self._lexical_dirty = True
         return len(ids)
+
+    def list_sources(self) -> list[dict]:
+        """Aggregate stored chunks by their ``source`` for the source registry.
+
+        Returns one dict per source with the chunk count, the sorted set of
+        distinct ``kind`` values, and a review-status breakdown. Chunks with no
+        ``source`` metadata are grouped under an empty-string key, and an absent
+        or unrecognised ``review_status`` counts as ``unset``.
+        """
+        res = self._collection.get(include=["metadatas"])
+        agg: dict[str, dict] = {}
+        for meta in res["metadatas"]:
+            meta = meta or {}
+            source = meta.get("source") or ""
+            entry = agg.get(source)
+            if entry is None:
+                entry = {
+                    "source": source,
+                    "chunks": 0,
+                    "kinds": set(),
+                    "review": {"approved": 0, "pending": 0, "rejected": 0, "unset": 0},
+                }
+                agg[source] = entry
+            entry["chunks"] += 1
+            kind = meta.get("kind")
+            if kind:
+                entry["kinds"].add(kind)
+            status = meta.get("review_status")
+            bucket = status if status in VALID_REVIEW_STATUSES else "unset"
+            entry["review"][bucket] += 1
+        return [
+            {**entry, "kinds": sorted(entry["kinds"])}
+            for entry in sorted(agg.values(), key=lambda e: e["source"])
+        ]
+
+    def delete_by_source(self, source: str) -> int:
+        """Delete every chunk whose ``source`` equals ``source``.
+
+        Returns the number of chunks removed. Fail Loud on an empty source so a
+        caller cannot accidentally target the unsourced bucket.
+        """
+        if not source:
+            raise ValueError("source must be a non-empty string")
+        ids = self.get_ids_for_source(source)
+        return self.delete_ids(ids)
 
     def get_all_sources(self) -> set[str]:
         """Distinct source paths present in the collection (used by dir sync)."""

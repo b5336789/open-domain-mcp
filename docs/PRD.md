@@ -65,13 +65,13 @@ AI agent 在採取行動前，應能詢問：
 
 | 類別 | 來源格式 | 實作狀態 |
 |------|----------|----------|
-| **Documentation** | PDF、Markdown、HTML、DOCX、Wiki exports | ✅ PDF/MD/HTML/DOCX 已支援；⬜ Wiki exports 未特別處理 |
+| **Documentation** | PDF、Markdown、HTML、DOCX、Wiki exports | ✅ PDF/MD/HTML/DOCX 已支援；✅ MediaWiki XML 匯出（`ingest/wiki.py`）；Confluence HTML 以一般 HTML 擷取 |
 | **Source Code** | Git repositories、Zip packages | ✅ 已支援（Phase 2 M4） |
-| **API Specifications** | Swagger、OpenAPI、GraphQL | ✅ OpenAPI/Swagger 已支援；⬜ GraphQL 未支援 |
+| **API Specifications** | Swagger、OpenAPI、GraphQL | ✅ OpenAPI/Swagger 已支援；✅ GraphQL SDL 已支援（`ingest/graphql.py`） |
 | **Support Knowledge** | FAQ、KB Articles、Troubleshooting Guides | ✅ 以一般文件擷取 + 知識類型分類支援 |
 | **Operational Knowledge** | Runbooks、SOPs、Incident Response Guides | ✅ 以一般文件擷取 + 知識類型分類支援 |
 
-> 註：Wiki exports 與 GraphQL 屬範圍內但尚未實作，列為待辦（見 TASKS.md）。
+> 註：GraphQL SDL 與 MediaWiki XML 匯出已實作；Confluence HTML 匯出目前以一般 HTML 文字擷取（未做逐頁切分），列為後續強化。
 
 ---
 
@@ -149,7 +149,10 @@ flowchart TD
 | **Workspace** | 管理產品、來源、索引 | Dashboard、Ingest、Settings | ✅ 基本版 |
 | **Knowledge Explorer** | 瀏覽/搜尋/篩選（依類型/來源/對象） | Explore、Browse | ✅ |
 | **Knowledge Review** | 核准/編輯/拒絕擷取、手動新增 | Review | ✅（Phase 2 M5） |
-| **MCP Builder** | 建立 MCP 視圖、設定檢索政策、指派權限、發布端點 | McpBuilder | ✅ 視圖/政策設定；⬜ 動態發布 HTTP 端點與權限指派待辦 |
+| **MCP Builder** | 建立 MCP 視圖、設定檢索政策、指派權限、發布端點 | McpBuilder | ✅ 視圖/政策設定；✅ 動態發布 HTTP/SSE 端點（`/mcp/{view}` + `/api/mcp/endpoints`）；✅ 視圖層級 RBAC（API key→role→views） |
+| **Graph Explorer** | 瀏覽實體/相依/工作流圖 | Graph | ✅（Phase 3） |
+| **Pre-Execution Advisor** | 執行前彙整 Workflow/Risks/Permissions/Dependencies/Constraints | Advisor | ✅（Phase 4） |
+| **Metrics** | Product / Agent 指標儀表板 | Metrics | ✅（Phase 4） |
 | **Agent Simulator** | 輸入任務、模擬 MCP 呼叫、檢視脈絡、驗證接地品質 | Simulator | ✅（Phase 2 M5） |
 
 ---
@@ -159,7 +162,7 @@ flowchart TD
 - **Hybrid Search**：Vector Search + Keyword Search（BM25）以 RRF 融合 ✅
 - **Metadata Filtering**：依 `kind/language/symbol/knowledge_type/review_status` 過濾 ✅
 - **Re-ranking**：選用 cross-encoder ✅
-- **Policy Enforcement**：`retrieve_approved_only` 限定已核准知識 ✅（基礎版；完整 RBAC 待辦）
+- **Policy Enforcement**：`retrieve_approved_only` 限定已核准知識 ✅；視圖層級 RBAC（API key→role→允許的 views，`ODM_AUTH_ENABLED`/`ODM_API_KEYS`）✅；多租戶隔離（`ODM_MULTI_TENANT` + `X-Tenant`，collection 命名空間）✅
 
 ---
 
@@ -178,7 +181,7 @@ flowchart TD
 - Retrieval Precision（檢索精確度）
 - Hallucination Reduction（幻覺降低）
 
-> 現況：Agent Simulator 提供單次 grounding 統計（hits、avg_score、knowledge_types）。系統性指標蒐集與儀表板**尚未實作**，列為 Phase 4 前置待辦（見 TASKS.md）。
+> 現況：除 Agent Simulator 的單次 grounding 統計外，已實作系統性指標蒐集（`metrics/` + `/api/metrics`，於 search/ask/simulate 記錄事件）與**指標儀表板**（Web `Metrics` 頁）：Product 指標（Published MCPs、Knowledge Objects、Indexed Sources）與 Agent 指標（Grounding Hit Rate、Retrieval Precision、avg hits/score）。詳見 [FEATURES.md](./FEATURES.md) §Metrics。
 
 ---
 
@@ -188,8 +191,8 @@ flowchart TD
 |-------|------|------|
 | **Phase 1** | Document + Code Ingestion、Vector Retrieval、Basic MCP | ✅ 已完成 |
 | **Phase 2** | Knowledge Classification、Knowledge Review、Multiple MCP Views | ✅ 已完成 |
-| **Phase 3** | Workflow Graph、Dependency Graph、Entity Graph | ⬜ 未開始 |
-| **Phase 4** | Agent Pre-Execution Advisor | ⬜ 未開始 |
+| **Phase 3** | Workflow Graph、Dependency Graph、Entity Graph | ✅ 已完成 |
+| **Phase 4** | Agent Pre-Execution Advisor、Success Metrics | ✅ 已完成 |
 
 ### Phase 4 願景：Pre-Execution Advisor
 

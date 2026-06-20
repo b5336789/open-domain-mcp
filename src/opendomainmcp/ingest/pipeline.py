@@ -203,6 +203,7 @@ class Pipeline:
         self._emit(progress, "embed", str(path))
         stored = self._store.upsert(chunks)
         self._write_graph(chunks)
+        self._write_deps(chunks)
         self._write_workflow(chunks)
         self._emit(progress, "store", str(path), detail=f"{stored} chunks")
 
@@ -216,6 +217,24 @@ class Pipeline:
             if not (chunk.knowledge and not chunk.knowledge.is_empty()):
                 continue
             entities, edges = build_graph(chunk.knowledge, chunk.id)
+            self._graph.upsert_entities(entities)
+            self._graph.upsert_edges(edges)
+
+    def _write_deps(self, chunks: list[Chunk]) -> None:
+        """Populate code dependency (``imports``) edges for code chunks (task 4.4).
+
+        Runs alongside the knowledge graph so a Null/empty graph store still works;
+        non-code chunks and chunks without imports yield nothing."""
+        from ..graph.deps import extract_dependencies
+
+        for chunk in chunks:
+            if chunk.kind != "code":
+                continue
+            entities, edges = extract_dependencies(
+                chunk.language or "", chunk.text, chunk.symbol, chunk.id
+            )
+            if not entities and not edges:
+                continue
             self._graph.upsert_entities(entities)
             self._graph.upsert_edges(edges)
 

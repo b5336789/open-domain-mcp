@@ -40,12 +40,16 @@ class Page:
 
 # Single source of truth: which Markdown files become which pages.
 PAGES: tuple[Page, ...] = (
+    Page("FEATURES.md", "features.html", "系統功能說明", "🧩",
+         "每項系統功能的詳細說明：用途、使用方式（CLI / HTTP / MCP / Web）與設定。"),
     Page("ARCHITECTURE.md", "architecture.html", "技術架構", "🏗️",
          "系統實作架構與資料流程，含即時渲染的 mermaid 架構圖。"),
     Page("TASKS.md", "tasks.html", "開發任務與進度", "✅",
          "自專案起始至今的所有任務，含進度總覽與各 Phase 拆解。"),
     Page("PRD.md", "prd.html", "產品需求文件", "📝",
          "產品目標、使用情境與功能需求。"),
+    Page("DEVLOG.md", "devlog.html", "開發過程記錄", "📓",
+         "本輪「完成 PRD 所有功能」開發衝刺的詳細過程、並行排程與驗證結果。"),
 )
 
 # Hand-authored hub pages we link to but never generate.

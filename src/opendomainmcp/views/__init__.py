@@ -155,6 +155,15 @@ def run_view_tool(ctx, tool: ViewTool, query: str, top_k: int) -> list[dict]:
     """
     from ..store import build_where
 
+    # trace_dependency prefers the code dependency graph (task 4.5): when the
+    # query names a module/symbol with import edges, return its neighbors;
+    # otherwise fall back to the plain kind=code search so behaviour never
+    # regresses.
+    if tool.name == "trace_dependency":
+        graph_hits = _trace_dependency(ctx, query, top_k)
+        if graph_hits:
+            return graph_hits
+
     filters = dict(tool.filters)
     audience = filters.pop("audience", None)
     if getattr(ctx.settings, "retrieve_approved_only", False):
@@ -175,3 +184,43 @@ def run_view_tool(ctx, tool: ViewTool, query: str, top_k: int) -> list[dict]:
             if audience in (r.metadata.get("audience") or "").split(", ")
         ]
     return [r.to_dict() for r in results[:top_k]]
+
+
+def _trace_dependency(ctx, query: str, top_k: int) -> list[dict]:
+    """Return import-dependency neighbors of ``query`` from the graph (task 4.5).
+
+    Shapes each neighbor into the ``{id, text, score, metadata}`` envelope the
+    other view tools return. Returns ``[]`` when the graph is unavailable or the
+    query names nothing (caller then falls back to search)."""
+    graph = getattr(ctx, "graph", None)
+    if graph is None:
+        return []
+    from ..graph.deps import IMPORTS_RELATION
+
+    result = graph.neighbors(query, relation_type=IMPORTS_RELATION, depth=1)
+    neighbors = result.get("neighbors") if result else None
+    if not neighbors:
+        return []
+
+    root = result.get("entity") or {}
+    root_name = root.get("name") or query
+    out: list[dict] = []
+    for n in neighbors[:top_k]:
+        ent = n.get("entity") or {}
+        name = ent.get("name") or ent.get("normalized_name") or ""
+        direction = n.get("direction", "out")
+        verb = "imports" if direction == "out" else "imported by"
+        out.append({
+            "id": ent.get("normalized_name") or name,
+            "text": f"{root_name} {verb} {name}",
+            "score": float(ent.get("confidence") or 1.0),
+            "metadata": {
+                "name": name,
+                "type": ent.get("type") or "module",
+                "relation_type": n.get("relation_type", IMPORTS_RELATION),
+                "direction": direction,
+                "source_symbol": root_name,
+                "chunk_ids": ent.get("chunk_ids", []),
+            },
+        })
+    return out

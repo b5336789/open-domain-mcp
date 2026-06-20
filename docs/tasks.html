@@ -89,9 +89,11 @@
 <nav class="bar"><div class="wrap">
   <span class="brand"><span class="dot"></span>openDomainMcp</span>
   <span class="links">
+      <a href="features.html">系統功能說明</a>
       <a href="architecture.html">技術架構</a>
       <a href="tasks.html" class="active">開發任務與進度</a>
       <a href="prd.html">產品需求文件</a>
+      <a href="devlog.html">開發過程記錄</a>
       <a href="index.html">文件首頁</a>
       <a href="guide.html">使用說明</a>
       <a href="reference.html">技術文件</a>
@@ -102,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/TASKS.md</span>
   <h1><span>✅</span>開發任務與進度</h1>
   <p class="lead">自專案起始至今的所有任務，含進度總覽與各 Phase 拆解。</p>
-  <p class="stamp">最後更新：2026-06-19 15:06　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-19 20:54　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -140,25 +142,31 @@
 <tr>
 <td>Phase 2 收尾缺口</td>
 <td>6</td>
-<td>3 🔶</td>
+<td>6 ✅</td>
 </tr>
 <tr>
 <td>Phase 3（Graphs）</td>
 <td>9</td>
-<td>0 ⬜</td>
+<td>9 ✅</td>
 </tr>
 <tr>
 <td>Phase 4（Pre-Execution Advisor + Metrics）</td>
 <td>8</td>
-<td>2 🔶</td>
+<td>8 ✅</td>
 </tr>
 <tr>
 <td>工程品質與強化</td>
 <td>7</td>
-<td>1 🔶</td>
+<td>7 ✅</td>
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong>2026-06-19 衝刺：PRD 全功能完成。</strong> 所有先前 ⬜ 任務（3.2/3.3/3.6、4.4/4.5/4.8、
+5.1/5.2/5.3/5.5/5.6/5.7、6.1/6.2/6.3/6.4/6.5/6.7）已於本輪以三個並行 wave 完成並併入，
+全套件 <strong>268 passed, 3 skipped</strong>（後端）＋ 前端 <code>tsc</code> 綠燈、<code>vite build</code> 成功、Playwright E2E <strong>7 passed</strong>。
+詳細過程見 <a href="./devlog.html">DEVLOG.md</a>，功能說明見 <a href="./features.html">FEATURES.md</a>。</p>
+</blockquote>
 <hr />
 <h2 id="phase-01">✅ Phase 0–1：基礎平台（已完成）</h2>
 <p>對應 PRD Roadmap Phase 1（Document + Code Ingestion、Vector Retrieval、Basic MCP）。</p>
@@ -575,7 +583,7 @@
 </tbody>
 </table>
 <hr />
-<h2 id="phase-2">⬜ Phase 2 收尾缺口（未完成）</h2>
+<h2 id="phase-2">✅ Phase 2 收尾缺口（已完成）</h2>
 <p>PRD 範圍內但 Phase 2 尚未補齊的項目。</p>
 <table>
 <thead>
@@ -599,7 +607,7 @@
 </tr>
 <tr>
 <td>3.2</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>Wiki export 擷取</td>
 <td>支援 Confluence/MediaWiki 匯出（XML/HTML bundle）</td>
@@ -607,7 +615,7 @@
 </tr>
 <tr>
 <td>3.3</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>舊資料 review 回填</td>
 <td>CLI <code>backfill-review --status approved</code>，替既有 chunk 補 review_status</td>
@@ -631,7 +639,7 @@
 </tr>
 <tr>
 <td>3.6</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>Workspace 來源登錄</td>
 <td>UI 記錄/管理已擷取來源清單（產品/來源/索引狀態）</td>
@@ -640,7 +648,7 @@
 </tbody>
 </table>
 <hr />
-<h2 id="phase-3">⬜ Phase 3：知識圖譜（未開始）</h2>
+<h2 id="phase-3">✅ Phase 3：知識圖譜（已完成）</h2>
 <p>對應 PRD Roadmap Phase 3。整體規模大於 Medium，已拆成 ≤Medium 子任務。</p>
 <h3 id="3a-entity-graph">3A — Entity Graph（實體圖）</h3>
 <table>
@@ -657,27 +665,27 @@
 <tbody>
 <tr>
 <td>4.1</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>實體抽取與正規化</td>
-<td>從 <code>concepts</code>/<code>relations</code> 聚合實體、去重、別名合併</td>
-<td>新增 <code>graph/entities.py</code></td>
+<td>LLM 單次呼叫疊加有型別 entities/typed_relations；正規化/去重/別名合併（PR #12）</td>
+<td><code>extract/knowledge.py</code>、<code>graph/normalize.py</code>、<code>graph/builder.py</code></td>
 </tr>
 <tr>
 <td>4.2</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>圖儲存層</td>
-<td>持久化 nodes/edges（SQLite 或 networkx + 檔案），與 chunk 關聯</td>
-<td>新增 <code>graph/store.py</code></td>
+<td>持久化 nodes/edges 於 <strong>MariaDB</strong>（PyMySQL，非 SQLite）；與 chunk 關聯、依 collection 隔離、隨向量增量同步（PR #12）</td>
+<td><code>graph/store.py</code>、<code>context.py</code>、<code>pipeline.py</code></td>
 </tr>
 <tr>
 <td>4.3</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>實體查詢 API/MCP</td>
-<td><code>get_entity</code>、<code>list_related_entities</code></td>
-<td><code>api/app.py</code>、<code>server.py</code></td>
+<td><code>get_entity</code>、<code>list_related_entities</code>（depth≤2）+ <code>/api/graph/*</code>（PR #12）</td>
+<td><code>api/app.py</code>、<code>server.py</code>、<code>views/__init__.py</code></td>
 </tr>
 </tbody>
 </table>
@@ -696,7 +704,7 @@
 <tbody>
 <tr>
 <td>4.4</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>程式碼相依抽取</td>
 <td>由 AST import/call 建立 module/function 相依邊</td>
@@ -704,7 +712,7 @@
 </tr>
 <tr>
 <td>4.5</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>trace_dependency 升級</td>
 <td>Developer 視圖工具改走相依圖實作</td>
@@ -727,7 +735,7 @@
 <tbody>
 <tr>
 <td>4.6</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>工作流步驟抽取</td>
 <td>由 Workflow/Runbook 類型知識抽取有序步驟與前後關係</td>
@@ -735,7 +743,7 @@
 </tr>
 <tr>
 <td>4.7</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>工作流查詢</td>
 <td><code>get_workflow_steps</code>、前置條件查詢</td>
@@ -758,7 +766,7 @@
 <tbody>
 <tr>
 <td>4.8</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>圖瀏覽 UI</td>
 <td>前端以圖元件呈現 entity/dependency/workflow</td>
@@ -766,7 +774,7 @@
 </tr>
 <tr>
 <td>4.9</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>圖 API 端點</td>
 <td><code>/api/graph/{type}</code> 回傳 nodes/edges</td>
@@ -775,7 +783,7 @@
 </tbody>
 </table>
 <hr />
-<h2 id="phase-4pre-execution-advisor">⬜ Phase 4：Pre-Execution Advisor + 指標（未開始）</h2>
+<h2 id="phase-4pre-execution-advisor">✅ Phase 4：Pre-Execution Advisor + 指標（已完成）</h2>
 <p>對應 PRD Roadmap Phase 4 與 Success Metrics。整體規模大於 Medium，已拆解。</p>
 <h3 id="4a-pre-execution-advisor">4A — Pre-Execution Advisor</h3>
 <table>
@@ -792,7 +800,7 @@
 <tbody>
 <tr>
 <td>5.1</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>Advisor 彙整器</td>
 <td>給定動作 X，彙整 Workflow/Risks/Permissions/Dependencies/Constraints</td>
@@ -800,7 +808,7 @@
 </tr>
 <tr>
 <td>5.2</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>Advisor MCP 工具</td>
 <td><code>what_should_i_know_before(action)</code> 跨視圖彙整</td>
@@ -808,7 +816,7 @@
 </tr>
 <tr>
 <td>5.3</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>Advisor API + UI</td>
 <td>端點與前端呈現風險/權限/相依清單</td>
@@ -839,7 +847,7 @@
 </tr>
 <tr>
 <td>5.5</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>Product 指標</td>
 <td>Published MCPs、Knowledge Objects、Indexed Sources 計數</td>
@@ -847,7 +855,7 @@
 </tr>
 <tr>
 <td>5.6</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>Agent 指標</td>
 <td>Grounding Hit Rate、Retrieval Precision（延伸 Simulator 統計）</td>
@@ -855,7 +863,7 @@
 </tr>
 <tr>
 <td>5.7</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>指標儀表板</td>
 <td>前端指標頁</td>
@@ -872,7 +880,7 @@
 </tbody>
 </table>
 <hr />
-<h2 id="_2">⬜ 工程品質與強化（未開始）</h2>
+<h2 id="_2">✅ 工程品質與強化（已完成）</h2>
 <p>跨階段的非功能性改進。</p>
 <table>
 <thead>
@@ -888,7 +896,7 @@
 <tbody>
 <tr>
 <td>6.1</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>動態 MCP 端點發布</td>
 <td>MCP Builder 真正 spawn/管理 HTTP transport 端點（目前僅顯示啟動指令）</td>
@@ -896,7 +904,7 @@
 </tr>
 <tr>
 <td>6.2</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>權限/角色（RBAC）</td>
 <td>MCP 視圖層級的存取控制與 API 金鑰</td>
@@ -904,7 +912,7 @@
 </tr>
 <tr>
 <td>6.3</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Medium</td>
 <td>多租戶隔離</td>
 <td>workspace/tenant 邊界與資料隔離</td>
@@ -912,7 +920,7 @@
 </tr>
 <tr>
 <td>6.4</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>E2E 前端測試</td>
 <td>Review/Builder/Simulator 的端到端測試（Playwright）</td>
@@ -920,7 +928,7 @@
 </tr>
 <tr>
 <td>6.5</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>CLI 擷取 Git/Zip 文件補強</td>
 <td>CLI <code>ingest</code> 說明與 help 補上新來源用法</td>
@@ -936,7 +944,7 @@
 </tr>
 <tr>
 <td>6.7</td>
-<td>⬜</td>
+<td>✅</td>
 <td>Low</td>
 <td>觀測性/日誌</td>
 <td>結構化日誌與基本 metrics endpoint（<code>/api/health</code> 擴充）</td>
@@ -1036,7 +1044,7 @@
 <td>4.5</td>
 <td>trace_dependency 升級</td>
 <td>4.4</td>
-<td style="text-align: center;">⬜</td>
+<td style="text-align: center;">✅</td>
 <td><code>views/__init__.py</code>、<code>graph/</code></td>
 </tr>
 <tr>
@@ -1050,14 +1058,14 @@
 <td>4.7</td>
 <td>工作流查詢</td>
 <td>4.6</td>
-<td style="text-align: center;">⬜</td>
+<td style="text-align: center;">✅</td>
 <td><code>api/app.py</code>、<code>server.py</code></td>
 </tr>
 <tr>
 <td>4.8</td>
 <td>圖瀏覽 UI</td>
 <td>4.9</td>
-<td style="text-align: center;">⬜</td>
+<td style="text-align: center;">✅</td>
 <td><code>web/pages/Graph.tsx</code>(新)</td>
 </tr>
 <tr>
@@ -1078,14 +1086,14 @@
 <td>5.2</td>
 <td>Advisor MCP 工具</td>
 <td>5.1</td>
-<td style="text-align: center;">⬜</td>
+<td style="text-align: center;">✅</td>
 <td><code>server.py</code>、<code>views/</code></td>
 </tr>
 <tr>
 <td>5.3</td>
 <td>Advisor API + UI</td>
 <td>5.1</td>
-<td style="text-align: center;">⬜</td>
+<td style="text-align: center;">✅</td>
 <td><code>api/app.py</code>、<code>web/pages/</code></td>
 </tr>
 <tr>
@@ -1305,7 +1313,13 @@
 </tbody>
 </table>
 <hr />
-<p><em>最後更新：2026-06-18（加入相依性分析與並行排程；Wave 1 並行完成 3.1/3.4/3.5/5.4/5.8/6.6）</em></p>
+<p><em>最後更新：2026-06-19（Phase 3 子專案① Entity Graph 基礎完成 4.1/4.2/4.3，PR #12 併入 main）</em></p>
+<blockquote>
+<p><strong>Phase 3 進展備註（2026-06-19）：</strong> 子專案①（Entity Graph 基礎，4.1/4.2/4.3）已完成併入 main。設計與計畫見 <code>docs/superpowers/specs/2026-06-19-entity-graph-foundation-design.md</code> 與 <code>docs/superpowers/plans/2026-06-19-entity-graph-foundation.md</code>。
+- 4.2 圖儲存採 <strong>MariaDB</strong>（全平台必需依賴），向量仍在 Chroma；圖依 collection 隔離。
+- 4.2 完成後解鎖 4.4（程式碼相依抽取）、4.6（工作流步驟抽取）、4.9（圖 API）。
+- 已知延後項（記於 review）：圖寫入目前逐 chunk（每檔可批次化 + 連線重用），留待子專案②；<code>graph rebuild</code> 回填 CLI 暫緩（既有索引需重新擷取才有圖）。</p>
+</blockquote>
 </main>
 
 <footer><div class="wrap">

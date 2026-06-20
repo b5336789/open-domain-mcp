@@ -82,6 +82,25 @@ def ask(query: str, top_k: int = 6, collection: Optional[str] = None) -> dict:
 
 
 @mcp.tool()
+def what_should_i_know_before(
+    action: str, top_k: int = 5, collection: Optional[str] = None
+) -> dict:
+    """Pre-Execution Advisor: what to know BEFORE doing ``action``.
+
+    Aggregates the knowledge base into five facets for the given intent --
+    ``workflow`` (Workflow/Runbook), ``risks`` (Error/Troubleshooting/Constraint),
+    ``permissions`` (Permission), ``dependencies`` (graph imports/depends_on plus
+    Architecture knowledge) and ``constraints`` (Constraint) -- alongside a
+    best-effort graph workflow and a ``summary`` of counts and knowledge types.
+    No LLM call; pure filtered retrieval over the shared store. ``collection``
+    selects the knowledge base.
+    """
+    from .advisor import advise
+
+    return advise(_context(collection), action, top_k)
+
+
+@mcp.tool()
 def get_stats(collection: Optional[str] = None) -> dict:
     """Return collection statistics (document count, embedder, dimension)."""
     return _context(collection).store.stats()

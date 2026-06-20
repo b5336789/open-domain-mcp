@@ -15,6 +15,13 @@ from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# API-key spec separators (see ``Settings.parsed_api_keys``).
+_API_KEY_ENTRY_SEP = ","
+_API_KEY_FIELD_SEP = ":"
+_API_KEY_VIEW_SEP = "|"
+_API_KEY_ALL_VIEWS = "*"
+_API_KEY_FIELD_COUNT = 3
+
 # Settings that the web UI is allowed to view/update at runtime. Credentials and
 # the data directory are deliberately excluded.
 EDITABLE_FIELDS = (
@@ -91,12 +98,40 @@ class Settings(BaseSettings):
     request_timeout: float = 60.0
     max_retries: int = 2
 
+    # Multi-tenancy: when on, every request must carry a tenant id (``X-Tenant``
+    # header) and each tenant's data is isolated by namespacing the collection as
+    # ``<tenant>::<collection>``. Off by default — single-tenant local use is
+    # unchanged. Data isolation rides on the existing per-collection separation in
+    # both the vector store (Chroma) and the graph store (keyed by collection).
+    multi_tenant: bool = False
+
     # --- Knowledge graph store (MariaDB, required platform-wide) ---
     graph_db_host: str = "localhost"
     graph_db_port: int = 3306
     graph_db_user: str = "opendomain"
     graph_db_password: str = ""
     graph_db_name: str = "opendomain_graph"
+
+    # --- Access control (RBAC / API keys) ---
+    # Env-only (never UI-editable): credentials must come from the environment.
+    # Auth defaults OFF so trusted local use and existing tests are unaffected;
+    # set ``ODM_AUTH_ENABLED=true`` and ``ODM_API_KEYS=...`` to enforce it.
+    auth_enabled: bool = False
+    # Compact spec parsed by ``parsed_api_keys``. See that method for the format.
+    api_keys: str = ""
+
+    def parsed_api_keys(self) -> dict[str, dict]:
+        """Parse :attr:`api_keys` into ``{key: {"role", "views"}}``.
+
+        Format: comma-separated entries, each ``key:role:views`` where ``views``
+        is ``*`` (all views) or a ``|``-separated list of view names, e.g.::
+
+            secret1:admin:*,secret2:dev:developer|architecture
+
+        Fail-Loud: raises ``ValueError`` on a malformed entry (wrong field count,
+        empty field, or an unknown view name).
+        """
+        return _parse_api_keys(self.api_keys)
 
     @property
     def overrides_path(self) -> Path:
@@ -128,6 +163,42 @@ class Settings(BaseSettings):
 
     def editable_dict(self) -> dict:
         return {k: getattr(self, k) for k in EDITABLE_FIELDS}
+
+
+def _parse_api_keys(spec: str) -> dict[str, dict]:
+    """Parse the ``key:role:views`` API-key spec. See ``Settings.parsed_api_keys``."""
+    from .views import VIEW_NAMES  # local import avoids a config<-views cycle
+
+    result: dict[str, dict] = {}
+    for raw in spec.split(_API_KEY_ENTRY_SEP):
+        entry = raw.strip()
+        if not entry:
+            continue  # tolerate trailing/empty separators
+        fields = entry.split(_API_KEY_FIELD_SEP)
+        if len(fields) != _API_KEY_FIELD_COUNT:
+            raise ValueError(
+                f"Malformed API key entry (expected key:role:views): {entry!r}"
+            )
+        key, role, views_spec = (f.strip() for f in fields)
+        if not key or not role or not views_spec:
+            raise ValueError(f"API key entry has an empty field: {entry!r}")
+
+        if views_spec == _API_KEY_ALL_VIEWS:
+            views: tuple[str, ...] = (_API_KEY_ALL_VIEWS,)
+        else:
+            views = tuple(
+                v.strip() for v in views_spec.split(_API_KEY_VIEW_SEP) if v.strip()
+            )
+            if not views:
+                raise ValueError(f"API key entry has no views: {entry!r}")
+            unknown = [v for v in views if v not in VIEW_NAMES]
+            if unknown:
+                raise ValueError(
+                    f"API key entry names unknown view(s) {unknown}: {entry!r}"
+                )
+
+        result[key] = {"role": role, "views": views}
+    return result
 
 
 def get_settings() -> Settings:

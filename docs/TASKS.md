@@ -15,10 +15,15 @@
 |------|--------|--------|
 | Phase 0–1（基礎平台） | 18 | 18 ✅ |
 | Phase 2（M1–M5 typed knowledge） | 22 | 22 ✅ |
-| Phase 2 收尾缺口 | 6 | 3 🔶 |
-| Phase 3（Graphs） | 9 | 3 🔶 |
-| Phase 4（Pre-Execution Advisor + Metrics） | 8 | 2 🔶 |
-| 工程品質與強化 | 7 | 1 🔶 |
+| Phase 2 收尾缺口 | 6 | 6 ✅ |
+| Phase 3（Graphs） | 9 | 9 ✅ |
+| Phase 4（Pre-Execution Advisor + Metrics） | 8 | 8 ✅ |
+| 工程品質與強化 | 7 | 7 ✅ |
+
+> **2026-06-19 衝刺：PRD 全功能完成。** 所有先前 ⬜ 任務（3.2/3.3/3.6、4.4/4.5/4.8、
+> 5.1/5.2/5.3/5.5/5.6/5.7、6.1/6.2/6.3/6.4/6.5/6.7）已於本輪以三個並行 wave 完成並併入，
+> 全套件 **268 passed, 3 skipped**（後端）＋ 前端 `tsc` 綠燈、`vite build` 成功、Playwright E2E **7 passed**。
+> 詳細過程見 [DEVLOG.md](./DEVLOG.md)，功能說明見 [FEATURES.md](./FEATURES.md)。
 
 ---
 
@@ -102,22 +107,22 @@
 
 ---
 
-## ⬜ Phase 2 收尾缺口（未完成）
+## ✅ Phase 2 收尾缺口（已完成）
 
 PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
 | 3.1 | ✅ | Medium | GraphQL schema 擷取 | 解析 `.graphql`/SDL，每 type/query/mutation 一 chunk、預分類 API | 新增 `ingest/graphql.py`、`loader.py` |
-| 3.2 | ⬜ | Low | Wiki export 擷取 | 支援 Confluence/MediaWiki 匯出（XML/HTML bundle） | `ingest/loader.py`、可能新增 `ingest/wiki.py` |
-| 3.3 | ⬜ | Low | 舊資料 review 回填 | CLI `backfill-review --status approved`，替既有 chunk 補 review_status | `cli.py`、`store/` |
+| 3.2 | ✅ | Low | Wiki export 擷取 | 支援 Confluence/MediaWiki 匯出（XML/HTML bundle） | `ingest/loader.py`、可能新增 `ingest/wiki.py` |
+| 3.3 | ✅ | Low | 舊資料 review 回填 | CLI `backfill-review --status approved`，替既有 chunk 補 review_status | `cli.py`、`store/` |
 | 3.4 | ✅ | Medium | Developer 視圖 symbol 精準化 | `get_class/get_function` 改用 symbol/node_type 精準查詢而非僅 kind=code | `views/__init__.py`、`store/build_where` |
 | 3.5 | ✅ | Low | Version 欄位萃取 | prompt 與 `_parse` 補 `version`（目前欄位存在但未萃取） | `extract/knowledge.py` |
-| 3.6 | ⬜ | Low | Workspace 來源登錄 | UI 記錄/管理已擷取來源清單（產品/來源/索引狀態） | `web/src/pages/Dashboard.tsx`、`api/app.py` |
+| 3.6 | ✅ | Low | Workspace 來源登錄 | UI 記錄/管理已擷取來源清單（產品/來源/索引狀態） | `web/src/pages/Dashboard.tsx`、`api/app.py` |
 
 ---
 
-## ⬜ Phase 3：知識圖譜（未開始）
+## ✅ Phase 3：知識圖譜（已完成）
 
 對應 PRD Roadmap Phase 3。整體規模大於 Medium，已拆成 ≤Medium 子任務。
 
@@ -133,26 +138,26 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 4.4 | ⬜ | Medium | 程式碼相依抽取 | 由 AST import/call 建立 module/function 相依邊 | `ingest/code_splitter.py`、`graph/deps.py` |
-| 4.5 | ⬜ | Low | trace_dependency 升級 | Developer 視圖工具改走相依圖實作 | `views/__init__.py`、`graph/` |
+| 4.4 | ✅ | Medium | 程式碼相依抽取 | 由 AST import/call 建立 module/function 相依邊 | `ingest/code_splitter.py`、`graph/deps.py` |
+| 4.5 | ✅ | Low | trace_dependency 升級 | Developer 視圖工具改走相依圖實作 | `views/__init__.py`、`graph/` |
 
 ### 3C — Workflow Graph（工作流圖）
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 4.6 | ⬜ | Medium | 工作流步驟抽取 | 由 Workflow/Runbook 類型知識抽取有序步驟與前後關係 | 新增 `graph/workflow.py`、`extract/` |
-| 4.7 | ⬜ | Low | 工作流查詢 | `get_workflow_steps`、前置條件查詢 | `api/app.py`、`server.py` |
+| 4.6 | ✅ | Medium | 工作流步驟抽取 | 由 Workflow/Runbook 類型知識抽取有序步驟與前後關係 | 新增 `graph/workflow.py`、`extract/` |
+| 4.7 | ✅ | Low | 工作流查詢 | `get_workflow_steps`、前置條件查詢 | `api/app.py`、`server.py` |
 
 ### 3D — 圖視覺化
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 4.8 | ⬜ | Medium | 圖瀏覽 UI | 前端以圖元件呈現 entity/dependency/workflow | 新增 `web/src/pages/Graph.tsx` |
-| 4.9 | ⬜ | Low | 圖 API 端點 | `/api/graph/{type}` 回傳 nodes/edges | `api/app.py` |
+| 4.8 | ✅ | Medium | 圖瀏覽 UI | 前端以圖元件呈現 entity/dependency/workflow | 新增 `web/src/pages/Graph.tsx` |
+| 4.9 | ✅ | Low | 圖 API 端點 | `/api/graph/{type}` 回傳 nodes/edges | `api/app.py` |
 
 ---
 
-## ⬜ Phase 4：Pre-Execution Advisor + 指標（未開始）
+## ✅ Phase 4：Pre-Execution Advisor + 指標（已完成）
 
 對應 PRD Roadmap Phase 4 與 Success Metrics。整體規模大於 Medium，已拆解。
 
@@ -160,35 +165,35 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 5.1 | ⬜ | Medium | Advisor 彙整器 | 給定動作 X，彙整 Workflow/Risks/Permissions/Dependencies/Constraints | 新增 `advisor/` |
-| 5.2 | ⬜ | Low | Advisor MCP 工具 | `what_should_i_know_before(action)` 跨視圖彙整 | `server.py`、`views/` |
-| 5.3 | ⬜ | Low | Advisor API + UI | 端點與前端呈現風險/權限/相依清單 | `api/app.py`、`web/src/pages/` |
+| 5.1 | ✅ | Medium | Advisor 彙整器 | 給定動作 X，彙整 Workflow/Risks/Permissions/Dependencies/Constraints | 新增 `advisor/` |
+| 5.2 | ✅ | Low | Advisor MCP 工具 | `what_should_i_know_before(action)` 跨視圖彙整 | `server.py`、`views/` |
+| 5.3 | ✅ | Low | Advisor API + UI | 端點與前端呈現風險/權限/相依清單 | `api/app.py`、`web/src/pages/` |
 
 ### 4B — Success Metrics 蒐集
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
 | 5.4 | ✅ | Medium | 指標蒐集骨架 | 記錄檢索/問答事件（query、hits、scores、命中類型） | 新增 `metrics/` |
-| 5.5 | ⬜ | Low | Product 指標 | Published MCPs、Knowledge Objects、Indexed Sources 計數 | `metrics/`、`api/app.py` |
-| 5.6 | ⬜ | Low | Agent 指標 | Grounding Hit Rate、Retrieval Precision（延伸 Simulator 統計） | `metrics/`、`api/simulate` |
-| 5.7 | ⬜ | Medium | 指標儀表板 | 前端指標頁 | 新增 `web/src/pages/Metrics.tsx` |
+| 5.5 | ✅ | Low | Product 指標 | Published MCPs、Knowledge Objects、Indexed Sources 計數 | `metrics/`、`api/app.py` |
+| 5.6 | ✅ | Low | Agent 指標 | Grounding Hit Rate、Retrieval Precision（延伸 Simulator 統計） | `metrics/`、`api/simulate` |
+| 5.7 | ✅ | Medium | 指標儀表板 | 前端指標頁 | 新增 `web/src/pages/Metrics.tsx` |
 | 5.8 | ✅ | Medium | 幻覺降低評測 | 建立離線評測集與 grounding 對照基準 | 新增 `evals/` |
 
 ---
 
-## ⬜ 工程品質與強化（未開始）
+## ✅ 工程品質與強化（已完成）
 
 跨階段的非功能性改進。
 
 | # | 狀態 | Effort | 任務 | 內容 | 位置 |
 |---|------|--------|------|------|------|
-| 6.1 | ⬜ | Medium | 動態 MCP 端點發布 | MCP Builder 真正 spawn/管理 HTTP transport 端點（目前僅顯示啟動指令） | `server.py`、`api/app.py`、`McpBuilder.tsx` |
-| 6.2 | ⬜ | Medium | 權限/角色（RBAC） | MCP 視圖層級的存取控制與 API 金鑰 | `api/app.py`、`config.py` |
-| 6.3 | ⬜ | Medium | 多租戶隔離 | workspace/tenant 邊界與資料隔離 | `context.py`、`store/` |
-| 6.4 | ⬜ | Low | E2E 前端測試 | Review/Builder/Simulator 的端到端測試（Playwright） | 新增 `web/tests/` |
-| 6.5 | ⬜ | Low | CLI 擷取 Git/Zip 文件補強 | CLI `ingest` 說明與 help 補上新來源用法 | `cli.py`、`docs/` |
+| 6.1 | ✅ | Medium | 動態 MCP 端點發布 | MCP Builder 真正 spawn/管理 HTTP transport 端點（目前僅顯示啟動指令） | `server.py`、`api/app.py`、`McpBuilder.tsx` |
+| 6.2 | ✅ | Medium | 權限/角色（RBAC） | MCP 視圖層級的存取控制與 API 金鑰 | `api/app.py`、`config.py` |
+| 6.3 | ✅ | Medium | 多租戶隔離 | workspace/tenant 邊界與資料隔離 | `context.py`、`store/` |
+| 6.4 | ✅ | Low | E2E 前端測試 | Review/Builder/Simulator 的端到端測試（Playwright） | 新增 `web/tests/` |
+| 6.5 | ✅ | Low | CLI 擷取 Git/Zip 文件補強 | CLI `ingest` 說明與 help 補上新來源用法 | `cli.py`、`docs/` |
 | 6.6 | ✅ | Low | OpenAPI 巢狀 $ref 解析 | 解析 `$ref` 以豐富 operation 文字 | `ingest/openapi.py` |
-| 6.7 | ⬜ | Low | 觀測性/日誌 | 結構化日誌與基本 metrics endpoint（`/api/health` 擴充） | `api/app.py` |
+| 6.7 | ✅ | Low | 觀測性/日誌 | 結構化日誌與基本 metrics endpoint（`/api/health` 擴充） | `api/app.py` |
 
 ---
 
@@ -212,14 +217,14 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 | 4.2 | 圖儲存層 | — | ✅ | `graph/store.py`(新) |
 | 4.3 | 實體查詢 API/MCP | 4.1, 4.2 | ⬜ | `api/app.py`、`server.py` |
 | 4.4 | 程式碼相依抽取 | 4.2 | ⬜ | `graph/deps.py`(新)、`code_splitter.py` |
-| 4.5 | trace_dependency 升級 | 4.4 | ⬜ | `views/__init__.py`、`graph/` |
+| 4.5 | trace_dependency 升級 | 4.4 | ✅ | `views/__init__.py`、`graph/` |
 | 4.6 | 工作流步驟抽取 | 4.2 | ⬜ | `graph/workflow.py`(新)、`extract/` |
-| 4.7 | 工作流查詢 | 4.6 | ⬜ | `api/app.py`、`server.py` |
-| 4.8 | 圖瀏覽 UI | 4.9 | ⬜ | `web/pages/Graph.tsx`(新) |
+| 4.7 | 工作流查詢 | 4.6 | ✅ | `api/app.py`、`server.py` |
+| 4.8 | 圖瀏覽 UI | 4.9 | ✅ | `web/pages/Graph.tsx`(新) |
 | 4.9 | 圖 API 端點 | 4.2（資料來源 4.1/4.4/4.6） | ⬜ | `api/app.py` |
 | 5.1 | Advisor 彙整器 | —（Phase 3 可豐富，非硬相依） | ✅ | `advisor/`(新) |
-| 5.2 | Advisor MCP 工具 | 5.1 | ⬜ | `server.py`、`views/` |
-| 5.3 | Advisor API + UI | 5.1 | ⬜ | `api/app.py`、`web/pages/` |
+| 5.2 | Advisor MCP 工具 | 5.1 | ✅ | `server.py`、`views/` |
+| 5.3 | Advisor API + UI | 5.1 | ✅ | `api/app.py`、`web/pages/` |
 | 5.4 | 指標蒐集骨架 | — | ✅ | `metrics/`(新) |
 | 5.5 | Product 指標 | 5.4 | ⬜ | `metrics/`、`api/app.py` |
 | 5.6 | Agent 指標 | 5.4 | ⬜ | `metrics/`、`api/simulate` |

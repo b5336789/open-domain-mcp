@@ -89,9 +89,11 @@
 <nav class="bar"><div class="wrap">
   <span class="brand"><span class="dot"></span>openDomainMcp</span>
   <span class="links">
+      <a href="features.html">系統功能說明</a>
       <a href="architecture.html">技術架構</a>
       <a href="tasks.html">開發任務與進度</a>
       <a href="prd.html" class="active">產品需求文件</a>
+      <a href="devlog.html">開發過程記錄</a>
       <a href="index.html">文件首頁</a>
       <a href="guide.html">使用說明</a>
       <a href="reference.html">技術文件</a>
@@ -102,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/PRD.md</span>
   <h1><span>📝</span>產品需求文件</h1>
   <p class="lead">產品目標、使用情境與功能需求。</p>
-  <p class="stamp">最後更新：2026-06-19 15:06　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-19 20:54　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -190,7 +192,7 @@
 <tr>
 <td><strong>Documentation</strong></td>
 <td>PDF、Markdown、HTML、DOCX、Wiki exports</td>
-<td>✅ PDF/MD/HTML/DOCX 已支援；⬜ Wiki exports 未特別處理</td>
+<td>✅ PDF/MD/HTML/DOCX 已支援；✅ MediaWiki XML 匯出（<code>ingest/wiki.py</code>）；Confluence HTML 以一般 HTML 擷取</td>
 </tr>
 <tr>
 <td><strong>Source Code</strong></td>
@@ -200,7 +202,7 @@
 <tr>
 <td><strong>API Specifications</strong></td>
 <td>Swagger、OpenAPI、GraphQL</td>
-<td>✅ OpenAPI/Swagger 已支援；⬜ GraphQL 未支援</td>
+<td>✅ OpenAPI/Swagger 已支援；✅ GraphQL SDL 已支援（<code>ingest/graphql.py</code>）</td>
 </tr>
 <tr>
 <td><strong>Support Knowledge</strong></td>
@@ -215,7 +217,7 @@
 </tbody>
 </table>
 <blockquote>
-<p>註：Wiki exports 與 GraphQL 屬範圍內但尚未實作，列為待辦（見 TASKS.md）。</p>
+<p>註：GraphQL SDL 與 MediaWiki XML 匯出已實作；Confluence HTML 匯出目前以一般 HTML 文字擷取（未做逐頁切分），列為後續強化。</p>
 </blockquote>
 <hr />
 <h2 id="7-architecture">7. Architecture（架構分層）</h2>
@@ -387,7 +389,25 @@
 <td><strong>MCP Builder</strong></td>
 <td>建立 MCP 視圖、設定檢索政策、指派權限、發布端點</td>
 <td>McpBuilder</td>
-<td>✅ 視圖/政策設定；⬜ 動態發布 HTTP 端點與權限指派待辦</td>
+<td>✅ 視圖/政策設定；✅ 動態發布 HTTP/SSE 端點（<code>/mcp/{view}</code> + <code>/api/mcp/endpoints</code>）；✅ 視圖層級 RBAC（API key→role→views）</td>
+</tr>
+<tr>
+<td><strong>Graph Explorer</strong></td>
+<td>瀏覽實體/相依/工作流圖</td>
+<td>Graph</td>
+<td>✅（Phase 3）</td>
+</tr>
+<tr>
+<td><strong>Pre-Execution Advisor</strong></td>
+<td>執行前彙整 Workflow/Risks/Permissions/Dependencies/Constraints</td>
+<td>Advisor</td>
+<td>✅（Phase 4）</td>
+</tr>
+<tr>
+<td><strong>Metrics</strong></td>
+<td>Product / Agent 指標儀表板</td>
+<td>Metrics</td>
+<td>✅（Phase 4）</td>
 </tr>
 <tr>
 <td><strong>Agent Simulator</strong></td>
@@ -403,7 +423,7 @@
 <li><strong>Hybrid Search</strong>：Vector Search + Keyword Search（BM25）以 RRF 融合 ✅</li>
 <li><strong>Metadata Filtering</strong>：依 <code>kind/language/symbol/knowledge_type/review_status</code> 過濾 ✅</li>
 <li><strong>Re-ranking</strong>：選用 cross-encoder ✅</li>
-<li><strong>Policy Enforcement</strong>：<code>retrieve_approved_only</code> 限定已核准知識 ✅（基礎版；完整 RBAC 待辦）</li>
+<li><strong>Policy Enforcement</strong>：<code>retrieve_approved_only</code> 限定已核准知識 ✅；視圖層級 RBAC（API key→role→允許的 views，<code>ODM_AUTH_ENABLED</code>/<code>ODM_API_KEYS</code>）✅；多租戶隔離（<code>ODM_MULTI_TENANT</code> + <code>X-Tenant</code>，collection 命名空間）✅</li>
 </ul>
 <hr />
 <h2 id="12-success-metrics">12. Success Metrics（成功指標）</h2>
@@ -421,7 +441,7 @@
 <li>Hallucination Reduction（幻覺降低）</li>
 </ul>
 <blockquote>
-<p>現況：Agent Simulator 提供單次 grounding 統計（hits、avg_score、knowledge_types）。系統性指標蒐集與儀表板<strong>尚未實作</strong>，列為 Phase 4 前置待辦（見 TASKS.md）。</p>
+<p>現況：除 Agent Simulator 的單次 grounding 統計外，已實作系統性指標蒐集（<code>metrics/</code> + <code>/api/metrics</code>，於 search/ask/simulate 記錄事件）與<strong>指標儀表板</strong>（Web <code>Metrics</code> 頁）：Product 指標（Published MCPs、Knowledge Objects、Indexed Sources）與 Agent 指標（Grounding Hit Rate、Retrieval Precision、avg hits/score）。詳見 <a href="./features.html">FEATURES.md</a> §Metrics。</p>
 </blockquote>
 <hr />
 <h2 id="13-roadmap">13. Roadmap（路線圖）</h2>
@@ -447,12 +467,12 @@
 <tr>
 <td><strong>Phase 3</strong></td>
 <td>Workflow Graph、Dependency Graph、Entity Graph</td>
-<td>⬜ 未開始</td>
+<td>✅ 已完成</td>
 </tr>
 <tr>
 <td><strong>Phase 4</strong></td>
-<td>Agent Pre-Execution Advisor</td>
-<td>⬜ 未開始</td>
+<td>Agent Pre-Execution Advisor、Success Metrics</td>
+<td>✅ 已完成</td>
 </tr>
 </tbody>
 </table>

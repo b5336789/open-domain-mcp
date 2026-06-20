@@ -142,6 +142,15 @@ def load_file(path: str | Path) -> LoadedDoc:
         if looks_like_openapi(parse_spec(text)):
             return LoadedDoc(str(path), "api", text, "openapi")
         return LoadedDoc(str(path), "text", text)
+    if ext == ".xml":
+        # A MediaWiki XML export is flattened to per-page sections; other XML
+        # is treated as plain text.
+        from .wiki import looks_like_mediawiki, mediawiki_to_text
+
+        text = _read_utf8(path)
+        if looks_like_mediawiki(text):
+            return LoadedDoc(str(path), "text", mediawiki_to_text(text), "mediawiki")
+        return LoadedDoc(str(path), "text", text)
     if ext in TEXT_EXTENSIONS:
         return LoadedDoc(str(path), "text", _read_utf8(path))
 

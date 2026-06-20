@@ -1,6 +1,13 @@
 import json
 
-from opendomainmcp.metrics import MetricEvent, MetricsRecorder
+from opendomainmcp.metrics import (
+    RELEVANCE_THRESHOLD,
+    MetricEvent,
+    MetricsRecorder,
+    agent_metrics,
+    count_distinct_sources,
+    product_metrics,
+)
 
 
 def test_record_search_and_ask_in_memory():
@@ -94,3 +101,119 @@ def test_metric_event_from_dict_defaults():
     assert event.scores == []
     assert event.knowledge_types == []
     assert event.ts == 0.0
+
+
+# --- Product metrics (TASKS.md #5.5) ------------------------------------
+
+
+def test_product_metrics_assembles_clean_dict():
+    # Arrange / Act
+    result = product_metrics(
+        knowledge_objects=42,
+        indexed_sources=7,
+        published_mcps=3,
+    )
+
+    # Assert
+    assert result == {
+        "published_mcps": 3,
+        "knowledge_objects": 42,
+        "indexed_sources": 7,
+    }
+
+
+def test_count_distinct_sources_counts_unique_values():
+    # Arrange
+    items = [
+        {"metadata": {"source": "wiki"}},
+        {"metadata": {"source": "wiki"}},
+        {"metadata": {"source": "github"}},
+    ]
+
+    # Act / Assert
+    assert count_distinct_sources(items) == 2
+
+
+def test_count_distinct_sources_ignores_missing_and_empty():
+    # Arrange
+    items = [
+        {"metadata": {"source": "wiki"}},
+        {"metadata": {}},  # no source key
+        {"metadata": {"source": ""}},  # empty
+        {"metadata": {"source": "   "}},  # whitespace only
+        {},  # no metadata at all
+        {"metadata": None},  # null metadata
+    ]
+
+    # Act / Assert
+    assert count_distinct_sources(items) == 1
+
+
+def test_count_distinct_sources_empty_list():
+    assert count_distinct_sources([]) == 0
+
+
+# --- Agent metrics (TASKS.md #5.6) --------------------------------------
+
+
+def test_agent_metrics_empty_is_safe():
+    # Arrange / Act
+    result = MetricsRecorder().agent_metrics()
+
+    # Assert
+    assert result == {
+        "total_events": 0,
+        "grounding_hit_rate": 0.0,
+        "avg_hits": 0.0,
+        "avg_score": 0.0,
+        "retrieval_precision": 0.0,
+    }
+
+
+def test_agent_metrics_grounding_hit_rate_mix():
+    # Arrange: two events with hits, two with zero hits.
+    rec = MetricsRecorder()
+    rec.record_search("a", hits=2, scores=[0.9, 0.8])
+    rec.record_ask("b", hits=1, scores=[0.5])
+    rec.record_search("c", hits=0, scores=[])
+    rec.record_ask("d", hits=0, scores=[])
+
+    # Act
+    result = rec.agent_metrics()
+
+    # Assert
+    assert result["total_events"] == 4
+    assert result["grounding_hit_rate"] == 0.5  # 2 of 4 grounded
+    assert result["avg_hits"] == 0.75  # (2 + 1 + 0 + 0) / 4
+
+
+def test_agent_metrics_retrieval_precision_proxy():
+    # Arrange: with threshold 0.0, a 0.0 score is NOT counted as relevant.
+    # Event 1: 2 hits, scores [0.9, 0.0] -> 1 relevant / 2 = 0.5
+    # Event 2: 2 hits, scores [0.7, 0.6] -> 2 relevant / 2 = 1.0
+    rec = MetricsRecorder()
+    rec.record_search("a", hits=2, scores=[0.9, 0.0])
+    rec.record_ask("b", hits=2, scores=[0.7, 0.6])
+
+    # Act
+    result = rec.agent_metrics()
+
+    # Assert
+    assert RELEVANCE_THRESHOLD == 0.0
+    assert result["retrieval_precision"] == 0.75  # (0.5 + 1.0) / 2
+    assert result["avg_score"] == 0.55  # (0.9 + 0.0 + 0.7 + 0.6) / 4
+
+
+def test_agent_metrics_zero_hit_event_contributes_zero_precision():
+    # Arrange: a zero-hit event must not divide by zero; it scores 0.0.
+    events = [
+        MetricEvent(kind="search", query="hit", hits=1, scores=[0.9]),
+        MetricEvent(kind="search", query="miss", hits=0, scores=[]),
+    ]
+
+    # Act
+    result = agent_metrics(events)
+
+    # Assert
+    assert result["retrieval_precision"] == 0.5  # (1.0 + 0.0) / 2
+    assert result["grounding_hit_rate"] == 0.5

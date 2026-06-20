@@ -12,6 +12,7 @@ import {
   useToast,
 } from "./components/ui";
 import {
+  IconAdvisor,
   IconAsk,
   IconBrowse,
   IconBuilder,
@@ -19,8 +20,10 @@ import {
   IconDashboard,
   IconDatabase,
   IconExplore,
+  IconGraph,
   IconIngest,
   IconMenu,
+  IconMetrics,
   IconMoon,
   IconPlus,
   IconReview,
@@ -36,8 +39,11 @@ const links = [
   { to: "/ask", label: "Ask", icon: IconAsk },
   { to: "/browse", label: "Browse / Edit", icon: IconBrowse },
   { to: "/review", label: "Review", icon: IconReview },
+  { to: "/graph", label: "Graph", icon: IconGraph },
+  { to: "/advisor", label: "Advisor", icon: IconAdvisor },
   { to: "/mcp", label: "MCP Builder", icon: IconBuilder },
   { to: "/simulator", label: "Simulator", icon: IconSimulator },
+  { to: "/metrics", label: "Metrics", icon: IconMetrics },
   { to: "/settings", label: "Settings", icon: IconSettings },
 ];
 

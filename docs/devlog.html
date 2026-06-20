@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>openDomainMcp · 開發過程記錄</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&family=Lora:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --mint:#34d9b5; --teal:#0d9488; --sky:#0ea5c4; --ink:#13322e;
+    --muted:#587a74; --paper:#f5fbf9; --card:#ffffff; --line:#dcefe9;
+    --shadow:0 18px 40px -24px rgba(13,80,72,.42);
+    --serif:"Noto Serif TC","Lora",Georgia,"Songti TC",serif;
+    --sans:"Noto Sans TC","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono","SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);
+    line-height:1.85;letter-spacing:.1px;-webkit-font-smoothing:antialiased}
+  code,kbd,pre{font-family:var(--mono)}
+  a{color:var(--teal);text-decoration:none}
+  a:hover{text-decoration:underline}
+  h1,h2,h3,h4,.brand{font-family:var(--serif);letter-spacing:.2px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+
+  nav.bar{position:sticky;top:0;z-index:30;backdrop-filter:blur(10px);
+    background:rgba(245,251,249,.84);border-bottom:1px solid var(--line)}
+  nav.bar .wrap{display:flex;align-items:center;gap:18px;height:64px;flex-wrap:wrap}
+  nav.bar .brand{font-weight:700;font-size:1.08rem;display:flex;align-items:center;gap:9px}
+  nav.bar .dot{width:13px;height:13px;border-radius:50%;
+    background:conic-gradient(from 90deg,var(--mint),var(--sky),var(--mint))}
+  nav.bar .links{margin-left:auto;display:flex;gap:18px;font-size:.92rem;font-weight:500}
+  nav.bar .links a{color:var(--muted)}
+  nav.bar .links a:hover{color:var(--teal);text-decoration:none}
+  nav.bar .links a.active{color:var(--teal);font-weight:700}
+
+  header.hero{position:relative;overflow:hidden;padding:62px 0 40px;
+    background:
+      radial-gradient(900px 380px at 12% -10%,rgba(14,165,196,.16),transparent 60%),
+      radial-gradient(760px 420px at 96% 0%,rgba(52,217,181,.26),transparent 55%);}
+  .hero .badge{display:inline-flex;align-items:center;gap:8px;background:var(--card);
+    border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:.82rem;
+    font-weight:600;color:var(--teal);box-shadow:var(--shadow)}
+  .hero h1{font-size:clamp(2rem,4.6vw,3rem);line-height:1.3;font-weight:700;margin:20px 0 14px;
+    display:flex;align-items:center;gap:14px}
+  .hero p.lead{font-size:1.1rem;color:#3f5e59;max-width:680px}
+  .hero .stamp{margin-top:16px;font-size:.82rem;color:var(--muted)}
+
+  main.wrap{padding-top:34px;padding-bottom:60px}
+  main h1{font-size:clamp(1.7rem,3.6vw,2.3rem);margin:38px 0 14px}
+  main h2{font-size:clamp(1.45rem,3vw,1.9rem);margin:34px 0 12px;padding-top:8px;
+    border-top:1px solid var(--line)}
+  main h3{font-size:1.25rem;margin:24px 0 10px}
+  main h4{font-size:1.08rem;margin:18px 0 8px}
+  main p{margin:12px 0}
+  main ul,main ol{margin:12px 0 12px 26px}
+  main li{margin:6px 0}
+  main blockquote{border-left:4px solid var(--mint);background:linear-gradient(120deg,
+    rgba(52,217,181,.1),rgba(14,165,196,.08));border-radius:0 12px 12px 0;
+    padding:12px 18px;margin:16px 0;color:#1c5d54}
+  main blockquote p{margin:4px 0}
+  main hr{border:none;border-top:1px solid var(--line);margin:30px 0}
+
+  main table{border-collapse:collapse;width:100%;margin:18px 0;font-size:.95rem;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  main th,main td{padding:10px 14px;border-bottom:1px solid var(--line);text-align:left}
+  main th{background:linear-gradient(120deg,rgba(52,217,181,.16),rgba(14,165,196,.12));
+    font-family:var(--serif);font-weight:700}
+  main tr:last-child td{border-bottom:none}
+
+  main pre{background:#08231f;color:#cdeee6;border-radius:13px;padding:16px 18px;overflow:auto;
+    font-size:.85rem;line-height:1.7;margin:16px 0;border:1px solid #0c3a33}
+  main pre code{background:none;color:inherit;padding:0;font-size:1em}
+  main p code,main li code,main td code{background:#e4f5f0;color:#0b6257;padding:2px 7px;
+    border-radius:6px;font-size:.85em}
+
+  main .mermaid{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:22px;margin:18px 0;box-shadow:var(--shadow);text-align:center;overflow:auto}
+
+  footer{padding:40px 0;text-align:center;color:var(--muted);
+    border-top:1px solid var(--line);font-size:.9rem}
+</style>
+</head>
+<body>
+
+<nav class="bar"><div class="wrap">
+  <span class="brand"><span class="dot"></span>openDomainMcp</span>
+  <span class="links">
+      <a href="features.html">系統功能說明</a>
+      <a href="architecture.html">技術架構</a>
+      <a href="tasks.html">開發任務與進度</a>
+      <a href="prd.html">產品需求文件</a>
+      <a href="devlog.html" class="active">開發過程記錄</a>
+      <a href="index.html">文件首頁</a>
+      <a href="guide.html">使用說明</a>
+      <a href="reference.html">技術文件</a>
+  </span>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <span class="badge">自動生成 · 由 docs/DEVLOG.md</span>
+  <h1><span>📓</span>開發過程記錄</h1>
+  <p class="lead">本輪「完成 PRD 所有功能」開發衝刺的詳細過程、並行排程與驗證結果。</p>
+  <p class="stamp">最後更新：2026-06-19 20:54　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+</div></header>
+
+<main class="wrap">
+<h1 id="opendomainmcp-development-log">OpenDomainMCP — 開發過程記錄（Development Log）</h1>
+<blockquote>
+<p>本文件詳細記錄本輪「完成 PRD 所有功能」開發衝刺的過程：目標、現況盤點、
+並行排程、各 wave 的任務、驗證結果與決策。產品需求見 <a href="./prd.html">PRD.md</a>，
+任務清單見 <a href="./tasks.html">TASKS.md</a>，架構見 <a href="./architecture.html">ARCHITECTURE.md</a>。</p>
+</blockquote>
+<hr />
+<h2 id="0-2026-06-19">0. 衝刺目標（2026-06-19）</h2>
+<ul>
+<li>完成 PRD 列出的<strong>所有</strong>功能。</li>
+<li>開發過程詳細記錄（本檔）。</li>
+<li>各種技術文件與系統功能詳細說明放上網頁（<code>docs/*.html</code> 自動生成 + 前端建置）。</li>
+<li>無相依的任務盡量並行（每個 subagent 持有互斥檔案集，避免合併衝突）。</li>
+</ul>
+<h2 id="1">1. 起始現況盤點</h2>
+<p>測試基線：<code>pytest</code> → <strong>187 passed, 3 skipped</strong>（3 skipped 為需要 MariaDB 連線的圖儲存整合測試）。</p>
+<p>TASKS.md 狀態欄已過時：實際上 Entity Graph（4.1/4.2/4.3）、Workflow Graph（4.6/4.7，
+PR #14）、Graph API（4.9）、Metrics 骨架（5.4）、Evals（5.8）皆已併入。</p>
+<p>經 grep 驗證，<strong>真正未完成</strong>的任務共 18 項：</p>
+<table>
+<thead>
+<tr>
+<th>任務</th>
+<th>說明</th>
+<th>主要檔案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3.2</td>
+<td>Wiki export 擷取</td>
+<td><code>ingest/wiki.py</code>(新)、<code>loader.py</code></td>
+</tr>
+<tr>
+<td>3.3</td>
+<td>舊資料 review 回填 CLI</td>
+<td><code>cli.py</code>、<code>store/</code></td>
+</tr>
+<tr>
+<td>3.6</td>
+<td>Workspace 來源登錄</td>
+<td><code>api/app.py</code>、<code>web/Dashboard.tsx</code></td>
+</tr>
+<tr>
+<td>4.4</td>
+<td>程式碼相依抽取</td>
+<td><code>graph/deps.py</code>(新)、<code>code_splitter.py</code>、<code>pipeline.py</code></td>
+</tr>
+<tr>
+<td>4.5</td>
+<td>trace_dependency 升級</td>
+<td><code>views/__init__.py</code></td>
+</tr>
+<tr>
+<td>4.8</td>
+<td>圖瀏覽 UI</td>
+<td><code>web/pages/Graph.tsx</code>(新)</td>
+</tr>
+<tr>
+<td>5.1</td>
+<td>Advisor 彙整器</td>
+<td><code>advisor/</code>(新)</td>
+</tr>
+<tr>
+<td>5.2</td>
+<td>Advisor MCP 工具</td>
+<td><code>server.py</code></td>
+</tr>
+<tr>
+<td>5.3</td>
+<td>Advisor API + UI</td>
+<td><code>api/app.py</code>、<code>web/pages/Advisor.tsx</code>(新)</td>
+</tr>
+<tr>
+<td>5.5</td>
+<td>Product 指標</td>
+<td><code>metrics/</code>、<code>api/app.py</code></td>
+</tr>
+<tr>
+<td>5.6</td>
+<td>Agent 指標</td>
+<td><code>metrics/</code>、<code>api/app.py</code></td>
+</tr>
+<tr>
+<td>5.7</td>
+<td>指標儀表板</td>
+<td><code>web/pages/Metrics.tsx</code>(新)</td>
+</tr>
+<tr>
+<td>6.1</td>
+<td>動態 MCP 端點發布</td>
+<td><code>server.py</code>、<code>api/app.py</code>、<code>McpBuilder.tsx</code></td>
+</tr>
+<tr>
+<td>6.2</td>
+<td>權限/角色（RBAC）</td>
+<td><code>api/app.py</code>、<code>config.py</code></td>
+</tr>
+<tr>
+<td>6.3</td>
+<td>多租戶隔離</td>
+<td><code>context.py</code>、<code>store/</code></td>
+</tr>
+<tr>
+<td>6.4</td>
+<td>E2E 前端測試</td>
+<td><code>web/tests/</code>(新)</td>
+</tr>
+<tr>
+<td>6.5</td>
+<td>CLI Git/Zip 文件補強</td>
+<td><code>cli.py</code></td>
+</tr>
+<tr>
+<td>6.7</td>
+<td>觀測性/日誌</td>
+<td><code>api/app.py</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="2">2. 並行排程策略</h2>
+<p>熱點檔案 <code>api/app.py</code>（被 3.6/5.3/5.5/5.6/6.1/6.2/6.7 共用）、前端 wiring
+（<code>App.tsx</code>/<code>api.ts</code>/<code>main.tsx</code>）無法安全並行。策略：</p>
+<ul>
+<li><strong>後端純新模組 + 互斥檔案</strong> → 並行 subagent（共享工作樹、檔案集互斥）。</li>
+<li><strong><code>api/app.py</code>、前端 wiring</strong> → 由主控（我）序列整合，避免合併衝突。</li>
+</ul>
+<h3 id="wave-15-subagent">Wave 1（5 個並行 subagent，檔案集互斥）</h3>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>任務</th>
+<th>持有檔案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A1</td>
+<td>3.2 Wiki 擷取</td>
+<td><code>ingest/wiki.py</code>(新)、<code>loader.py</code></td>
+</tr>
+<tr>
+<td>A2</td>
+<td>4.4 + 4.5 相依圖 + trace 升級</td>
+<td><code>graph/deps.py</code>(新)、<code>code_splitter.py</code>、<code>pipeline.py</code>、<code>graph/store.py</code>、<code>graph/models.py</code>、<code>views/__init__.py</code></td>
+</tr>
+<tr>
+<td>A3</td>
+<td>5.1 + 5.2 Advisor + MCP</td>
+<td><code>advisor/</code>(新)、<code>server.py</code></td>
+</tr>
+<tr>
+<td>A4</td>
+<td>5.5 + 5.6 指標邏輯</td>
+<td><code>metrics/__init__.py</code></td>
+</tr>
+<tr>
+<td>A5</td>
+<td>3.3 + 6.5 backfill + CLI 文件</td>
+<td><code>cli.py</code>、<code>store/chroma_store.py</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Wave 1 結果（✅）：</strong> 5 個 subagent 並行（檔案集互斥）完成 3.2 / 4.4+4.5 / 5.1+5.2 /
+5.5+5.6 / 3.3+6.5，各自跑過相關測試。合併後全套件 <strong>226 passed</strong>（基線 187，+39 測試），零回歸。
+commit <code>df8c9fa</code>。</p>
+<h3 id="wave-2-api-5-subagent">Wave 2（後端 API 熱點，5 個並行 subagent + 主控整合）</h3>
+<p><code>api/app.py</code> 為多任務共用熱點，故先抽出共享相依 <code>api/deps.py</code>（<code>get_ctx</code>），再讓各功能
+落在獨立的 router/helper 新模組，最後由主控統一在 <code>app.py</code> 串接（單一作者改熱點檔，避免衝突）。</p>
+<table>
+<thead>
+<tr>
+<th>模組（新檔）</th>
+<th>任務</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>api/auth.py</code> + <code>config.py</code></td>
+<td>6.2 RBAC（API key→role→views，預設關閉）</td>
+</tr>
+<tr>
+<td><code>api/observability.py</code></td>
+<td>6.7 結構化日誌、request middleware、強化 <code>/api/health</code></td>
+</tr>
+<tr>
+<td><code>api/insight_routes.py</code></td>
+<td>5.3 <code>/api/advise</code>、5.5/5.6 <code>/api/metrics</code> + 事件記錄</td>
+</tr>
+<tr>
+<td><code>api/source_routes.py</code> + <code>store</code></td>
+<td>3.6 <code>/api/sources</code>（list/delete）</td>
+</tr>
+<tr>
+<td><code>api/mcp_endpoints.py</code></td>
+<td>6.1 掛載 <code>/mcp/{view}</code> SSE、<code>/api/mcp/endpoints</code> 發布登記</td>
+</tr>
+</tbody>
+</table>
+<p>主控整合：<code>include_router</code>、<code>mount_mcp_apps</code>、<code>setup_logging</code>＋middleware、health、RBAC（<code>/api/simulate</code>
+視圖授權）、search/ask/simulate 事件記錄。<strong>263 passed</strong>（+37）。再加 6.3 多租戶（<code>api/deps.py</code> 以
+<code>X-Tenant</code> 命名空間化 collection，預設關閉）→ <strong>268 passed</strong>。commits <code>…</code>（wave2 後端、6.3）。</p>
+<h3 id="wave-3-wiring-5-subagent">Wave 3（前端，共享 wiring 由主控、頁面由 5 個並行 subagent）</h3>
+<p>主控先補齊共享 wiring：<code>api.ts</code>（型別＋方法）、<code>App.tsx</code>（導覽）、<code>main.tsx</code>（路由）、<code>icons.tsx</code>（3 圖示）。
+再並行產出頁面（互斥檔案）：</p>
+<table>
+<thead>
+<tr>
+<th>檔案</th>
+<th>任務</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pages/Graph.tsx</code>（新）</td>
+<td>4.8 實體鄰接 + 工作流步驟瀏覽</td>
+</tr>
+<tr>
+<td><code>pages/Advisor.tsx</code>（新）</td>
+<td>5.3 Pre-Execution Advisor</td>
+</tr>
+<tr>
+<td><code>pages/Metrics.tsx</code>（新）</td>
+<td>5.7 指標儀表板</td>
+</tr>
+<tr>
+<td><code>pages/Dashboard.tsx</code>（改）</td>
+<td>3.6 來源登錄區塊</td>
+</tr>
+<tr>
+<td><code>pages/McpBuilder.tsx</code>（改）</td>
+<td>6.1 發布/取消發布 HTTP 端點</td>
+</tr>
+</tbody>
+</table>
+<p>驗證：<code>tsc --noEmit</code> 綠燈、<code>vite build</code> 成功（輸出至 <code>api/static</code>）。</p>
+<h3 id="wave-4e2e">Wave 4（E2E + 文件）</h3>
+<ul>
+<li><strong>6.4 E2E</strong>：Playwright（<code>web/tests/</code>），以 route interception mock <code>/api/*</code>，不需後端即可跑；
+  <strong>7 passed</strong>（chromium）。</li>
+<li><strong>文件上網頁</strong>：擴充 <code>ARCHITECTURE.md</code>、新增 <code>FEATURES.md</code>（系統功能詳細說明），於 <code>docs/build.py</code>
+  新增 <code>features.html</code> / <code>devlog.html</code> 頁，重新生成整個 docs 靜態站。</li>
+</ul>
+<h2 id="3">3. 最終驗證</h2>
+<ul>
+<li>後端：<code>pytest</code> → <strong>276 passed, 3 skipped</strong>（含 <code>test_integration_wiring.py</code> 對完整 <code>create_app</code> 的端到端接線驗證；3 skipped 為需 MariaDB 的整合測試）。基線 187 → 276，+89 測試、零回歸。</li>
+<li>前端：<code>tsc</code> 綠燈、<code>vite build</code> 成功、Playwright E2E <strong>7 passed</strong>。</li>
+<li>文件：<code>docs/*.html</code> 由 Markdown 重新生成，導覽含 功能說明 / 技術架構 / 任務 / PRD / 開發記錄。</li>
+</ul>
+</main>
+
+<footer><div class="wrap">
+  openDomainMcp · 文件由 Markdown 自動生成　|　<a href="index.html">文件首頁</a>
+</div></footer>
+
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+mermaid.initialize({
+  startOnLoad:true,
+  theme:"base",
+  fontFamily:'"Noto Sans TC",system-ui,sans-serif',
+  themeVariables:{
+    primaryColor:"#e4f5f0", primaryBorderColor:"#0d9488", primaryTextColor:"#13322e",
+    lineColor:"#0ea5c4", secondaryColor:"#f5fbf9", tertiaryColor:"#ffffff"
+  }
+});
+</script>
+</body>
+</html>

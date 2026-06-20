@@ -12,6 +12,9 @@ import Review from "./pages/Review";
 import McpBuilder from "./pages/McpBuilder";
 import Simulator from "./pages/Simulator";
 import Settings from "./pages/Settings";
+import Graph from "./pages/Graph";
+import Advisor from "./pages/Advisor";
+import Metrics from "./pages/Metrics";
 import "./index.css";
 
 const router = createHashRouter([
@@ -25,8 +28,11 @@ const router = createHashRouter([
       { path: "ask", element: <Ask /> },
       { path: "browse", element: <Browse /> },
       { path: "review", element: <Review /> },
+      { path: "graph", element: <Graph /> },
+      { path: "advisor", element: <Advisor /> },
       { path: "mcp", element: <McpBuilder /> },
       { path: "simulator", element: <Simulator /> },
+      { path: "metrics", element: <Metrics /> },
       { path: "settings", element: <Settings /> },
     ],
   },

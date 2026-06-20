@@ -23,26 +23,40 @@ _VOYAGE_DIMS = {
 
 
 class OpenAIEmbedder(Embedder):
-    def __init__(self, model_name: str = "text-embedding-3-small"):
+    def __init__(self, model_name: str = "text-embedding-3-small", client=None):
         self.name = f"openai:{model_name}"
         self._model_name = model_name
-        self._dim = _OPENAI_DIMS.get(model_name, 1536)
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise RuntimeError("OPENAI_API_KEY is required for the openai embedder backend")
-        try:
-            from openai import OpenAI
-        except ImportError as exc:  # pragma: no cover - optional dep
-            raise RuntimeError("Install the 'openai' package to use the openai backend") from exc
-        self._client = OpenAI()
+        # Known OpenAI models have a fixed dimension; for anything else (e.g. a
+        # local model served via OPENAI_BASE_URL) it's learned from the first
+        # response, mirroring LocalEmbedder.
+        self._dim: int | None = _OPENAI_DIMS.get(model_name)
+        # ``client`` is injectable for tests; otherwise built from the env.
+        # OpenAI() reads OPENAI_API_KEY / OPENAI_BASE_URL.
+        if client is None:
+            if not os.environ.get("OPENAI_API_KEY"):
+                raise RuntimeError("OPENAI_API_KEY is required for the openai embedder backend")
+            try:
+                from openai import OpenAI
+            except ImportError as exc:  # pragma: no cover - optional dep
+                raise RuntimeError("Install the 'openai' package to use the openai backend") from exc
+            client = OpenAI()
+        self._client = client
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
         resp = self._client.embeddings.create(model=self._model_name, input=texts)
-        return [item.embedding for item in resp.data]
+        vectors = [item.embedding for item in resp.data]
+        if self._dim is None and vectors:
+            self._dim = len(vectors[0])
+        return vectors
 
     @property
     def dim(self) -> int:
+        if self._dim is None:
+            # Probe with a tiny input to discover the dimensionality.
+            self.embed(["_"])
+        assert self._dim is not None
         return self._dim
 
 

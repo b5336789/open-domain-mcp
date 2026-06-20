@@ -18,6 +18,9 @@ venv/
 # Env / secrets
 .env
 
+# Runtime logs
+*.log
+
 # Node / frontend
 web/node_modules/
 web/dist/

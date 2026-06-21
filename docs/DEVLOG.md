@@ -143,3 +143,31 @@ commit `df8c9fa`。
 
 - `vite build` 成功（新 bundle）；修正後以獨立 headless 瀏覽器回歸：Modal portal 對話框 5 取樣點全落在 Modal 內（0 miss）、刪除流程通過、無 console error。
 - PR #18 已併入 `main`，工作樹乾淨。
+
+---
+
+## 5. 2026-06-20～21 — 知識合成與文章系統（Phase 6）
+
+把零散 chunk 升華為跨 chunk、具商業意義的**文章（Article）**，並讓文章參與檢索與瀏覽。三條主線循 brainstorm → spec → plan → 實作 → 測試 推進，逐 PR 併入。
+
+### 5.1 知識合成編排器（PR #20）
+
+`synthesis/` 新模組：`topics.py` 從 chunk metadata 的 concepts 探勘候選主題，套**結構閘門**（須 cross-validated 或 business_hits>1，避免把瑣碎詞變文章）；每主題以 hybrid 檢索取最多 8 段證據；`llm.py` 的 `ArticleWriter` 產出帶 `[n]` 引用的 JSON 文章，`ArticleCritic` 再評 `grounded` 與 `business_meaningful`，**兩者皆真才保留**（雙閘門對抗臆造與廢話）。文章存入 sibling collection `{collection}__articles`，`Article.id` 為內容雜湊故**冪等**。`Article` duck-type chunk 儲存介面，無需改動 store。
+
+### 5.2 文章增強檢索（PR #21）
+
+`retrieval/unified.py:search_unified` 在既有 chunk 檢索之上，以 **RRF（k=60）** 融合文章命中，讓高層次知識與細節證據並陳；`retrieve_include_articles` 旗標（EDITABLE，預設 on）可一鍵回退純 chunk。`/api/search`、`/api/ask` 改走統一路徑。`where` 過濾同步套用文章，故 `kind=code` 等過濾語意一致。
+
+### 5.3 Articles 瀏覽頁（PR #22）+ 內部 collection 隱藏（PR #23）
+
+新增 `GET /api/articles` 與 Web `Articles` 頁（唯讀：依 business_relevance 排序、搜尋、詳情 + 來源），並補 Playwright smoke（`cf77d8a`）。隨後修正 collection 列表會列出內部 `__articles` sibling 的問題（`b924b29`），避免使用者誤選。
+
+### 5.4 Dashboard pipeline 真實資料（PR #24）
+
+首頁 Pipeline 卡片原以寫死字串（files / AST·text / Claude / vectors / Chroma / hybrid）冒充「狀態」；改為各階段顯示 `/api/stats`+`/api/sources`+`/api/settings` 的真實值（來源數、chunk 數、extraction on/off、embedder、collection、search mode），未載入時顯示 skeleton。新增 Playwright 斷言並以實機 curl + 截圖驗證。
+
+### 5.5 驗證
+
+- 合成與檢索全離線測試覆蓋：`test_synthesis_topics`／`test_synthesis_article_model`／`test_synthesis_articles`（含冪等、dry-run、critic 拒絕）／`test_synthesis_llm`／`test_retrieval_unified`。
+- Web E2E（Playwright，API mock）全綠，含新 Articles smoke 與 Dashboard pipeline 斷言。
+- PR #20–24 均已併入 `main`。

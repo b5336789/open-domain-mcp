@@ -215,6 +215,22 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 ---
 
+## ✅ Phase 6：知識合成與文章系統（已完成，2026-06-20～21）
+
+把零散 chunk 升華為跨 chunk、具商業意義的**文章（Article）**，並讓文章參與檢索與瀏覽。設計與計畫見 `docs/superpowers/specs/2026-06-20-knowledge-synthesis-articles-design.md`、`docs/superpowers/plans/2026-06-20-article-augmented-retrieval.md`、`docs/superpowers/specs/2026-06-21-articles-browse-page-design.md`。功能說明見 [FEATURES.md](./FEATURES.md) §19–20、架構見 [ARCHITECTURE.md](./ARCHITECTURE.md) §24。
+
+| # | 狀態 | Effort | 任務 | 內容 | 位置 |
+|---|------|--------|------|------|------|
+| 6.1 | ✅ | High | 知識合成編排器 | 主題探勘（結構閘門：cross-validated／business-hits）→ 證據檢索 → `ArticleWriter` 撰寫 → `ArticleCritic` 評審閘門（grounded + business_meaningful 才留）→ 存入 `{collection}__articles`；`Article.id` 內容雜湊 → 冪等 | `synthesis/`、`models.py`（PR #20） |
+| 6.2 | ✅ | Med | 文章增強檢索 | `search_unified` 以 RRF 融合 chunk + 文章；`retrieve_include_articles` 旗標控制；`/api/search`、`/api/ask` 接線 | `retrieval/unified.py`、`config.py`（PR #21） |
+| 6.3 | ✅ | Med | Articles 瀏覽頁 | 唯讀瀏覽：依 business_relevance 排序 + 搜尋過濾 + 詳情；`GET /api/articles` | `web/src/pages/Articles.tsx`、`api/app.py`（PR #22，含 Playwright smoke `cf77d8a`） |
+| 6.4 | ✅ | Low | 隱藏內部 sibling collection | collection 列表過濾掉 `__articles` 內部 collection，避免使用者誤選 | `store/`（PR #23，`b924b29`） |
+| 6.5 | ✅ | Low | Dashboard pipeline 真實資料 | 首頁 Pipeline 卡片改以 `/api/stats`+`/api/sources`+`/api/settings` 的真實值呈現各階段（原為寫死字串） | `web/src/pages/Dashboard.tsx`（PR #24） |
+
+> **CLI**：`opendomainmcp synthesize [--limit N] [--dry-run]`（按需執行，非擷取階段、無自動排程）。**測試**：`test_synthesis_topics`／`test_synthesis_article_model`／`test_synthesis_articles`／`test_synthesis_llm`／`test_retrieval_unified` 全離線覆蓋。
+
+---
+
 ## 相依性分析（Dependency Analysis）
 
 > 針對所有 ⬜ 未完成任務（30 項），分析彼此的前置相依，標出**可立即啟動**（無未完成前置）與**須等待**的任務，作為並行開發排程依據。
@@ -322,7 +338,7 @@ flowchart LR
 
 ---
 
-_最後更新：2026-06-19（Phase 3 子專案① Entity Graph 基礎完成 4.1/4.2/4.3，PR #12 併入 main）_
+_最後更新：2026-06-21（新增 Phase 6 知識合成與文章系統，PR #20–24 併入 main）_
 
 > **Phase 3 進展備註（2026-06-19）：** 子專案①（Entity Graph 基礎，4.1/4.2/4.3）已完成併入 main。設計與計畫見 `docs/superpowers/specs/2026-06-19-entity-graph-foundation-design.md` 與 `docs/superpowers/plans/2026-06-19-entity-graph-foundation.md`。
 > - 4.2 圖儲存採 **MariaDB**（全平台必需依賴），向量仍在 Chroma；圖依 collection 隔離。

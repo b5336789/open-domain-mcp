@@ -109,6 +109,7 @@
   <a href="#hybrid">17 · 混合檢索與過濾</a>
   <a href="#ask">18 · RAG 問答</a>
   <a href="#collections">19 · 多知識庫</a>
+  <a href="#synthesis">20 · 知識合成與文章</a>
   <div class="grp">維運</div>
   <a href="#config">13 · 設定參考</a>
   <a href="#testing">14 · 測試策略</a>
@@ -498,6 +499,7 @@ Chunk(kind=<span class="s">"code"</span>, language=<span class="s">"python"</spa
         <code>source_contains</code> 以 Python 後置過濾來源路徑子字串。</li>
     </ul>
     <p>以 <code>ODM_SEARCH_MODE=vector</code> 可退回純密集檢索（此模式 <code>score = 1 − cosine_distance</code>）。</p>
+    <p>當啟用知識合成後，檢索可再以 RRF 融合合成文章——見 <a href="#synthesis">§20 知識合成與文章</a>。</p>
   </section>
 
   <!-- 18 -->
@@ -525,6 +527,25 @@ Chunk(kind=<span class="s">"code"</span>, language=<span class="s">"python"</spa
       <li><b>選擇</b>：Web 以 <code>collection</code> 查詢參數或 <code>X-Collection</code> 標頭指定；
         CLI 以 <code>--collection</code>；MCP 工具以 <code>collection</code> 參數。未指定則用預設。</li>
       <li><b>前端</b>：側欄的知識庫切換器可建立／切換，選擇存於 <code>localStorage</code> 並隨每次請求送出。</li>
+    </ul>
+  </section>
+
+  <!-- 20 -->
+  <section id="synthesis">
+    <h2><span class="n">20</span>知識合成與文章（synthesis）</h2>
+    <p><code>synthesis/</code> 的 <code>synthesize_articles(store, settings, *, graph, limit, dry_run)</code>
+       把零散片段升華為跨片段、具商業意義的<strong>文章（Article）</strong>，存入並列集合
+       <code>{collection}__articles</code>。按需以 CLI <code>synthesize</code> 觸發，非攝取階段、無自動排程。</p>
+    <ul>
+      <li><b>主題探勘</b>（<code>topics.py</code>）：從片段 <code>concepts</code> 蒐集候選，套結構閘門——須
+        <em>cross-validated</em>（程式碼與文件皆現）或 <em>business_hits &gt; 1</em> 才入選。</li>
+      <li><b>撰寫 + 評審雙閘門</b>（<code>llm.py</code>）：<code>ArticleWriter</code> 產出帶 <code>[n]</code> 引用的文章，
+        <code>ArticleCritic</code> 再評 <code>grounded</code> 與 <code>business_meaningful</code>，兩者皆真才保留。</li>
+      <li><b>冪等</b>：<code>Article.id = sha256(topic + sorted(source_chunk_ids))</code>，重跑不產生重複；
+        <code>Article</code> duck-type 片段儲存介面（<code>kind="article"</code>）。</li>
+      <li><b>文章增強檢索</b>（<code>retrieval/unified.py</code> 的 <code>search_unified</code>）：以 RRF 將文章與片段融合；
+        旗標 <code>retrieve_include_articles</code>（預設 on）控制，<code>/api/search</code>、<code>/api/ask</code> 皆走此路徑。</li>
+      <li><b>介面</b>：CLI <code>synthesize [--limit] [--dry-run]</code>、<code>GET /api/articles</code>、Web <code>Articles</code> 頁。</li>
     </ul>
   </section>
 </main>

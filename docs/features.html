@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/FEATURES.md</span>
   <h1><span>🧩</span>系統功能說明</h1>
   <p class="lead">每項系統功能的詳細說明：用途、使用方式（CLI / HTTP / MCP / Web）與設定。</p>
-  <p class="stamp">最後更新：2026-06-20 20:43　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-21 10:58　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -671,6 +671,12 @@
 <td><code>items</code>、<code>updateItem</code>、<code>deleteItem</code></td>
 </tr>
 <tr>
+<td><strong>Articles</strong></td>
+<td><code>/articles</code></td>
+<td>合成文章唯讀瀏覽（依商業相關度排序 + 搜尋 + 詳情）</td>
+<td><code>articles</code></td>
+</tr>
+<tr>
 <td><strong>Review</strong></td>
 <td><code>/review</code></td>
 <td>審核佇列（核准/拒絕/編輯/新增）</td>
@@ -715,6 +721,38 @@
 </tbody>
 </table>
 <hr />
+<h2 id="19-knowledge-synthesis-articles">19. 知識合成與文章（Knowledge Synthesis &amp; Articles）</h2>
+<p>從已索引的 chunk <strong>自動合成「文章（Article）」</strong>——跨多個 chunk、具商業意義的高層次知識單元，經 LLM 撰寫並通過評審把關後，存入與主 collection 並列的 sibling collection <code>{collection}__articles</code>。文章不是擷取階段產物，而是事後按需執行的合成步驟。</p>
+<h3 id="191-synthesis">19.1 合成流程（<code>synthesis/</code>）</h3>
+<ol>
+<li><strong>主題探勘（<code>topics.py:gather_topics</code>）</strong>：從每個 chunk 的 <code>metadata["concepts"]</code> 蒐集候選主題，套用<strong>結構閘門</strong>——主題須 <code>cross_validated</code>（同時出現在程式碼與文件）或 <code>business_hits &gt; 1</code>（多次帶商業 <code>knowledge_type</code>／受眾）才入選。圖譜實體可透過 <code>extra_topics</code> 加入候選，但仍須有 chunk 支撐才過閘。</li>
+<li><strong>證據檢索</strong>：每個入選主題以 <code>store.search(topic, top_k=8, mode="hybrid")</code> 取最多 8 段證據 chunk，組成帶 <code>[n]</code> 編號的引用區塊。</li>
+<li><strong>文章撰寫（<code>llm.py:ArticleWriter</code>）</strong>：LLM 產出 JSON <code>{title, body（內含 [n] 引用）, business_relevance 0–1}</code>。</li>
+<li><strong>評審閘門（<code>llm.py:ArticleCritic</code>）</strong>：LLM 評 <code>grounded</code>（無臆造）與 <code>business_meaningful</code>（真知識而非瑣事）；<strong>兩者皆為真才保留</strong>，否則記入 <code>report.rejected</code>。</li>
+<li><strong>儲存</strong>：通過者寫入 <code>{collection}__articles</code>。<code>Article.id = sha256(topic + sorted(source_chunk_ids))</code>，故合成<strong>冪等</strong>，重跑不產生重複。</li>
+</ol>
+<p>合成結果回傳 <code>SynthesisReport</code>（<code>topics_gated</code>／<code>articles_written</code>／<code>stored</code>／<code>rejected</code>／<code>errors</code>），全程 Fail Loud。</p>
+<h3 id="192">19.2 如何使用</h3>
+<ul>
+<li><strong>CLI</strong>：<code>opendomainmcp synthesize [--limit N] [--dry-run]</code>——<code>--limit</code> 控制處理主題數（成本控制），<code>--dry-run</code> 只計數不寫入。按需執行，<strong>不在擷取階段、無自動排程</strong>。</li>
+<li><strong>HTTP</strong>：<code>GET /api/articles?limit=200&amp;offset=0</code> → 文章清單（<code>id</code>、<code>title</code>、<code>topic</code>、<code>business_relevance</code>、<code>cross_validated</code>、<code>sources</code>、<code>body</code>）。</li>
+<li><strong>Web</strong>：Articles 頁（<code>/articles</code>）唯讀瀏覽，左側依 <code>business_relevance</code> 由高至低排序、可搜尋標題／主題／內文，右側顯示全文與來源清單。</li>
+<li><strong>檢索</strong>：合成後的文章自動參與搜尋與問答（見 §20）。</li>
+</ul>
+<h3 id="193">19.3 相關設定</h3>
+<ul>
+<li><code>extraction_model</code>：文章撰寫與評審共用的 LLM 模型（runtime-editable）。</li>
+<li><code>retrieve_include_articles</code>：檢索時是否納入文章（預設 on，runtime-editable）——見 §20。</li>
+<li><code>llm_backend</code>：<code>anthropic</code>（預設）或 <code>openai</code>。</li>
+</ul>
+<h2 id="20-article-augmented-retrieval">20. 文章增強檢索（Article-Augmented Retrieval）</h2>
+<p>搜尋與問答時，將合成文章與原始 chunk <strong>一起檢索並以 RRF 融合</strong>，使高層次知識與細節證據並陳。</p>
+<ul>
+<li><strong>機制（<code>retrieval/unified.py:search_unified</code>）</strong>：先檢索 chunk；若 <code>retrieve_include_articles</code> 為 on 且 <code>{collection}__articles</code> 非空，再以相同參數檢索文章，兩份排名以 <code>rrf_fuse</code>（k=60）融合取 top_k，文章與 chunk 平等競爭。</li>
+<li><strong>過濾</strong>：文章 <code>metadata["kind"] == "article"</code>，<code>where</code> 過濾同樣套用於文章（如 <code>kind=code</code> 會排除文章）。</li>
+<li><strong>接線</strong>：<code>/api/search</code>、<code>/api/ask</code> 皆走 <code>search_unified</code>；關閉 <code>retrieve_include_articles</code> 即回退為純 chunk 檢索。</li>
+</ul>
+<hr />
 <h2 id="discrepancies">程式碼與設計差異（Discrepancies）</h2>
 <p>依「Fail Loud」原則，記錄目前程式碼與註解/文件意圖不一致處：</p>
 <ol>
@@ -725,7 +763,7 @@
 <li><strong>知識庫下拉的 chunk 數標籤</strong>：<code>CollectionSwitcher</code> 於載入時抓一次 <code>GET /api/collections</code> 的 count 並顯示於下拉（如 <code>project_self (296)</code>），擷取/刪除後該數字要重載 console 才更新（純顯示，不影響實際資料；Dashboard 的 INDEXED CHUNKS 即時正確）。</li>
 </ol>
 <hr />
-<p><em>最後更新：2026-06-20</em></p>
+<p><em>最後更新：2026-06-21（新增 §19 知識合成與文章、§20 文章增強檢索；Web 頁面總覽補上 Articles）</em></p>
 </main>
 
 <footer><div class="wrap">

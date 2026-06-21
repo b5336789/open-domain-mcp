@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/DEVLOG.md</span>
   <h1><span>📓</span>開發過程記錄</h1>
   <p class="lead">本輪「完成 PRD 所有功能」開發衝刺的詳細過程、並行排程與驗證結果。</p>
-  <p class="stamp">最後更新：2026-06-20 20:43　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-21 10:58　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -387,6 +387,23 @@ commit <code>df8c9fa</code>。</p>
 <ul>
 <li><code>vite build</code> 成功（新 bundle）；修正後以獨立 headless 瀏覽器回歸：Modal portal 對話框 5 取樣點全落在 Modal 內（0 miss）、刪除流程通過、無 console error。</li>
 <li>PR #18 已併入 <code>main</code>，工作樹乾淨。</li>
+</ul>
+<hr />
+<h2 id="5-2026-06-2021-phase-6">5. 2026-06-20～21 — 知識合成與文章系統（Phase 6）</h2>
+<p>把零散 chunk 升華為跨 chunk、具商業意義的<strong>文章（Article）</strong>，並讓文章參與檢索與瀏覽。三條主線循 brainstorm → spec → plan → 實作 → 測試 推進，逐 PR 併入。</p>
+<h3 id="51-pr-20">5.1 知識合成編排器（PR #20）</h3>
+<p><code>synthesis/</code> 新模組：<code>topics.py</code> 從 chunk metadata 的 concepts 探勘候選主題，套<strong>結構閘門</strong>（須 cross-validated 或 business_hits&gt;1，避免把瑣碎詞變文章）；每主題以 hybrid 檢索取最多 8 段證據；<code>llm.py</code> 的 <code>ArticleWriter</code> 產出帶 <code>[n]</code> 引用的 JSON 文章，<code>ArticleCritic</code> 再評 <code>grounded</code> 與 <code>business_meaningful</code>，<strong>兩者皆真才保留</strong>（雙閘門對抗臆造與廢話）。文章存入 sibling collection <code>{collection}__articles</code>，<code>Article.id</code> 為內容雜湊故<strong>冪等</strong>。<code>Article</code> duck-type chunk 儲存介面，無需改動 store。</p>
+<h3 id="52-pr-21">5.2 文章增強檢索（PR #21）</h3>
+<p><code>retrieval/unified.py:search_unified</code> 在既有 chunk 檢索之上，以 <strong>RRF（k=60）</strong> 融合文章命中，讓高層次知識與細節證據並陳；<code>retrieve_include_articles</code> 旗標（EDITABLE，預設 on）可一鍵回退純 chunk。<code>/api/search</code>、<code>/api/ask</code> 改走統一路徑。<code>where</code> 過濾同步套用文章，故 <code>kind=code</code> 等過濾語意一致。</p>
+<h3 id="53-articles-pr-22-collection-pr-23">5.3 Articles 瀏覽頁（PR #22）+ 內部 collection 隱藏（PR #23）</h3>
+<p>新增 <code>GET /api/articles</code> 與 Web <code>Articles</code> 頁（唯讀：依 business_relevance 排序、搜尋、詳情 + 來源），並補 Playwright smoke（<code>cf77d8a</code>）。隨後修正 collection 列表會列出內部 <code>__articles</code> sibling 的問題（<code>b924b29</code>），避免使用者誤選。</p>
+<h3 id="54-dashboard-pipeline-pr-24">5.4 Dashboard pipeline 真實資料（PR #24）</h3>
+<p>首頁 Pipeline 卡片原以寫死字串（files / AST·text / Claude / vectors / Chroma / hybrid）冒充「狀態」；改為各階段顯示 <code>/api/stats</code>+<code>/api/sources</code>+<code>/api/settings</code> 的真實值（來源數、chunk 數、extraction on/off、embedder、collection、search mode），未載入時顯示 skeleton。新增 Playwright 斷言並以實機 curl + 截圖驗證。</p>
+<h3 id="55">5.5 驗證</h3>
+<ul>
+<li>合成與檢索全離線測試覆蓋：<code>test_synthesis_topics</code>／<code>test_synthesis_article_model</code>／<code>test_synthesis_articles</code>（含冪等、dry-run、critic 拒絕）／<code>test_synthesis_llm</code>／<code>test_retrieval_unified</code>。</li>
+<li>Web E2E（Playwright，API mock）全綠，含新 Articles smoke 與 Dashboard pipeline 斷言。</li>
+<li>PR #20–24 均已併入 <code>main</code>。</li>
 </ul>
 </main>
 

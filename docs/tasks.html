@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/TASKS.md</span>
   <h1><span>✅</span>開發任務與進度</h1>
   <p class="lead">自專案起始至今的所有任務，含進度總覽與各 Phase 拆解。</p>
-  <p class="stamp">最後更新：2026-06-20 20:43　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-21 10:58　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -997,6 +997,66 @@
 <p><strong>驗證</strong>：12 頁全綠、互動流程（Explore/Ask/Advisor/Simulator/Graph/Metrics/Settings）全通過；自我擷取 <code>src/opendomainmcp</code> → 42 檔 / 296 chunks（dim 1024），search/ask 對自身程式碼可正確接地（grounding 92.3%）。兩項修正以 <strong>PR #18</strong> 併入 main（merge commit <code>22b7137</code>）。同時更正前一輪一項誤判：應用為 <strong>HashRouter</strong>，deep-link/F5 不會 404。</p>
 </blockquote>
 <hr />
+<h2 id="phase-62026-06-2021">✅ Phase 6：知識合成與文章系統（已完成，2026-06-20～21）</h2>
+<p>把零散 chunk 升華為跨 chunk、具商業意義的<strong>文章（Article）</strong>，並讓文章參與檢索與瀏覽。設計與計畫見 <code>docs/superpowers/specs/2026-06-20-knowledge-synthesis-articles-design.md</code>、<code>docs/superpowers/plans/2026-06-20-article-augmented-retrieval.md</code>、<code>docs/superpowers/specs/2026-06-21-articles-browse-page-design.md</code>。功能說明見 <a href="./features.html">FEATURES.md</a> §19–20、架構見 <a href="./architecture.html">ARCHITECTURE.md</a> §24。</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>狀態</th>
+<th>Effort</th>
+<th>任務</th>
+<th>內容</th>
+<th>位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>6.1</td>
+<td>✅</td>
+<td>High</td>
+<td>知識合成編排器</td>
+<td>主題探勘（結構閘門：cross-validated／business-hits）→ 證據檢索 → <code>ArticleWriter</code> 撰寫 → <code>ArticleCritic</code> 評審閘門（grounded + business_meaningful 才留）→ 存入 <code>{collection}__articles</code>；<code>Article.id</code> 內容雜湊 → 冪等</td>
+<td><code>synthesis/</code>、<code>models.py</code>（PR #20）</td>
+</tr>
+<tr>
+<td>6.2</td>
+<td>✅</td>
+<td>Med</td>
+<td>文章增強檢索</td>
+<td><code>search_unified</code> 以 RRF 融合 chunk + 文章；<code>retrieve_include_articles</code> 旗標控制；<code>/api/search</code>、<code>/api/ask</code> 接線</td>
+<td><code>retrieval/unified.py</code>、<code>config.py</code>（PR #21）</td>
+</tr>
+<tr>
+<td>6.3</td>
+<td>✅</td>
+<td>Med</td>
+<td>Articles 瀏覽頁</td>
+<td>唯讀瀏覽：依 business_relevance 排序 + 搜尋過濾 + 詳情；<code>GET /api/articles</code></td>
+<td><code>web/src/pages/Articles.tsx</code>、<code>api/app.py</code>（PR #22，含 Playwright smoke <code>cf77d8a</code>）</td>
+</tr>
+<tr>
+<td>6.4</td>
+<td>✅</td>
+<td>Low</td>
+<td>隱藏內部 sibling collection</td>
+<td>collection 列表過濾掉 <code>__articles</code> 內部 collection，避免使用者誤選</td>
+<td><code>store/</code>（PR #23，<code>b924b29</code>）</td>
+</tr>
+<tr>
+<td>6.5</td>
+<td>✅</td>
+<td>Low</td>
+<td>Dashboard pipeline 真實資料</td>
+<td>首頁 Pipeline 卡片改以 <code>/api/stats</code>+<code>/api/sources</code>+<code>/api/settings</code> 的真實值呈現各階段（原為寫死字串）</td>
+<td><code>web/src/pages/Dashboard.tsx</code>（PR #24）</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>CLI</strong>：<code>opendomainmcp synthesize [--limit N] [--dry-run]</code>（按需執行，非擷取階段、無自動排程）。<strong>測試</strong>：<code>test_synthesis_topics</code>／<code>test_synthesis_article_model</code>／<code>test_synthesis_articles</code>／<code>test_synthesis_llm</code>／<code>test_retrieval_unified</code> 全離線覆蓋。</p>
+</blockquote>
+<hr />
 <h2 id="dependency-analysis">相依性分析（Dependency Analysis）</h2>
 <blockquote>
 <p>針對所有 ⬜ 未完成任務（30 項），分析彼此的前置相依，標出<strong>可立即啟動</strong>（無未完成前置）與<strong>須等待</strong>的任務，作為並行開發排程依據。</p>
@@ -1357,7 +1417,7 @@
 </tbody>
 </table>
 <hr />
-<p><em>最後更新：2026-06-19（Phase 3 子專案① Entity Graph 基礎完成 4.1/4.2/4.3，PR #12 併入 main）</em></p>
+<p><em>最後更新：2026-06-21（新增 Phase 6 知識合成與文章系統，PR #20–24 併入 main）</em></p>
 <blockquote>
 <p><strong>Phase 3 進展備註（2026-06-19）：</strong> 子專案①（Entity Graph 基礎，4.1/4.2/4.3）已完成併入 main。設計與計畫見 <code>docs/superpowers/specs/2026-06-19-entity-graph-foundation-design.md</code> 與 <code>docs/superpowers/plans/2026-06-19-entity-graph-foundation.md</code>。
 - 4.2 圖儲存採 <strong>MariaDB</strong>（全平台必需依賴），向量仍在 Chroma；圖依 collection 隔離。

@@ -204,6 +204,7 @@ AUDIENCES = ("product_manager","solutions_architect","operations","engineering",
 2. **Hybrid**：dense + BM25，以 **RRF** 融合（k=60，over-fetch ×5 再裁切）。
 3. **Filters**：`where`（Chroma）+ `source_contains`（後過濾）。
 4. **Re-rank**（選用）：`retrieval/rerank.py` cross-encoder（`Xenova/ms-marco-MiniLM-L-6-v2`），給所有候選統一分數。
+5. **文章融合**（選用）：`retrieval/unified.py:search_unified` 在上述 chunk 檢索之上，再以 RRF 融合合成文章（見 §24）。`/api/search`、`/api/ask` 走此統一路徑。
 
 ---
 
@@ -532,13 +533,47 @@ flowchart TD
 
 ---
 
-## 24. 測試策略（`tests/`）
+## 24. 知識合成與文章檢索（Synthesis & Article-Augmented Retrieval）
+
+Phase 5 新增：把零散 chunk 升華為跨 chunk、具商業意義的**文章（Article）**，並讓文章參與檢索。
+
+### 24.1 合成（`synthesis/`）
+
+`synthesize_articles(store, settings, *, graph=None, writer=None, critic=None, limit=None, dry_run=False) -> SynthesisReport`（`synthesis/articles.py`）：
+
+1. **主題探勘**（`topics.py:gather_topics`）：從各 chunk `metadata["concepts"]` 蒐集候選 `TopicCandidate`，套**結構閘門**——須 `cross_validated`（程式碼與文件皆現）或 `business_hits > 1`。`graph` 實體可加 `extra_topics`，仍須 chunk 支撐才過閘。
+2. **證據檢索**：每主題 `store.search(topic, top_k=8, mode="hybrid")` 取證據，組成 `[n]` 引用區塊。
+3. **撰寫**（`llm.py:ArticleWriter`）：LLM 產 JSON `{title, body([n]), business_relevance}`。
+4. **評審閘門**（`llm.py:ArticleCritic`）：評 `grounded` + `business_meaningful`，`keep_article()` 須兩者皆真；未過記入 `report.rejected`。
+5. **儲存**：通過者寫入 sibling collection `{collection}__articles`。
+
+`Article`（`models.py`）**duck-type chunk 儲存介面**（`id` / `text` / `embedding_text()` / `metadata()`，`kind="article"`），`id = sha256(topic + sorted(source_chunk_ids))` → 合成**冪等**。`ArticleWriter`/`ArticleCritic` 依 `llm_backend`（anthropic/openai）選後端、模型用 `extraction_model`。觸發：CLI `synthesize [--limit] [--dry-run]`（`cli.py`）或程式呼叫，**非擷取階段、無自動排程**。
+
+### 24.2 文章增強檢索（`retrieval/unified.py`）
+
+`search_unified(store, query, *, top_k, mode, settings, where, source_contains)`：
+
+- 先檢索 chunk；若 `retrieve_include_articles` 為真且 `store.sibling("{collection}__articles")` 非空，再以相同參數檢索文章，兩排名以 `rrf_fuse`（k=60）融合，文章與 chunk 平等競爭 top_k。
+- `where` 同步套用於文章（`kind=code` 即排除文章）；`retrieve_include_articles=False` 回退為純 chunk。
+- 接線：`/api/search`、`/api/ask`（→ `query/rag.py:answer_question`）與 CLI search 皆走此統一路徑。
+
+### 24.3 surface
+
+- **CLI**：`synthesize`（合成）；search/ask 自動納入文章。
+- **HTTP**：`GET /api/articles?limit&offset`（分頁清單）。
+- **Web**：Articles 頁（`web/src/pages/Articles.tsx`，唯讀瀏覽 + 過濾 + 詳情）。
+- **設定**：`retrieve_include_articles`（EDITABLE，預設 on）。
+
+---
+
+## 25. 測試策略（`tests/`）
 
 - **106 個測試 / 21 檔**，全離線：`FakeEmbedder`（64 維 bag-of-words）、`FakeExtractor`（已延伸回傳 `knowledge_type/audience/confidence`）、Chroma `EphemeralClient`。
 - 涵蓋：loader、code/text splitter、pipeline（含 review_mode/sync/security/concurrency）、extract（含分類正規化）、models（含分類欄位扁平化與向後相容）、store/hybrid（含 knowledge_type/review_status 過濾）、retrieval/RRF、rerank、rag/streaming、collections、resilience、api（含 review/simulate/views 端點）、views、openapi、sources（含 zip-slip）、config、cli。
 - 原則：offline-first、deterministic、fail-loud、idempotent upsert、security-first、backward-compatible。
 - Phase 3/4 模組亦皆有測試覆蓋：`graph/deps`、`advisor`、`metrics`、`api/auth`（RBAC）、`api/observability`（health/logging）、`api/mcp_endpoints`（publish 登錄）、`api/source_routes`、多租戶 `deps`、wiki/graphql 解析。
+- Phase 5 知識合成：`test_synthesis_topics`（主題閘門/排序）、`test_synthesis_article_model`（id 穩定、duck-type 儲存）、`test_synthesis_articles`（儲存/拒絕/冪等/dry-run/cross-validation）、`test_synthesis_llm`（writer/critic 解析）、`test_retrieval_unified`（chunk+文章 RRF 融合、過濾、旗標控制）。
 
 ---
 
-_最後更新：2026-06-19_
+_最後更新：2026-06-21（新增 §24 知識合成與文章檢索；§7 補文章融合；測試策略補 Phase 5 synthesis）_

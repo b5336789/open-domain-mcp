@@ -124,6 +124,10 @@ flowchart TD
 
 `product_manager`、`solutions_architect`、`operations`、`engineering`、`support`
 
+### 合成知識：文章（Synthesized Articles，Phase 6）
+
+除了由來源擷取的 chunk，平台可**自動合成「文章（Article）」**——跨多個 chunk、具商業意義的高層次知識單元，經 LLM 撰寫 + 評審雙閘門（`grounded` + `business_meaningful`）後存入並列 collection，並可參與檢索（見 §11）。文章 `kind="article"`，帶 `topic`、`business_relevance`、`cross_validated` 與評審結論；按需以 CLI `synthesize` 產生。詳見 [FEATURES.md](./FEATURES.md) §19。
+
 ---
 
 ## 9. MCP Views（MCP 視圖）
@@ -163,6 +167,7 @@ flowchart TD
 - **Hybrid Search**：Vector Search + Keyword Search（BM25）以 RRF 融合 ✅
 - **Metadata Filtering**：依 `kind/language/symbol/knowledge_type/review_status` 過濾 ✅
 - **Re-ranking**：選用 cross-encoder ✅
+- **Article-Augmented Retrieval**：選用，將合成文章與 chunk 以 RRF 融合（`retrieve_include_articles`，預設 on，`retrieval/unified.py`）✅
 - **Policy Enforcement**：`retrieve_approved_only` 限定已核准知識 ✅；視圖層級 RBAC（API key→role→允許的 views，`ODM_AUTH_ENABLED`/`ODM_API_KEYS`）✅；多租戶隔離（`ODM_MULTI_TENANT` + `X-Tenant`，collection 命名空間）✅
 
 ---
@@ -194,6 +199,8 @@ flowchart TD
 | **Phase 2** | Knowledge Classification、Knowledge Review、Multiple MCP Views | ✅ 已完成 |
 | **Phase 3** | Workflow Graph、Dependency Graph、Entity Graph | ✅ 已完成 |
 | **Phase 4** | Agent Pre-Execution Advisor、Success Metrics | ✅ 已完成 |
+| **Phase 5** | 瀏覽器全功能實測、前端修正、自我擷取驗證 | ✅ 已完成 |
+| **Phase 6** | Knowledge Synthesis（文章合成）、Article-Augmented Retrieval、Articles 瀏覽頁 | ✅ 已完成 |
 
 ### Phase 4 願景：Pre-Execution Advisor
 
@@ -203,4 +210,4 @@ Agent 詢問：「執行動作 X 之前需要哪些知識？」
 
 ---
 
-_最後更新：2026-06-17_
+_最後更新：2026-06-21（§8 新增合成知識/文章、§11 文章增強檢索、§13 補 Phase 5–6）_

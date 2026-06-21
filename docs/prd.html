@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/PRD.md</span>
   <h1><span>📝</span>產品需求文件</h1>
   <p class="lead">產品目標、使用情境與功能需求。</p>
-  <p class="stamp">最後更新：2026-06-20 20:43　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-21 10:58　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -315,6 +315,8 @@
 <p><code>Feature</code>、<code>Workflow</code>、<code>API</code>、<code>Permission</code>、<code>Constraint</code>、<code>Error</code>、<code>Troubleshooting</code>、<code>Architecture</code>、<code>Code</code>、<code>Glossary</code>、<code>Runbook</code>、<code>FAQ</code></p>
 <h3 id="audiences-5">Audiences（對象，共 5 種）</h3>
 <p><code>product_manager</code>、<code>solutions_architect</code>、<code>operations</code>、<code>engineering</code>、<code>support</code></p>
+<h3 id="synthesized-articlesphase-6">合成知識：文章（Synthesized Articles，Phase 6）</h3>
+<p>除了由來源擷取的 chunk，平台可<strong>自動合成「文章（Article）」</strong>——跨多個 chunk、具商業意義的高層次知識單元，經 LLM 撰寫 + 評審雙閘門（<code>grounded</code> + <code>business_meaningful</code>）後存入並列 collection，並可參與檢索（見 §11）。文章 <code>kind="article"</code>，帶 <code>topic</code>、<code>business_relevance</code>、<code>cross_validated</code> 與評審結論；按需以 CLI <code>synthesize</code> 產生。詳見 <a href="./features.html">FEATURES.md</a> §19。</p>
 <hr />
 <h2 id="9-mcp-viewsmcp">9. MCP Views（MCP 視圖）</h2>
 <p>同一知識庫可產生多個角色專屬 MCP，每個工具皆為「帶過濾的檢索」。<strong>5 個視圖皆已實作（Phase 2 M2）</strong>。</p>
@@ -429,6 +431,7 @@
 <li><strong>Hybrid Search</strong>：Vector Search + Keyword Search（BM25）以 RRF 融合 ✅</li>
 <li><strong>Metadata Filtering</strong>：依 <code>kind/language/symbol/knowledge_type/review_status</code> 過濾 ✅</li>
 <li><strong>Re-ranking</strong>：選用 cross-encoder ✅</li>
+<li><strong>Article-Augmented Retrieval</strong>：選用，將合成文章與 chunk 以 RRF 融合（<code>retrieve_include_articles</code>，預設 on，<code>retrieval/unified.py</code>）✅</li>
 <li><strong>Policy Enforcement</strong>：<code>retrieve_approved_only</code> 限定已核准知識 ✅；視圖層級 RBAC（API key→role→允許的 views，<code>ODM_AUTH_ENABLED</code>/<code>ODM_API_KEYS</code>）✅；多租戶隔離（<code>ODM_MULTI_TENANT</code> + <code>X-Tenant</code>，collection 命名空間）✅</li>
 </ul>
 <hr />
@@ -480,13 +483,23 @@
 <td>Agent Pre-Execution Advisor、Success Metrics</td>
 <td>✅ 已完成</td>
 </tr>
+<tr>
+<td><strong>Phase 5</strong></td>
+<td>瀏覽器全功能實測、前端修正、自我擷取驗證</td>
+<td>✅ 已完成</td>
+</tr>
+<tr>
+<td><strong>Phase 6</strong></td>
+<td>Knowledge Synthesis（文章合成）、Article-Augmented Retrieval、Articles 瀏覽頁</td>
+<td>✅ 已完成</td>
+</tr>
 </tbody>
 </table>
 <h3 id="phase-4-pre-execution-advisor">Phase 4 願景：Pre-Execution Advisor</h3>
 <p>Agent 詢問：「執行動作 X 之前需要哪些知識？」</p>
 <p>系統在執行前回傳：<strong>Workflow、Risks、Permissions、Dependencies、Constraints</strong>。</p>
 <hr />
-<p><em>最後更新：2026-06-17</em></p>
+<p><em>最後更新：2026-06-21（§8 新增合成知識/文章、§11 文章增強檢索、§13 補 Phase 5–6）</em></p>
 </main>
 
 <footer><div class="wrap">

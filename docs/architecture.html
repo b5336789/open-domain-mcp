@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/ARCHITECTURE.md</span>
   <h1><span>🏗️</span>技術架構</h1>
   <p class="lead">系統實作架構與資料流程，含即時渲染的 mermaid 架構圖。</p>
-  <p class="stamp">最後更新：2026-06-20 20:43　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-21 10:58　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -432,6 +432,7 @@
 <li><strong>Hybrid</strong>：dense + BM25，以 <strong>RRF</strong> 融合（k=60，over-fetch ×5 再裁切）。</li>
 <li><strong>Filters</strong>：<code>where</code>（Chroma）+ <code>source_contains</code>（後過濾）。</li>
 <li><strong>Re-rank</strong>（選用）：<code>retrieval/rerank.py</code> cross-encoder（<code>Xenova/ms-marco-MiniLM-L-6-v2</code>），給所有候選統一分數。</li>
+<li><strong>文章融合</strong>（選用）：<code>retrieval/unified.py:search_unified</code> 在上述 chunk 檢索之上，再以 RRF 融合合成文章（見 §24）。<code>/api/search</code>、<code>/api/ask</code> 走此統一路徑。</li>
 </ol>
 <hr />
 <h2 id="8-rag-queryragpy">8. RAG 問答（<code>query/rag.py</code>）</h2>
@@ -912,15 +913,43 @@ opendomainmcp-web    → api.app:main       # Web Dashboard
     WEB -. search/ask/simulate .-&gt; REC
     AUTH -. advise / views / trace_dependency .-&gt; CTX</div>
 <hr />
-<h2 id="24-tests">24. 測試策略（<code>tests/</code>）</h2>
+<h2 id="24-synthesis-article-augmented-retrieval">24. 知識合成與文章檢索（Synthesis &amp; Article-Augmented Retrieval）</h2>
+<p>Phase 5 新增：把零散 chunk 升華為跨 chunk、具商業意義的<strong>文章（Article）</strong>，並讓文章參與檢索。</p>
+<h3 id="241-synthesis">24.1 合成（<code>synthesis/</code>）</h3>
+<p><code>synthesize_articles(store, settings, *, graph=None, writer=None, critic=None, limit=None, dry_run=False) -&gt; SynthesisReport</code>（<code>synthesis/articles.py</code>）：</p>
+<ol>
+<li><strong>主題探勘</strong>（<code>topics.py:gather_topics</code>）：從各 chunk <code>metadata["concepts"]</code> 蒐集候選 <code>TopicCandidate</code>，套<strong>結構閘門</strong>——須 <code>cross_validated</code>（程式碼與文件皆現）或 <code>business_hits &gt; 1</code>。<code>graph</code> 實體可加 <code>extra_topics</code>，仍須 chunk 支撐才過閘。</li>
+<li><strong>證據檢索</strong>：每主題 <code>store.search(topic, top_k=8, mode="hybrid")</code> 取證據，組成 <code>[n]</code> 引用區塊。</li>
+<li><strong>撰寫</strong>（<code>llm.py:ArticleWriter</code>）：LLM 產 JSON <code>{title, body([n]), business_relevance}</code>。</li>
+<li><strong>評審閘門</strong>（<code>llm.py:ArticleCritic</code>）：評 <code>grounded</code> + <code>business_meaningful</code>，<code>keep_article()</code> 須兩者皆真；未過記入 <code>report.rejected</code>。</li>
+<li><strong>儲存</strong>：通過者寫入 sibling collection <code>{collection}__articles</code>。</li>
+</ol>
+<p><code>Article</code>（<code>models.py</code>）<strong>duck-type chunk 儲存介面</strong>（<code>id</code> / <code>text</code> / <code>embedding_text()</code> / <code>metadata()</code>，<code>kind="article"</code>），<code>id = sha256(topic + sorted(source_chunk_ids))</code> → 合成<strong>冪等</strong>。<code>ArticleWriter</code>/<code>ArticleCritic</code> 依 <code>llm_backend</code>（anthropic/openai）選後端、模型用 <code>extraction_model</code>。觸發：CLI <code>synthesize [--limit] [--dry-run]</code>（<code>cli.py</code>）或程式呼叫，<strong>非擷取階段、無自動排程</strong>。</p>
+<h3 id="242-retrievalunifiedpy">24.2 文章增強檢索（<code>retrieval/unified.py</code>）</h3>
+<p><code>search_unified(store, query, *, top_k, mode, settings, where, source_contains)</code>：</p>
+<ul>
+<li>先檢索 chunk；若 <code>retrieve_include_articles</code> 為真且 <code>store.sibling("{collection}__articles")</code> 非空，再以相同參數檢索文章，兩排名以 <code>rrf_fuse</code>（k=60）融合，文章與 chunk 平等競爭 top_k。</li>
+<li><code>where</code> 同步套用於文章（<code>kind=code</code> 即排除文章）；<code>retrieve_include_articles=False</code> 回退為純 chunk。</li>
+<li>接線：<code>/api/search</code>、<code>/api/ask</code>（→ <code>query/rag.py:answer_question</code>）與 CLI search 皆走此統一路徑。</li>
+</ul>
+<h3 id="243-surface">24.3 surface</h3>
+<ul>
+<li><strong>CLI</strong>：<code>synthesize</code>（合成）；search/ask 自動納入文章。</li>
+<li><strong>HTTP</strong>：<code>GET /api/articles?limit&amp;offset</code>（分頁清單）。</li>
+<li><strong>Web</strong>：Articles 頁（<code>web/src/pages/Articles.tsx</code>，唯讀瀏覽 + 過濾 + 詳情）。</li>
+<li><strong>設定</strong>：<code>retrieve_include_articles</code>（EDITABLE，預設 on）。</li>
+</ul>
+<hr />
+<h2 id="25-tests">25. 測試策略（<code>tests/</code>）</h2>
 <ul>
 <li><strong>106 個測試 / 21 檔</strong>，全離線：<code>FakeEmbedder</code>（64 維 bag-of-words）、<code>FakeExtractor</code>（已延伸回傳 <code>knowledge_type/audience/confidence</code>）、Chroma <code>EphemeralClient</code>。</li>
 <li>涵蓋：loader、code/text splitter、pipeline（含 review_mode/sync/security/concurrency）、extract（含分類正規化）、models（含分類欄位扁平化與向後相容）、store/hybrid（含 knowledge_type/review_status 過濾）、retrieval/RRF、rerank、rag/streaming、collections、resilience、api（含 review/simulate/views 端點）、views、openapi、sources（含 zip-slip）、config、cli。</li>
 <li>原則：offline-first、deterministic、fail-loud、idempotent upsert、security-first、backward-compatible。</li>
 <li>Phase 3/4 模組亦皆有測試覆蓋：<code>graph/deps</code>、<code>advisor</code>、<code>metrics</code>、<code>api/auth</code>（RBAC）、<code>api/observability</code>（health/logging）、<code>api/mcp_endpoints</code>（publish 登錄）、<code>api/source_routes</code>、多租戶 <code>deps</code>、wiki/graphql 解析。</li>
+<li>Phase 5 知識合成：<code>test_synthesis_topics</code>（主題閘門/排序）、<code>test_synthesis_article_model</code>（id 穩定、duck-type 儲存）、<code>test_synthesis_articles</code>（儲存/拒絕/冪等/dry-run/cross-validation）、<code>test_synthesis_llm</code>（writer/critic 解析）、<code>test_retrieval_unified</code>（chunk+文章 RRF 融合、過濾、旗標控制）。</li>
 </ul>
 <hr />
-<p><em>最後更新：2026-06-19</em></p>
+<p><em>最後更新：2026-06-21（新增 §24 知識合成與文章檢索；§7 補文章融合；測試策略補 Phase 5 synthesis）</em></p>
 </main>
 
 <footer><div class="wrap">

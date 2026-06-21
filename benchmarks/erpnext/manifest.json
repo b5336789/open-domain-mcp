@@ -1,0 +1,17 @@
+{
+  "name": "erpnext-accounting-benchmark",
+  "description": "Repeatable retrieval/RAG regression benchmark grounded in ERPNext accounting source (business rules + numerical calculation).",
+  "repo": "https://github.com/frappe/erpnext",
+  "pinned_commit": "0beb29321ed3070e292d94ab08f7a22c36d3f0b3",
+  "pinned_commit_short": "0beb293",
+  "collection": "erpnext",
+  "corpus_dir": "benchmarks/erpnext/.corpus/accounting",
+  "files": [
+    {"repo_path": "erpnext/controllers/taxes_and_totals.py", "staged_as": "accounting/taxes_and_totals.py", "sha256": "f95958dfc80e28c88ab13b4dacfa23f4279ea523b45537507b892f5737f83498"},
+    {"repo_path": "erpnext/accounts/doctype/pricing_rule/pricing_rule.py", "staged_as": "accounting/pricing_rule.py", "sha256": "7fa005782300c48c76c6e072284a5abcf14093dac0ce032737c925a1531f2097"},
+    {"repo_path": "erpnext/accounts/doctype/pricing_rule/utils.py", "staged_as": "accounting/pricing_rule_utils.py", "sha256": "e6384adfced6ecb7d1c8498bcdee26dc471e5a3d69c2189a81cb4a2fa8087f3a"},
+    {"repo_path": "erpnext/accounts/doctype/tax_rule/tax_rule.py", "staged_as": "accounting/tax_rule.py", "sha256": "bc563bc71adcfa6af32709bc347ec960cd42d5ec978821c776dc2ec71d1c9270"}
+  ],
+  "question_count": 32,
+  "categories": ["numeric_calc", "business_rule", "workflow_sequence", "exception_handling", "edge_case", "definition", "graph_relation", "negative_control"]
+}

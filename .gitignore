@@ -40,3 +40,7 @@ src/opendomainmcp/api/static/
 
 # Subagent-driven-development scratch (briefs, reports, diffs, ledger)
 .superpowers/
+
+# ERPNext benchmark corpus (re-fetched via setup_corpus.sh; do not commit GPL source)
+benchmarks/erpnext/.corpus/
+benchmarks/erpnext/*.report.json

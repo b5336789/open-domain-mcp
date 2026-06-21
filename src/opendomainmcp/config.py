@@ -39,6 +39,7 @@ EDITABLE_FIELDS = (
     "review_mode",
     "retrieve_approved_only",
     "retrieve_include_articles",
+    "retrieve_min_score",
 )
 
 
@@ -104,6 +105,13 @@ class Settings(BaseSettings):
     # Include synthesized articles (the <base>__articles collection) in ask/search
     # retrieval, fused with chunks. Off or no-articles == today's behavior.
     retrieve_include_articles: bool = True
+
+    # Relevance floor for the 'ask' RAG path: if the best retrieved chunk's
+    # similarity score is below this, refuse ("no content matched") instead of
+    # answering from weak/irrelevant sources. 0.0 == disabled (today's behavior).
+    # Scores are cosine similarity (1 - distance); ~0.65 suits the bundled
+    # embedder. Only gates synthesis; plain search/MCP views are unaffected.
+    retrieve_min_score: float = 0.0
 
     # Resilience for external API calls (Anthropic): per-request timeout in
     # seconds and the number of automatic retries on transient errors.

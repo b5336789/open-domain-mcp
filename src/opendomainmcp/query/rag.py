@@ -38,6 +38,21 @@ def _format_sources(results: list[SearchResult]) -> str:
     return "\n\n".join(blocks)
 
 
+def _apply_relevance_floor(results: list[SearchResult], settings) -> list[SearchResult]:
+    """Drop all results when even the best one is below ``retrieve_min_score``.
+
+    Gates on the *max* score (not per-result) so an in-corpus question keeps its
+    relevant mid-score chunks, while a question with no genuinely relevant source
+    falls through to the existing "no content matched" refusal instead of being
+    answered (and hallucinated) from weak sources. ``retrieve_min_score`` <= 0
+    disables this entirely, preserving prior behavior.
+    """
+    floor = getattr(settings, "retrieve_min_score", 0.0) or 0.0
+    if floor > 0 and results and max(r.score for r in results) < floor:
+        return []
+    return results
+
+
 def _citations(results: list[SearchResult]) -> list[dict]:
     cites = []
     for i, r in enumerate(results, 1):
@@ -171,6 +186,7 @@ def answer_question(query, store, settings, top_k: int = 6, synthesize=None) -> 
     from ..retrieval import search_unified
     results = search_unified(store, query, top_k=top_k,
                              mode=settings.search_mode, settings=settings)
+    results = _apply_relevance_floor(results, settings)
     if not results:
         return {"answer": "No indexed content matched this question.", "citations": []}
     user = f"Question: {query}\n\nSources:\n{_format_sources(results)}"
@@ -191,6 +207,7 @@ def answer_question_stream(query, store, settings, top_k: int = 6, synthesize_st
     from ..retrieval import search_unified
     results = search_unified(store, query, top_k=top_k,
                              mode=settings.search_mode, settings=settings)
+    results = _apply_relevance_floor(results, settings)
     if not results:
         yield {"type": "delta", "text": "No indexed content matched this question."}
         yield {"type": "citations", "citations": []}

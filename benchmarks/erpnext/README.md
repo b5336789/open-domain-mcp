@@ -87,6 +87,36 @@ Retrieval misses (precise symbol not surfaced): `wf1` `_calculate`,
 > a similarity floor; if none remain, refuse) is the highest-value fix and is
 > exactly what `refusal_rate` here is meant to track over time.
 
+### Fix tracked: retrieval relevance floor (`retrieve_min_score`)
+
+Added an opt-in `retrieve_min_score` setting (default `0.0` = off). When set, the
+`ask` path refuses ("no content matched") if the best retrieved chunk's cosine
+similarity is below the floor, instead of answering from weak sources.
+
+Re-running with `ODM_RETRIEVE_MIN_SCORE=0.65`:
+
+| metric | floor off | floor 0.65 |
+| --- | --- | --- |
+| retrieval_hit_rate | 83% | 83% (unchanged — floor only gates synthesis) |
+| **negative_control refusal_rate** | **0/3** | **3/3 — fabrication eliminated** |
+| in-corpus false refusals | 0 | **3** (`nc1`, `br1`, `df3`) |
+
+The catch (measured top-1 scores) — **the two classes overlap**:
+
+```
+in-corpus  : nc1 0.619  br1 0.563  df3 0.537 | nc3 0.783  br4 0.804  ex4 0.768  ed1 0.704
+out-corpus : ng1 0.622  ng2 0.507  ng3 0.558
+```
+
+`ng1` (payroll, out-of-corpus) scores **higher** than `nc1`/`br1`/`df3`
+(in-corpus), so no single threshold cleanly separates them. Crucially, those 3
+false-refused questions are exactly the chunks degraded by the extraction-JSON
+failures / merged `calculate_item_values` chunk below — they embed weakly.
+**Improving extraction lifts their scores and widens the gap, turning the floor
+into a clean win.** Until then it's a tunable trade: ~0.6 stops 2/3 negatives
+with ~2 false refusals; 0.65 stops 3/3 with ~3. Hence default off — opt in per
+deployment, and track both `refusal_rate` and false refusals here when tuning.
+
 ### Known findings this benchmark was built to track
 
 1. **Retrieval is the bottleneck, not synthesis.** When the right chunk is

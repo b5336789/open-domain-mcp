@@ -143,6 +143,65 @@ class ExtractionError(Exception):
     pass
 
 
+# JSON schema for the extraction output. Sent as OpenAI ``response_format`` so
+# servers that support structured output (LM Studio, vLLM, OpenAI) constrain
+# generation to valid JSON — eliminating malformed-JSON failures at the source,
+# which local models otherwise emit ~10-15% of the time. Types are permissive
+# (the enums are normalised in ``_parse``); only the always-present keys are
+# required so the model can omit the optional structures.
+_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "concepts": {"type": "array", "items": {"type": "string"}},
+        "relations": {"type": "array", "items": {"type": "string"}},
+        "knowledge_type": {"type": "string"},
+        "audience": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "number"},
+        "version": {"type": "string"},
+        "tags": {"type": "array", "items": {"type": "string"}},
+        "permissions": {"type": "array", "items": {"type": "string"}},
+        "references": {"type": "array", "items": {"type": "string"}},
+        "entities": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "type": {"type": "string"}},
+            "required": ["name", "type"]}},
+        "typed_relations": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"src": {"type": "string"}, "dst": {"type": "string"},
+                           "type": {"type": "string"}},
+            "required": ["src", "dst", "type"]}},
+        "workflow": {"type": "object"},
+    },
+    "required": ["summary", "concepts", "relations", "knowledge_type",
+                 "audience", "confidence"],
+}
+
+KNOWLEDGE_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {"name": "knowledge_unit", "strict": True, "schema": _JSON_SCHEMA},
+}
+
+
+def _loads_lenient(candidate: str) -> dict:
+    """Parse model JSON, repairing the malformations local models routinely emit
+    (missing commas, unquoted keys, missing colons, unescaped inner quotes,
+    trailing commas, truncation). Tries strict ``json.loads`` first for the happy
+    path, then ``json-repair`` which handles those structural errors. Re-raises
+    the original ``JSONDecodeError`` (Fail Loud) if repair yields no usable
+    object, so genuine non-JSON is still recorded as a failure rather than stored
+    as empty knowledge."""
+    try:
+        return json.loads(candidate, strict=False)
+    except json.JSONDecodeError:
+        from json_repair import repair_json
+
+        repaired = repair_json(candidate, return_objects=True)
+        if isinstance(repaired, dict) and repaired:
+            return repaired
+        raise
+
+
 def _parse(raw: str) -> KnowledgeUnit:
     text = raw.strip()
     if text.startswith("```"):
@@ -150,13 +209,17 @@ def _parse(raw: str) -> KnowledgeUnit:
         # drop an optional leading 'json' language tag
         if text.lstrip().lower().startswith("json"):
             text = text.lstrip()[4:]
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
+    start = text.find("{")
+    if start == -1:
         raise ExtractionError(f"No JSON object in model output: {raw[:120]!r}")
+    # Use the last closing brace when present; otherwise (truncated output) take
+    # everything from the first ``{`` and let the repair pass close it.
+    end = text.rfind("}")
+    candidate = text[start: end + 1] if end > start else text[start:]
     # strict=False tolerates literal control characters (newlines/tabs) inside
     # string values, which some models — local OpenAI-compatible ones especially
-    # — emit instead of escaping them.
-    data = json.loads(text[start: end + 1], strict=False)
+    # — emit instead of escaping them; _loads_lenient adds malformation repair.
+    data = _loads_lenient(candidate)
     # Audience may come back as a single string or a list; normalise to a list
     # and drop anything outside the allowed vocabulary (Fail Loud is too harsh
     # here — the model occasionally invents terms; we keep the valid ones).
@@ -179,6 +242,15 @@ def _parse(raw: str) -> KnowledgeUnit:
         typed_relations=_parse_relations(data.get("typed_relations", [])),
         workflow=_parse_workflow(data.get("workflow", {})),
     )
+
+
+def _is_bad_request(exc: Exception) -> bool:
+    """True if ``exc`` looks like an HTTP 400 (unsupported param) rather than a
+    transient/auth error — so we only fall back from structured output when the
+    endpoint genuinely rejects it, and let real errors propagate."""
+    if getattr(exc, "status_code", None) == 400:
+        return True
+    return exc.__class__.__name__ == "BadRequestError"
 
 
 class NullExtractor:
@@ -223,7 +295,8 @@ class OpenAIExtractor:
     tests; otherwise a client is built lazily from the environment."""
 
     def __init__(self, model: str, max_tokens: int = 900,
-                 timeout: float = 60.0, max_retries: int = 2, client=None):
+                 timeout: float = 60.0, max_retries: int = 2, client=None,
+                 structured: bool = False):
         if client is None:
             from openai import OpenAI
 
@@ -232,17 +305,33 @@ class OpenAIExtractor:
         self._client = client
         self._model = model
         self._max_tokens = max_tokens
+        # When enabled, request json_schema structured output; flip off
+        # permanently if the endpoint rejects the param. Off by default because
+        # constrained decoding is slow on some local servers (see config).
+        self._structured = structured
 
     def extract(self, text: str, kind: str, language=None) -> KnowledgeUnit:
         label = f"{kind}" + (f" ({language})" if language else "")
-        resp = self._client.chat.completions.create(
-            model=self._model,
-            max_tokens=self._max_tokens,
-            messages=[
-                {"role": "system", "content": _SYSTEM},
-                {"role": "user", "content": f"Snippet type: {label}\n\n{text}"},
-            ],
-        )
+        messages = [
+            {"role": "system", "content": _SYSTEM},
+            {"role": "user", "content": f"Snippet type: {label}\n\n{text}"},
+        ]
+        kwargs = {"model": self._model, "max_tokens": self._max_tokens,
+                  "messages": messages}
+        if self._structured:
+            try:
+                resp = self._client.chat.completions.create(
+                    response_format=KNOWLEDGE_RESPONSE_FORMAT, **kwargs)
+            except Exception as exc:  # endpoint rejects json_schema -> fall back
+                if not _is_bad_request(exc):
+                    raise
+                logger.warning(
+                    "structured output unsupported (%s); falling back to "
+                    "plain JSON prompt for extraction", exc)
+                self._structured = False
+                resp = self._client.chat.completions.create(**kwargs)
+        else:
+            resp = self._client.chat.completions.create(**kwargs)
         raw = resp.choices[0].message.content or ""
         return _parse(raw)
 
@@ -255,6 +344,7 @@ def get_extractor(settings: Settings):
             settings.extraction_model,
             timeout=settings.request_timeout,
             max_retries=settings.max_retries,
+            structured=settings.extract_structured_output,
         )
     return ClaudeExtractor(
         settings.extraction_model,

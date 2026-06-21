@@ -21,6 +21,41 @@ def test_parse_rejects_non_json():
         _parse("I could not produce JSON, sorry.")
 
 
+def test_parse_repairs_missing_comma():
+    # the dominant local-model failure: a missing comma between members
+    # ("Expecting ',' delimiter"). json-repair recovers it.
+    k = _parse('{"summary": "x" "concepts": ["a", "b"]}')
+    assert k.summary == "x"
+    assert k.concepts == ["a", "b"]
+
+
+def test_parse_repairs_unquoted_key_and_trailing_comma():
+    k = _parse('{"summary": "s", concepts: ["a", "b",],}')
+    assert k.summary == "s"
+    assert k.concepts == ["a", "b"]
+
+
+def test_parse_repairs_unescaped_inner_quotes():
+    # unescaped quotes inside a value also show up as "Expecting ',' delimiter"
+    k = _parse('{"summary": "he said "hi" loudly", "concepts": []}')
+    assert "hi" in k.summary
+
+
+def test_parse_repairs_truncated_object():
+    # max_tokens cutoff -> unclosed brackets; repair still recovers fields
+    k = _parse('{"summary": "rate times qty", "concepts": ["arithmetic", "line total"]')
+    assert k.summary == "rate times qty"
+    assert k.concepts == ["arithmetic", "line total"]
+
+
+def test_parse_unrecoverable_still_fails_loud():
+    # an opening brace but no recoverable JSON object must raise, not silently
+    # return an empty unit (Fail Loud)
+    import json
+    with pytest.raises(json.JSONDecodeError):
+        _parse("{ not json at all just prose with a stray brace")
+
+
 def test_parse_classification_fields():
     raw = (
         '{"summary": "login flow", "concepts": ["auth"], "relations": [],'

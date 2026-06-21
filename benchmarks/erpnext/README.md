@@ -126,6 +126,12 @@ deployment, and track both `refusal_rate` and false refusals here when tuning.
    no summary/concepts → weak dense retrieval. `tax_rule.py`'s `get_tax_template`
    (the rule-selection logic, case `br1`) is one such chunk: keyword search ranks
    it #1, but a natural-language `ask` misses it.
+   **Addressed** by the always-on `json-repair` fallback in `extract/knowledge.py`
+   (+ opt-in `extract_structured_output`): re-ingesting this corpus dropped JSON
+   extraction errors from ~22/134 (~14%) to **3/134 (~2%)** at full speed. Better
+   extraction lifted the weak chunks' top-1 score (`br1` 0.563→0.628,
+   `df3` 0.537→0.583), narrowing — though not closing — the in/out overlap, so
+   the relevance floor's false-refusal cost shrinks as extraction improves.
 3. **`calculate_item_values` is not independently indexed** (merged into a
    no-symbol chunk), so the core `amount = rate*qty` / discounted-rate formulas
    (`nc1`, `nc2`) are hard to surface — these expectations target the file, not a

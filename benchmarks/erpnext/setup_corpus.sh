@@ -55,9 +55,9 @@ if [ "${1:-}" = "--no-ingest" ]; then
 fi
 
 echo "==> Ingesting into the 'erpnext' collection (clean, isolated)..."
-# IMPORTANT: pass --collection as a flag. An inline ODM_COLLECTION_NAME would be
-# clobbered by run.sh sourcing .env (the flag is honoured by build_context).
-"$REPO/run.sh" ingest "$CORPUS_DIR" --collection erpnext --sync
+# IMPORTANT: --collection is a GLOBAL flag and must come BEFORE the subcommand.
+# (An inline ODM_COLLECTION_NAME would be clobbered by run.sh sourcing .env.)
+"$REPO/run.sh" --collection erpnext ingest "$CORPUS_DIR" --sync
 echo "==> Done. Run the benchmark with:"
-echo "    $REPO/run.sh stats --collection erpnext   # sanity"
+echo "    $REPO/run.sh --collection erpnext stats   # sanity"
 echo "    .venv/bin/python benchmarks/erpnext/run_benchmark.py --collection erpnext"

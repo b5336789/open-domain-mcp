@@ -29,6 +29,7 @@ EDITABLE_FIELDS = (
     "embedder_model",
     "extract_knowledge",
     "extraction_model",
+    "extract_structured_output",
     "chunk_size",
     "chunk_overlap",
     "code_max_chunk_chars",
@@ -75,6 +76,12 @@ class Settings(BaseSettings):
     extract_knowledge: bool = True
     extraction_model: str = "claude-sonnet-4-6"
     extract_concurrency: int = 8  # parallel extraction calls per file
+    # Request JSON-schema structured output from the OpenAI backend so the model
+    # cannot emit malformed JSON. Prevents extraction failures on endpoints that
+    # support it cheaply (OpenAI, vLLM), but grammar-constrained decoding can be
+    # much slower on some local servers (LM Studio) — hence default off, with the
+    # always-on _repair_json fallback covering the common malformations instead.
+    extract_structured_output: bool = False
 
     # Text chunking
     chunk_size: int = 1200

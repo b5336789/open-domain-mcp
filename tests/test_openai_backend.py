@@ -66,6 +66,58 @@ def test_openai_extractor_parses_chat_completion():
     assert "python" in cap["messages"][1]["content"]  # snippet label reaches the model
 
 
+def test_openai_extractor_requests_structured_output_when_enabled():
+    from opendomainmcp.extract.knowledge import (
+        KNOWLEDGE_RESPONSE_FORMAT, OpenAIExtractor)
+
+    cap = {}
+    ext = OpenAIExtractor("qwen3-coder", client=_fake_openai('{"summary": "s"}', cap),
+                          structured=True)
+    ext.extract("x", kind="text")
+    # structured output constrains generation to valid JSON at the source
+    assert cap["response_format"] == KNOWLEDGE_RESPONSE_FORMAT
+    assert cap["response_format"]["type"] == "json_schema"
+
+
+def test_openai_extractor_no_structured_output_by_default():
+    from opendomainmcp.extract.knowledge import OpenAIExtractor
+
+    cap = {}
+    ext = OpenAIExtractor("qwen3-coder", client=_fake_openai('{"summary": "s"}', cap))
+    ext.extract("x", kind="text")
+    assert "response_format" not in cap  # default off (constrained decoding is slow locally)
+
+
+def test_openai_extractor_falls_back_when_structured_unsupported():
+    from opendomainmcp.extract.knowledge import OpenAIExtractor
+
+    calls = []
+
+    class _BadRequest(Exception):
+        status_code = 400
+
+    class Completions:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            if "response_format" in kwargs:
+                raise _BadRequest("'response_format' unsupported")
+            msg = type("M", (), {"content": '{"summary": "ok", "concepts": []}'})
+            return type("Resp", (), {"choices": [type("Ch", (), {"message": msg})]})
+
+    client = type("Client", (), {"chat": type("Chat", (), {"completions": Completions()})()})()
+    ext = OpenAIExtractor("m", client=client, structured=True)
+
+    k = ext.extract("x", kind="text")
+    assert k.summary == "ok"
+    assert len(calls) == 2  # structured attempt, then plain fallback
+    assert "response_format" in calls[0] and "response_format" not in calls[1]
+
+    # subsequent calls skip the doomed structured attempt (flag latched off)
+    calls.clear()
+    ext.extract("y", kind="text")
+    assert len(calls) == 1 and "response_format" not in calls[0]
+
+
 def test_get_extractor_selects_openai_backend(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "lm-studio")
     from opendomainmcp.extract.knowledge import OpenAIExtractor, get_extractor

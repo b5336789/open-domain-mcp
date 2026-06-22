@@ -4,6 +4,9 @@ A local model's output dimension is not known from a hardcoded table, so the
 embedder must learn it from the first response — mirroring LocalEmbedder.
 """
 
+import sys
+import types
+
 import pytest
 
 from opendomainmcp.embedding.cloud import OpenAIEmbedder
@@ -66,3 +69,51 @@ def test_basic_auth_value_splits_on_first_colon_only():
 def test_basic_auth_value_rejects_missing_colon():
     with pytest.raises(ValueError):
         _basic_auth_value("nocolon")
+
+
+def _install_fake_openai(monkeypatch):
+    """Install a fake `openai` module whose OpenAI() records its kwargs."""
+    captured = {}
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            self.embeddings = None
+
+    fake = types.ModuleType("openai")
+    fake.OpenAI = FakeOpenAI
+    monkeypatch.setitem(sys.modules, "openai", fake)
+    return captured
+
+
+def test_openai_embedder_injects_basic_auth_default_header(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    captured = _install_fake_openai(monkeypatch)
+
+    OpenAIEmbedder("text-embedding-3-small", basic_auth="user:pass")
+
+    assert captured["default_headers"] == {"Authorization": "Basic dXNlcjpwYXNz"}
+
+
+def test_openai_embedder_injects_basic_auth_custom_header(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    captured = _install_fake_openai(monkeypatch)
+
+    OpenAIEmbedder(
+        "text-embedding-3-small",
+        basic_auth="user:pass",
+        basic_auth_header="X-Proxy-Authorization",
+    )
+
+    assert captured["default_headers"] == {
+        "X-Proxy-Authorization": "Basic dXNlcjpwYXNz"
+    }
+
+
+def test_openai_embedder_no_basic_auth_passes_no_default_headers(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    captured = _install_fake_openai(monkeypatch)
+
+    OpenAIEmbedder("text-embedding-3-small")
+
+    assert "default_headers" not in captured

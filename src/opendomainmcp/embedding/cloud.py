@@ -37,7 +37,13 @@ def _basic_auth_value(spec: str) -> str:
 
 
 class OpenAIEmbedder(Embedder):
-    def __init__(self, model_name: str = "text-embedding-3-small", client=None):
+    def __init__(
+        self,
+        model_name: str = "text-embedding-3-small",
+        client=None,
+        basic_auth: str | None = None,
+        basic_auth_header: str = "Authorization",
+    ):
         self.name = f"openai:{model_name}"
         self._model_name = model_name
         # Known OpenAI models have a fixed dimension; for anything else (e.g. a
@@ -53,7 +59,15 @@ class OpenAIEmbedder(Embedder):
                 from openai import OpenAI
             except ImportError as exc:  # pragma: no cover - optional dep
                 raise RuntimeError("Install the 'openai' package to use the openai backend") from exc
-            client = OpenAI()
+            # Optional HTTP Basic Auth for a server behind a proxy/gateway. The
+            # SDK merges default_headers after its Bearer auth header, so the
+            # "Authorization" default overrides Bearer; a custom name coexists.
+            if basic_auth:
+                client = OpenAI(
+                    default_headers={basic_auth_header: _basic_auth_value(basic_auth)}
+                )
+            else:
+                client = OpenAI()
         self._client = client
 
     def embed(self, texts: list[str]) -> list[list[float]]:

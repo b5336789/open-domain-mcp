@@ -29,6 +29,7 @@ ingestion and retrieval.
 - [Data model](#data-model)
 - [Project layout](#project-layout)
 - [Installation](#installation)
+- [Quickstart — ingest ERPNext](#quickstart--ingest-erpnext)
 - [Usage](#usage)
   - [CLI](#cli)
   - [MCP server](#mcp-server)
@@ -356,6 +357,39 @@ npm install
 npm run build      # outputs to src/opendomainmcp/api/static/, served by opendomainmcp-web
 # or: npm run dev  # Vite dev server, proxies /api → 127.0.0.1:8000
 ```
+
+---
+
+## Quickstart — ingest ERPNext
+
+A concrete end-to-end run using **[ERPNext](https://github.com/frappe/erpnext)**,
+the open-source ERP — the same knowledge base shown in the
+[screenshots](#screenshots) above. Each step targets a dedicated `erpnext`
+collection so it stays isolated from your other knowledge bases.
+
+```bash
+# 1. Ingest ERPNext straight from GitHub. A Git URL is cloned under
+#    <data_dir>/.sources/ and confined as the allowed root, then chunked,
+#    enriched, embedded and stored — watch live per-file progress.
+opendomainmcp --collection erpnext ingest https://github.com/frappe/erpnext
+
+#    (Or ingest a local checkout; --sync prunes chunks for deleted files.)
+opendomainmcp --collection erpnext ingest ./erpnext --sync
+
+# 2. Hybrid search (dense + BM25, RRF-fused) across the knowledge base.
+opendomainmcp --collection erpnext search "how is a sales order validated" --top-k 5
+
+# 3. Ask a cited question — the answer is synthesised strictly from the
+#    retrieved chunks, with inline [n] citations (needs an API key).
+opendomainmcp --collection erpnext ask "what happens when a sales order is submitted?"
+
+# 4. Inspect what landed in the collection.
+opendomainmcp --collection erpnext stats
+```
+
+The same `erpnext` collection is browsable in the web dashboard
+(`opendomainmcp-web`) — pick it from the collection switcher to explore, ask, and
+edit chunks in the browser.
 
 ---
 

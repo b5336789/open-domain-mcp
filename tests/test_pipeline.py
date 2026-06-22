@@ -85,10 +85,8 @@ def test_load_and_split_returns_indexed_chunks(pipeline, tmp_path):
 
 
 def test_batch_mode_uses_prepass_cache(store, fake_graph, tmp_path):
-    import opendomainmcp.ingest.pipeline as pipeline_mod
     from opendomainmcp.config import Settings
     from opendomainmcp.ingest.pipeline import Pipeline
-    from opendomainmcp.ingest.batch_extract import _text_hash
     from opendomainmcp.models import KnowledgeUnit
 
     (tmp_path / "notes.md").write_text(

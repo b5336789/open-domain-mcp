@@ -10,6 +10,7 @@ dicts so callers (e.g. the web UI) can stream live status.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -120,8 +121,9 @@ class Pipeline:
             raise FileNotFoundError(f"{path} does not exist")
         if root is not None:
             files = self._filter_within(files, root, report, progress)
-        for file_path in files:
-            self._ingest_file(file_path, report, progress)
+        with self._batch_prepass(files, report, progress):
+            for file_path in files:
+                self._ingest_file(file_path, report, progress)
         if sync and path.is_dir():
             self._sync_deletions(path, {str(f) for f in files}, report, progress)
         self._emit(progress, "done", str(path), detail=f"{report.files_indexed} files")
@@ -280,6 +282,66 @@ class Pipeline:
                 chunk.knowledge.review_status = "pending"
         except Exception as exc:  # extraction is best-effort; record and continue
             report.errors.append({"path": str(path), "error": f"extract: {exc!r}"})
+
+    @contextlib.contextmanager
+    def _batch_prepass(self, files, report: IngestReport,
+                       progress: Optional[Progress]):
+        """When extract_batch is on, batch-extract all chunk texts up front and
+        run the per-file loop with a CachedExtractor. No-op otherwise."""
+        if not getattr(self._settings, "extract_batch", False):
+            yield
+            return
+        if self._settings.llm_backend.lower() != "anthropic":
+            raise ValueError(
+                "ODM_EXTRACT_BATCH requires the anthropic LLM backend"
+            )
+        cache = self._batch_extract_files(files, report, progress)
+        from .batch_extract import CachedExtractor
+
+        original = self._extractor
+        self._extractor = CachedExtractor(cache, original)
+        try:
+            yield
+        finally:
+            self._extractor = original
+
+    def _batch_extract_files(self, files, report: IngestReport,
+                             progress: Optional[Progress]) -> dict:
+        from .batch_extract import BatchItem, _text_hash
+
+        items: dict[str, BatchItem] = {}
+        for f in files:
+            try:
+                chunks = self._load_and_split(f)
+            except Exception:
+                continue  # the real per-file pass records skip/error
+            for c in chunks:
+                if c.knowledge and c.knowledge.knowledge_type:
+                    continue  # pre-classified; not LLM-extracted
+                h = _text_hash(c.text)
+                if h not in items:
+                    items[h] = BatchItem(text_hash=h, text=c.text,
+                                         kind=c.kind, language=c.language)
+        if not items:
+            return {}
+        self._emit(progress, "batch", "extraction",
+                   detail=f"{len(items)} chunks submitted")
+        extractor = self._build_batch_extractor()
+        return extractor.extract_many(
+            list(items.values()),
+            progress=lambda d: self._emit(progress, "batch", "extraction", detail=d),
+        )
+
+    def _build_batch_extractor(self):
+        import anthropic
+
+        from .batch_extract import BatchExtractor
+
+        client = anthropic.Anthropic(
+            timeout=self._settings.request_timeout,
+            max_retries=self._settings.max_retries,
+        )
+        return BatchExtractor(client, self._settings.extraction_model)
 
     def _sync_deletions(self, root: Path, seen: set, report: IngestReport,
                         progress: Optional[Progress]):

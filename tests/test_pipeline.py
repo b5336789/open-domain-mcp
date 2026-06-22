@@ -82,3 +82,51 @@ def test_load_and_split_returns_indexed_chunks(pipeline, tmp_path):
     chunks = pipeline._load_and_split(f)
     assert chunks and all(c.chunk_index == i for i, c in enumerate(chunks))
     assert all(c.kind == "code" for c in chunks)
+
+
+def test_batch_mode_uses_prepass_cache(store, fake_graph, tmp_path):
+    import opendomainmcp.ingest.pipeline as pipeline_mod
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+    from opendomainmcp.ingest.batch_extract import _text_hash
+    from opendomainmcp.models import KnowledgeUnit
+
+    (tmp_path / "notes.md").write_text(
+        "# Vector databases\n\nEmbeddings power similarity search for RAG.\n"
+    )
+
+    class BoomExtractor:  # live extraction must NOT happen in batch mode
+        def extract(self, *a, **k):
+            raise AssertionError("live extract called; cache miss in batch mode")
+
+    settings = Settings(chunk_size=200, chunk_overlap=20,
+                        extract_batch=True, llm_backend="anthropic")
+    pipe = Pipeline(store, BoomExtractor(), settings, graph=fake_graph)
+
+    # Fake batch extractor: cache every chunk text the pre-pass collects.
+    class FakeBatch:
+        def extract_many(self, items, progress=None):
+            return {it.text_hash: KnowledgeUnit(summary=f"batch {it.kind}")
+                    for it in items}
+
+    pipe._build_batch_extractor = lambda: FakeBatch()
+
+    report = pipe.ingest_path(tmp_path)
+    assert report.files_indexed == 1
+    items = store.get_items(limit=10)
+    assert items and all(i["metadata"]["summary"].startswith("batch")
+                         for i in items if "summary" in i["metadata"])
+
+
+def test_batch_mode_requires_anthropic_backend(store, fake_graph, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+
+    (tmp_path / "notes.md").write_text("# x\n\nsome content here for a chunk.\n")
+    settings = Settings(chunk_size=200, chunk_overlap=20,
+                        extract_batch=True, llm_backend="openai")
+    pipe = Pipeline(store, None, settings, graph=fake_graph)
+
+    import pytest
+    with pytest.raises(ValueError, match="anthropic"):
+        pipe.ingest_path(tmp_path)

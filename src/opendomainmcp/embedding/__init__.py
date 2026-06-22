@@ -15,7 +15,11 @@ def get_embedder(settings: Settings) -> Embedder:
     if backend == "openai":
         from .cloud import OpenAIEmbedder
 
-        return OpenAIEmbedder(settings.embedder_model)
+        return OpenAIEmbedder(
+            settings.embedder_model,
+            basic_auth=settings.embedder_basic_auth or None,
+            basic_auth_header=settings.embedder_basic_auth_header,
+        )
     if backend == "voyage":
         from .cloud import VoyageEmbedder
 

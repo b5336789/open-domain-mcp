@@ -53,6 +53,8 @@ def test_openai_embedder_known_model_dim_without_calling():
     assert emb.dim == 1536
 
 
+from opendomainmcp.config import Settings
+from opendomainmcp.embedding import get_embedder
 from opendomainmcp.embedding.cloud import _basic_auth_value
 
 
@@ -117,3 +119,20 @@ def test_openai_embedder_no_basic_auth_passes_no_default_headers(monkeypatch):
     OpenAIEmbedder("text-embedding-3-small")
 
     assert "default_headers" not in captured
+
+
+def test_get_embedder_passes_basic_auth_to_openai(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    captured = _install_fake_openai(monkeypatch)
+    settings = Settings(
+        embedder_backend="openai",
+        embedder_model="text-embedding-3-small",
+        embedder_basic_auth="user:pass",
+        embedder_basic_auth_header="X-Proxy-Authorization",
+    )
+
+    get_embedder(settings)
+
+    assert captured["default_headers"] == {
+        "X-Proxy-Authorization": "Basic dXNlcjpwYXNz"
+    }

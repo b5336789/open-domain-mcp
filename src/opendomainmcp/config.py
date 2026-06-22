@@ -30,6 +30,7 @@ EDITABLE_FIELDS = (
     "extract_knowledge",
     "extraction_model",
     "extract_structured_output",
+    "extract_batch",
     "chunk_size",
     "chunk_overlap",
     "code_max_chunk_chars",
@@ -90,6 +91,9 @@ class Settings(BaseSettings):
     # much slower on some local servers (LM Studio) — hence default off, with the
     # always-on _repair_json fallback covering the common malformations instead.
     extract_structured_output: bool = False
+    # Opt-in: extract via the Anthropic Message Batches API (50% cheaper, async).
+    # Anthropic backend only. See ingest/batch_extract.py.
+    extract_batch: bool = False
 
     # Text chunking
     chunk_size: int = 1200

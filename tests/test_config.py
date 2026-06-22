@@ -34,3 +34,10 @@ def test_retrieve_include_graph_defaults_off_and_is_editable():
     assert Settings().retrieve_include_graph is False
     assert Settings(retrieve_include_graph=True).retrieve_include_graph is True
     assert "retrieve_include_graph" in EDITABLE_FIELDS
+
+
+def test_extract_batch_defaults_off_and_is_editable():
+    from opendomainmcp.config import EDITABLE_FIELDS, Settings
+    s = Settings()
+    assert s.extract_batch is False
+    assert "extract_batch" in EDITABLE_FIELDS

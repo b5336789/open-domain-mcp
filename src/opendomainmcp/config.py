@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     # Embedding
     embedder_backend: str = "local"  # local | openai | voyage
     embedder_model: str = "BAAI/bge-small-en-v1.5"
+    # Optional HTTP Basic Auth for a self-hosted OpenAI-compatible embedding
+    # server behind a proxy/gateway. "user:password"; empty disables it.
+    # Credentials -> deliberately NOT in EDITABLE_FIELDS. The header name is
+    # configurable: "Authorization" (default) overrides the SDK's Bearer header;
+    # a custom name (e.g. "X-Proxy-Authorization") coexists with the Bearer key.
+    embedder_basic_auth: str = ""
+    embedder_basic_auth_header: str = "Authorization"
 
     # LLM backend for extraction + RAG answering. "anthropic" uses the Anthropic
     # Messages API (ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL); "openai" uses the

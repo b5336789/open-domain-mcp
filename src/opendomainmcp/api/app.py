@@ -115,7 +115,7 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
         from ..query import AnswerError, answer_question
 
         try:
-            result = answer_question(req.query, ctx.store, ctx.settings, top_k=req.top_k)
+            result = answer_question(req.query, ctx.store, ctx.settings, top_k=req.top_k, graph=ctx.graph)
         except AnswerError as exc:
             raise HTTPException(status_code=503, detail=str(exc))
         citations = result.get("citations", []) if isinstance(result, dict) else []
@@ -137,7 +137,7 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
             # bridge each event back via the queue.
             try:
                 for event in answer_question_stream(
-                    query, ctx.store, ctx.settings, top_k=top_k
+                    query, ctx.store, ctx.settings, top_k=top_k, graph=ctx.graph
                 ):
                     loop.call_soon_threadsafe(queue.put_nowait, event)
             except AnswerError as exc:  # surface to the UI (Fail Loud)

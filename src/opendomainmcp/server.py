@@ -76,7 +76,7 @@ def ask(query: str, top_k: int = 6, collection: Optional[str] = None) -> dict:
 
     ctx = _context(collection)
     try:
-        return answer_question(query, ctx.store, ctx.settings, top_k=top_k)
+        return answer_question(query, ctx.store, ctx.settings, top_k=top_k, graph=ctx.graph)
     except AnswerError as exc:
         return {"error": str(exc)}
 

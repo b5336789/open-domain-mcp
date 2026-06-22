@@ -63,7 +63,7 @@ def _cmd_ask(ctx, args) -> int:
     citations = []
     try:
         for event in answer_question_stream(
-            args.query, ctx.store, ctx.settings, top_k=args.top_k
+            args.query, ctx.store, ctx.settings, top_k=args.top_k, graph=ctx.graph
         ):
             if event["type"] == "delta":
                 print(event["text"], end="", flush=True)

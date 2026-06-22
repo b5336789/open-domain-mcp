@@ -31,6 +31,64 @@ class BatchItem:
     language: str | None = None
 
 
+class BatchExtractor:
+    def __init__(self, client, model: str, max_tokens: int = 900,
+                 poll_interval: float = 10.0):
+        self._client = client
+        self._model = model
+        self._max_tokens = max_tokens
+        self._poll_interval = poll_interval
+
+    def _request(self, item: BatchItem) -> dict:
+        from ..extract.knowledge import _SYSTEM
+
+        label = item.kind + (f" ({item.language})" if item.language else "")
+        return {
+            "custom_id": item.text_hash,
+            "params": {
+                "model": self._model,
+                "max_tokens": self._max_tokens,
+                "system": _SYSTEM,
+                "messages": [{
+                    "role": "user",
+                    "content": f"Snippet type: {label}\n\n{item.text}",
+                }],
+            },
+        }
+
+    def extract_many(self, items: list[BatchItem], progress=None) -> dict:
+        from ..extract.knowledge import _parse
+
+        if not items:
+            return {}
+        batches = self._client.messages.batches
+        batch = batches.create(requests=[self._request(i) for i in items])
+        while True:
+            status = batches.retrieve(batch.id)
+            if progress is not None:
+                c = getattr(status, "request_counts", None)
+                if c is not None:
+                    progress(f"{c.succeeded} done, {c.processing} processing, "
+                             f"{c.errored} errored")
+            if status.processing_status == "ended":
+                break
+            time.sleep(self._poll_interval)
+
+        out: dict[str, KnowledgeUnit] = {}
+        for res in batches.results(batch.id):
+            if res.result.type != "succeeded":
+                logger.warning("batch extraction failed for %s: %s",
+                               res.custom_id, res.result.type)
+                continue
+            raw = "".join(b.text for b in res.result.message.content
+                          if b.type == "text")
+            try:
+                out[res.custom_id] = _parse(raw)
+            except Exception as exc:  # malformed output: omit -> live fallback
+                logger.warning("batch parse failed for %s: %r", res.custom_id, exc)
+        return out
+
+
 class CachedExtractor:
     """Extractor that serves pre-computed results; falls back to a live call."""
 

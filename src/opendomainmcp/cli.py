@@ -119,7 +119,8 @@ def _cmd_synthesize(ctx, args) -> int:
         limit=args.limit, dry_run=args.dry_run,
     )
     print(f"Gated {report.topics_gated} topic(s); wrote {report.articles_written}.")
-    print(f"Stored {report.stored} article(s). Rejected {len(report.rejected)}.")
+    print(f"Stored {report.stored} article(s). Rejected {len(report.rejected)}. "
+          f"Removed {report.removed} stale.")
     for r in report.rejected:
         print(f"  rejected: {r['topic']}  {r['verdict']}", file=sys.stderr)
     if report.errors:

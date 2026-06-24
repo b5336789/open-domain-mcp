@@ -1,0 +1,208 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e12]:
+          - generic [ref=e13]: openDomainMcp
+          - generic [ref=e14]: knowledge console
+      - generic [ref=e15]:
+        - generic [ref=e16]: Knowledge base
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - combobox [ref=e19]:
+              - option "domain_knowledge (176)" [selected]
+              - option "erpnext (134)"
+              - option "project_self (1185)"
+            - generic: ▾
+          - button "New knowledge base" [ref=e20] [cursor=pointer]:
+            - img [ref=e21]
+          - button "Delete knowledge base" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+      - navigation [ref=e27]:
+        - link "Dashboard" [ref=e28] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e29]
+          - text: Dashboard
+        - link "Ingest" [ref=e34] [cursor=pointer]:
+          - /url: "#/ingest"
+          - img [ref=e35]
+          - text: Ingest
+        - link "Explore" [ref=e37] [cursor=pointer]:
+          - /url: "#/explore"
+          - img [ref=e38]
+          - text: Explore
+        - link "Ask" [ref=e41] [cursor=pointer]:
+          - /url: "#/ask"
+          - img [ref=e42]
+          - text: Ask
+        - link "Browse / Edit" [ref=e45] [cursor=pointer]:
+          - /url: "#/browse"
+          - img [ref=e46]
+          - text: Browse / Edit
+        - link "Articles" [ref=e47] [cursor=pointer]:
+          - /url: "#/articles"
+          - img [ref=e48]
+          - text: Articles
+        - link "Review" [ref=e52] [cursor=pointer]:
+          - /url: "#/review"
+          - img [ref=e53]
+          - text: Review
+        - link "Graph" [ref=e56] [cursor=pointer]:
+          - /url: "#/graph"
+          - img [ref=e57]
+          - text: Graph
+        - link "Advisor" [ref=e62] [cursor=pointer]:
+          - /url: "#/advisor"
+          - img [ref=e63]
+          - text: Advisor
+        - link "MCP Builder" [ref=e65] [cursor=pointer]:
+          - /url: "#/mcp"
+          - img [ref=e66]
+          - text: MCP Builder
+        - link "Simulator" [ref=e70] [cursor=pointer]:
+          - /url: "#/simulator"
+          - img [ref=e71]
+          - text: Simulator
+        - link "Metrics" [ref=e73] [cursor=pointer]:
+          - /url: "#/metrics"
+          - img [ref=e74]
+          - text: Metrics
+        - link "Settings" [ref=e77] [cursor=pointer]:
+          - /url: "#/settings"
+          - img [ref=e78]
+          - text: Settings
+      - generic [ref=e81]:
+        - button "Dark mode" [ref=e82] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e85]: Dark mode
+        - paragraph [ref=e86]: Domain knowledge workflow platform
+  - main [ref=e87]:
+    - generic [ref=e1625]:
+      - generic [ref=e1627]:
+        - img [ref=e1629]
+        - generic [ref=e1631]:
+          - heading "Pre-Execution Advisor" [level=2] [ref=e1632]
+          - paragraph [ref=e1633]: Before doing something, get the workflow, risks, permissions, dependencies, and constraints to know first.
+      - generic [ref=e1634]:
+        - generic [ref=e1635]:
+          - generic [ref=e1636]: What are you about to do?
+          - textbox "e.g. Roll out a new billing webhook to production" [ref=e1637]: Add a new tax rule that applies to sales invoices
+        - button "Advise" [ref=e1639] [cursor=pointer]
+      - generic [ref=e1640]:
+        - generic [ref=e1641]:
+          - generic [ref=e1642]: Workflow
+          - generic [ref=e1643]: "5"
+        - generic [ref=e1644]:
+          - generic [ref=e1645]: Risks
+          - generic [ref=e1646]: "1"
+        - generic [ref=e1647]:
+          - generic [ref=e1648]: Permissions
+          - generic [ref=e1649]: "0"
+        - generic [ref=e1650]:
+          - generic [ref=e1651]: Dependencies
+          - generic [ref=e1652]: "5"
+        - generic [ref=e1653]:
+          - generic [ref=e1654]: Constraints
+          - generic [ref=e1655]: "1"
+        - generic [ref=e1656]:
+          - generic [ref=e1657]: Types
+          - generic [ref=e1658]: Architecture
+          - generic [ref=e1659]: Constraint
+          - generic [ref=e1660]: Runbook
+          - generic [ref=e1661]: Workflow
+      - generic [ref=e1662]:
+        - generic [ref=e1663]:
+          - heading "Workflow" [level=3] [ref=e1664]
+          - generic [ref=e1665]: 5 results
+        - generic [ref=e1666]:
+          - generic [ref=e1667]:
+            - generic [ref=e1668]:
+              - generic [ref=e1669]: Workflow
+              - generic [ref=e1670]: README.md
+              - generic [ref=e1671]: "0.188"
+            - generic [ref=e1672]: "If no chunk matches, it returns *\"No indexed content matched this question.\"* Without an `ANTHROPIC_API_KEY` it **fails loudly** with a clear message rather than fabricating an answer. --- ## Module"
+          - generic [ref=e1673]:
+            - generic [ref=e1674]:
+              - generic [ref=e1675]: Workflow
+              - generic [ref=e1676]: README.md
+              - generic [ref=e1677]: "0.169"
+            - generic [ref=e1678]: "**Reading the diagram:** dependencies are *injected* into the pipeline and store (extractor, embedder, reranker), which is why the entire stack can run offline in tests by swapping in fakes. --- ##"
+          - generic [ref=e1679]:
+            - generic [ref=e1680]:
+              - generic [ref=e1681]: Workflow
+              - generic [ref=e1682]: README.md
+              - generic [ref=e1683]: "0.163"
+            - generic [ref=e1684]: "- **`mode=\"vector\"`** skips the lexical/fusion branch entirely (pure dense). - **Filters** (`kind`, `language`, `symbol`) become a Chroma `where` clause; `source` is a substring post-filter. - **Re-"
+          - generic [ref=e1685]:
+            - generic [ref=e1686]:
+              - generic [ref=e1687]: Workflow
+              - generic [ref=e1688]: README.md
+              - generic [ref=e1689]: "0.079"
+            - generic [ref=e1690]: "```mermaid flowchart TD SEARCH[\"search(query, top_k, where, mode, source_contains)\"] SEARCH -->|\"over-fetch n = max(top_k*5, 30) when fusing / post-filtering\"| FORK(( )) FORK --> DENSE[\"DE"
+          - generic [ref=e1691]:
+            - generic [ref=e1692]:
+              - generic [ref=e1693]: Runbook
+              - generic [ref=e1694]: README.md
+              - generic [ref=e1695]: "0.099"
+            - generic [ref=e1696]: "--- ## Installation **Backend (Python ≥ 3.11):** ```bash python -m venv .venv && source .venv/bin/activate pip install -e \".[dev]\" cp .env.example .env # adjust as needed ``` The local em"
+      - generic [ref=e1697]:
+        - generic [ref=e1698]:
+          - heading "Risks" [level=3] [ref=e1699]
+          - generic [ref=e1700]: 1 result
+        - generic [ref=e1702]:
+          - generic [ref=e1703]:
+            - generic [ref=e1704]: Constraint
+            - generic [ref=e1705]: /tmp/erpnext-scope/accounting/pricing_rule.py::validate_mixed_with_recursion
+            - generic [ref=e1706]: "0.371"
+          - generic [ref=e1707]: "def validate_mixed_with_recursion(self): if self.mixed_conditions and self.is_recursive: frappe.throw(_(\"Recursive Discounts with Mixed condition is not supported by the system\"))"
+      - generic [ref=e1708]:
+        - generic [ref=e1709]:
+          - heading "Permissions" [level=3] [ref=e1710]
+          - generic [ref=e1711]: 0 results
+        - paragraph [ref=e1712]: none found
+      - generic [ref=e1713]:
+        - generic [ref=e1714]:
+          - heading "Dependencies" [level=3] [ref=e1715]
+          - generic [ref=e1716]: 5 results
+        - generic [ref=e1717]:
+          - generic [ref=e1718]:
+            - generic [ref=e1719]:
+              - generic [ref=e1720]: Architecture
+              - generic [ref=e1721]: README.md
+              - generic [ref=e1722]: "0.202"
+            - generic [ref=e1723]: "--- ## Extensibility The injection seams make extension localized: - **New embedder** → implement `Embedder` (`embed` + `dim`), register it in `embedding/__init__.py:get_embedder()`. - **New lang"
+          - generic [ref=e1724]:
+            - generic [ref=e1725]:
+              - generic [ref=e1726]: Architecture
+              - generic [ref=e1727]: README.md
+              - generic [ref=e1728]: "0.140"
+            - generic [ref=e1729]: "**Why enrich before embedding?** `embedding_text()` appends the LLM summary and concepts to the raw chunk text. A query like *\"how does retry/backoff work\"* then matches a function whose code never co"
+          - generic [ref=e1730]:
+            - generic [ref=e1731]:
+              - generic [ref=e1732]: Architecture
+              - generic [ref=e1733]: README.md
+              - generic [ref=e1734]: "0.174"
+            - generic [ref=e1735]: "| You want to… | Use the… | | --- | --- | | Script ingestion / search in a terminal or CI | **CLI** (`opendomainmcp`) | | Give an AI agent retrieval tools over your knowledge base | **MCP server** (`o"
+          - generic [ref=e1736]:
+            - generic [ref=e1737]:
+              - generic [ref=e1738]: Architecture
+              - generic [ref=e1739]: README.md
+              - generic [ref=e1740]: "0.112"
+            - generic [ref=e1741]: "**Credentials** are read from the standard provider env vars — the Anthropic SDK reads `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL`; cloud embedders need `OPENAI_API_KEY` / `VOYAGE_API_KEY`. Credentials"
+          - generic [ref=e1742]:
+            - generic [ref=e1743]:
+              - generic [ref=e1744]: Architecture
+              - generic [ref=e1745]: README.md
+              - generic [ref=e1746]: "0.202"
+            - generic [ref=e1747]: "--- ## Table of contents - [Why this exists](#why-this-exists) - [Key features](#key-features) - [System architecture](#system-architecture) - [The ingestion pipeline](#the-ingestion-pipeline) - [Th"
+      - generic [ref=e1748]:
+        - generic [ref=e1749]:
+          - heading "Constraints" [level=3] [ref=e1750]
+          - generic [ref=e1751]: 1 result
+        - generic [ref=e1753]:
+          - generic [ref=e1754]:
+            - generic [ref=e1755]: Constraint
+            - generic [ref=e1756]: /tmp/erpnext-scope/accounting/pricing_rule.py::validate_mixed_with_recursion
+            - generic [ref=e1757]: "0.371"
+          - generic [ref=e1758]: "def validate_mixed_with_recursion(self): if self.mixed_conditions and self.is_recursive: frappe.throw(_(\"Recursive Discounts with Mixed condition is not supported by the system\"))"

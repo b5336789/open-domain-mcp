@@ -13,6 +13,8 @@ class SynthesisReport:
     # drafts produced (passed to the critic); not all are stored.
     articles_written: int = 0
     stored: int = 0
+    # stale articles deleted: rejected/no-evidence topics + dead-chunk prune.
+    removed: int = 0
     rejected: list[dict] = field(default_factory=list)
     errors: list[dict] = field(default_factory=list)
 
@@ -56,6 +58,20 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
     article_store = store.sibling(f"{store.stats()['collection']}__articles")
     report = SynthesisReport(topics_gated=len(topics))
 
+    dropped: set[str] = set()  # article ids already removed/counted in the loop
+
+    def _drop(topic: str) -> None:
+        """Remove a topic's stale article, counting it (even under dry_run, where
+        the delete is skipped). Idempotent: absent topics are a no-op, not counted."""
+        aid = Article.id_for_topic(topic)
+        if dry_run:
+            if article_store.get_item(aid) is not None:
+                report.removed += 1
+                dropped.add(aid)
+        elif article_store.delete_item(aid):
+            report.removed += 1
+            dropped.add(aid)
+
     for tc in topics:
         try:
             results = store.search(tc.name, top_k=8, mode="hybrid")
@@ -64,6 +80,7 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
                 report.rejected.append(
                     {"topic": tc.name, "verdict": {"note": "no evidence retrieved"}}
                 )
+                _drop(tc.name)
                 continue
             evidence, ids, sources = _evidence_block(results)
             draft = writer.write(tc.name, evidence)
@@ -71,6 +88,7 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
             verdict = critic.judge(tc.name, draft["body"], evidence)
             if not keep_article(verdict):
                 report.rejected.append({"topic": tc.name, "verdict": verdict})
+                _drop(tc.name)
                 continue
             article = Article(
                 title=draft["title"], topic=tc.name, body=draft["body"],
@@ -83,4 +101,29 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
             report.stored += 1
         except Exception as exc:  # noqa: BLE001 - Fail Loud into the report, keep going
             report.errors.append({"topic": tc.name, "error": str(exc)})
+
+    # Dead-chunk prune: drop any stored article that cites a chunk no longer in
+    # the main collection. `items` is that collection's current chunks, already
+    # paged above, so building the live-id set costs no extra store query. The
+    # criterion is independent of the gated-topic list, so it is --limit-safe.
+    live_ids = {it["id"] for it in items}
+    # Page the full article set first, then delete — deleting mid-pagination would
+    # shift offsets and skip rows.
+    stored_articles, off = [], 0
+    while True:
+        page = article_store.get_items(limit=PAGE, offset=off)
+        stored_articles.extend(page)
+        if len(page) < PAGE:
+            break
+        off += PAGE
+    for row in stored_articles:
+        if row["id"] in dropped:  # already counted/removed as a rejected topic
+            continue
+        meta = row.get("metadata") or {}
+        cited = [c.strip() for c in str(meta.get("source_chunk_ids", "")).split(",")
+                 if c.strip()]
+        if cited and any(c not in live_ids for c in cited):
+            if not dry_run:
+                article_store.delete_item(row["id"])
+            report.removed += 1
     return report

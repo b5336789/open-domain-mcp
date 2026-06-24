@@ -159,8 +159,9 @@ class Article:
 
     Duck-types the storage interface used by ``ChromaStore.upsert``/``search``
     (``id`` / ``text`` / ``embedding_text`` / ``metadata``) so articles reuse the
-    same store with no special-casing. ``id`` is a content hash of the topic plus
-    its sorted member chunk ids → re-synthesis is idempotent.
+    same store with no special-casing. ``id`` is a content hash of the topic alone
+    → exactly one article per topic, so re-synthesis under a shifting corpus
+    overwrites it in place instead of accumulating a new row each run.
     """
 
     title: str
@@ -172,11 +173,15 @@ class Article:
     cross_validated: bool = False
     critic_verdict: dict = field(default_factory=dict)
 
+    @staticmethod
+    def id_for_topic(topic: str) -> str:
+        """The article id for a topic. The single source of the id formula, so the
+        prune step can address an article by topic without building an Article."""
+        return hashlib.sha256(topic.encode("utf-8")).hexdigest()
+
     @property
     def id(self) -> str:
-        members = "\n".join(sorted(self.source_chunk_ids))
-        digest = hashlib.sha256(f"{self.topic}\n{members}".encode("utf-8"))
-        return digest.hexdigest()
+        return Article.id_for_topic(self.topic)
 
     @property
     def text(self) -> str:

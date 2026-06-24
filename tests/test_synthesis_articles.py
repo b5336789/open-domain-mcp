@@ -1,6 +1,6 @@
 # tests/test_synthesis_articles.py — uses the conftest `store` fixture
 from opendomainmcp.config import Settings
-from opendomainmcp.models import Chunk, KnowledgeUnit
+from opendomainmcp.models import Article, Chunk, KnowledgeUnit
 from opendomainmcp.synthesis import synthesize_articles
 
 
@@ -78,6 +78,78 @@ def test_dry_run_counts_stored_but_does_not_persist(store):
     assert report.stored >= 1
     assert _arts(store).stats()["count"] == 0, \
         "dry_run must not write to the sibling article collection"
+
+
+def test_rerun_with_shifted_evidence_keeps_one_article(store, monkeypatch):
+    # Topic-stable id: the same topic re-synthesized against a different evidence
+    # set must overwrite its single article, not accumulate a second row.
+    _seed(store)
+    synthesize_articles(store, Settings(), writer=_Writer(), critic=_Critic(keep=True))
+    arts = _arts(store)
+    assert arts.stats()["count"] == 1
+    full = store.search("Billing Engine", top_k=8, mode="hybrid")
+    assert len(full) >= 2, "precondition: need >=2 evidence chunks to shift the set"
+    monkeypatch.setattr(store, "search", lambda *a, **k: full[:1])
+    synthesize_articles(store, Settings(), writer=_Writer(), critic=_Critic(keep=True))
+    assert arts.stats()["count"] == 1
+
+
+def test_reject_removes_previously_stored_article(store):
+    _seed(store)
+    synthesize_articles(store, Settings(), writer=_Writer(), critic=_Critic(keep=True))
+    arts = _arts(store)
+    assert arts.stats()["count"] == 1
+    # A later run where the critic rejects the same topic drops its stale article.
+    report = synthesize_articles(store, Settings(), writer=_Writer(),
+                                 critic=_Critic(keep=False))
+    assert arts.stats()["count"] == 0
+    assert report.removed >= 1
+
+
+def test_no_evidence_removes_previously_stored_article(store, monkeypatch):
+    _seed(store)
+    synthesize_articles(store, Settings(), writer=_Writer(), critic=_Critic(keep=True))
+    arts = _arts(store)
+    assert arts.stats()["count"] == 1
+    # A later run that retrieves no evidence for the gated topic drops its article.
+    monkeypatch.setattr(store, "search", lambda *a, **k: [])
+    report = synthesize_articles(store, Settings(), writer=_Writer(),
+                                 critic=_Critic(keep=True))
+    assert arts.stats()["count"] == 0
+    assert report.removed >= 1
+
+
+def test_prune_removes_articles_citing_dead_chunks(store):
+    _seed(store)
+    arts = _arts(store)
+    # Orphan: cites a chunk id that does not exist in the main collection.
+    orphan = Article(title="Gone", topic="defunct topic", body="x [1]",
+                     source_chunk_ids=["does-not-exist"], sources=["old.py:1"])
+    # Live: cites a real chunk id currently in the main collection.
+    live_chunk_id = store.get_items(limit=1)[0]["id"]
+    live = Article(title="Live", topic="still here", body="y [1]",
+                   source_chunk_ids=[live_chunk_id], sources=["billing.py:1"])
+    arts.upsert([orphan, live])
+    assert arts.stats()["count"] == 2
+
+    report = synthesize_articles(store, Settings(), writer=_Writer(),
+                                 critic=_Critic(keep=True))
+    ids_after = {it["id"] for it in arts.get_items(limit=50)}
+    assert orphan.id not in ids_after, "article citing a dead chunk must be pruned"
+    assert live.id in ids_after, "article citing only live chunks must be kept"
+    assert report.removed >= 1
+
+
+def test_dry_run_reports_removals_without_deleting(store):
+    _seed(store)
+    synthesize_articles(store, Settings(), writer=_Writer(), critic=_Critic(keep=True))
+    arts = _arts(store)
+    assert arts.stats()["count"] == 1
+    # dry_run + critic rejects: the would-be removal is counted but not applied.
+    report = synthesize_articles(store, Settings(), writer=_Writer(),
+                                 critic=_Critic(keep=False), dry_run=True)
+    assert report.removed >= 1, "dry_run must report would-be removals"
+    assert arts.stats()["count"] == 1, "dry_run must not delete"
 
 
 def test_cross_validated_comes_from_gate_not_evidence(store, monkeypatch):

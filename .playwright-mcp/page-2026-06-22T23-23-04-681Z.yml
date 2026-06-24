@@ -1,0 +1,370 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e12]:
+          - generic [ref=e13]: openDomainMcp
+          - generic [ref=e14]: knowledge console
+      - generic [ref=e15]:
+        - generic [ref=e16]: Knowledge base
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - combobox [ref=e19]:
+              - option "domain_knowledge (243)" [selected]
+            - generic: ▾
+          - button "New knowledge base" [ref=e20] [cursor=pointer]:
+            - img [ref=e21]
+          - button "Delete knowledge base" [disabled] [ref=e23]:
+            - img [ref=e24]
+      - navigation [ref=e27]:
+        - link "Dashboard" [ref=e28] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e29]
+          - text: Dashboard
+        - link "Ingest" [ref=e34] [cursor=pointer]:
+          - /url: "#/ingest"
+          - img [ref=e35]
+          - text: Ingest
+        - link "Explore" [ref=e37] [cursor=pointer]:
+          - /url: "#/explore"
+          - img [ref=e38]
+          - text: Explore
+        - link "Ask" [ref=e41] [cursor=pointer]:
+          - /url: "#/ask"
+          - img [ref=e42]
+          - text: Ask
+        - link "Browse / Edit" [ref=e45] [cursor=pointer]:
+          - /url: "#/browse"
+          - img [ref=e46]
+          - text: Browse / Edit
+        - link "Articles" [ref=e47] [cursor=pointer]:
+          - /url: "#/articles"
+          - img [ref=e48]
+          - text: Articles
+        - link "Review" [ref=e52] [cursor=pointer]:
+          - /url: "#/review"
+          - img [ref=e53]
+          - text: Review
+        - link "Graph" [ref=e56] [cursor=pointer]:
+          - /url: "#/graph"
+          - img [ref=e57]
+          - text: Graph
+        - link "Advisor" [ref=e62] [cursor=pointer]:
+          - /url: "#/advisor"
+          - img [ref=e63]
+          - text: Advisor
+        - link "MCP Builder" [ref=e65] [cursor=pointer]:
+          - /url: "#/mcp"
+          - img [ref=e66]
+          - text: MCP Builder
+        - link "Simulator" [ref=e70] [cursor=pointer]:
+          - /url: "#/simulator"
+          - img [ref=e71]
+          - text: Simulator
+        - link "Metrics" [ref=e73] [cursor=pointer]:
+          - /url: "#/metrics"
+          - img [ref=e74]
+          - text: Metrics
+        - link "Settings" [ref=e77] [cursor=pointer]:
+          - /url: "#/settings"
+          - img [ref=e78]
+          - text: Settings
+      - generic [ref=e81]:
+        - button "Dark mode" [ref=e82] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e85]: Dark mode
+        - paragraph [ref=e86]: Domain knowledge workflow platform
+  - main [ref=e87]:
+    - generic [ref=e612]:
+      - generic [ref=e613]:
+        - generic [ref=e614]:
+          - img [ref=e616]
+          - generic [ref=e617]:
+            - heading "Browse / Edit" [level=2] [ref=e618]
+            - paragraph [ref=e619]: Inspect, edit metadata, or remove stored chunks.
+        - combobox [ref=e621]:
+          - option "all kinds" [selected]
+          - option "code"
+          - option "text"
+      - generic [ref=e622]:
+        - generic [ref=e623]:
+          - generic [ref=e624]:
+            - generic [ref=e625]:
+              - generic [ref=e626]: text
+              - generic [ref=e627]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/README.md
+            - generic [ref=e628]: Confirmed order received from Customer (either against a PO or a payment). All fulfilment details (shipments, billing) are tracked against t
+          - generic [ref=e629]:
+            - button "Edit" [ref=e630] [cursor=pointer]:
+              - img [ref=e631]
+            - button "Delete" [ref=e634] [cursor=pointer]:
+              - img [ref=e635]
+        - generic [ref=e638]:
+          - generic [ref=e639]:
+            - generic [ref=e640]:
+              - generic [ref=e641]: code
+              - generic [ref=e642]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e643]: "# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors # License: GNU General Public License v3. See license.txt import json"
+          - generic [ref=e644]:
+            - button "Edit" [ref=e645] [cursor=pointer]:
+              - img [ref=e646]
+            - button "Delete" [ref=e649] [cursor=pointer]:
+              - img [ref=e650]
+        - generic [ref=e653]:
+          - generic [ref=e654]:
+            - generic [ref=e655]:
+              - generic [ref=e656]: code
+              - generic [ref=e657]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py::get_requested_item_qty
+            - generic [ref=e658]: "def get_requested_item_qty(sales_order: str) -> dict: result = {} so = frappe.get_doc(\"Sales Order\", sales_order) for item in so.items:"
+          - generic [ref=e659]:
+            - button "Edit" [ref=e660] [cursor=pointer]:
+              - img [ref=e661]
+            - button "Delete" [ref=e664] [cursor=pointer]:
+              - img [ref=e665]
+        - generic [ref=e668]:
+          - generic [ref=e669]:
+            - generic [ref=e670]:
+              - generic [ref=e671]: code
+              - generic [ref=e672]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e673]: "@frappe.whitelist() def make_material_request(source_name: str, target_doc: str | Document | None = None): requested_item_qty = get_request"
+          - generic [ref=e674]:
+            - button "Edit" [ref=e675] [cursor=pointer]:
+              - img [ref=e676]
+            - button "Delete" [ref=e679] [cursor=pointer]:
+              - img [ref=e680]
+        - generic [ref=e683]:
+          - generic [ref=e684]:
+            - generic [ref=e685]:
+              - generic [ref=e686]: code
+              - generic [ref=e687]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e688]: "@frappe.whitelist() def make_project(source_name: str, target_doc: str | Document | None = None): def postprocess(source, doc): doc.proje"
+          - generic [ref=e689]:
+            - button "Edit" [ref=e690] [cursor=pointer]:
+              - img [ref=e691]
+            - button "Delete" [ref=e694] [cursor=pointer]:
+              - img [ref=e695]
+        - generic [ref=e698]:
+          - generic [ref=e699]:
+            - generic [ref=e700]:
+              - generic [ref=e701]: code
+              - generic [ref=e702]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py::set_serial_batch_for_bundle_reservation
+            - generic [ref=e703]: "def set_serial_batch_for_bundle_reservation(source, target, use_serial_batch_fields, packed_sre): for item in source.packed_items: target"
+          - generic [ref=e704]:
+            - button "Edit" [ref=e705] [cursor=pointer]:
+              - img [ref=e706]
+            - button "Delete" [ref=e709] [cursor=pointer]:
+              - img [ref=e710]
+        - generic [ref=e713]:
+          - generic [ref=e714]:
+            - generic [ref=e715]:
+              - generic [ref=e716]: code
+              - generic [ref=e717]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e718]: "@frappe.whitelist() def make_delivery_note( source_name: str, target_doc: str | Document | None = None, kwargs: dict | None = None ): if n"
+          - generic [ref=e719]:
+            - button "Edit" [ref=e720] [cursor=pointer]:
+              - img [ref=e721]
+            - button "Delete" [ref=e724] [cursor=pointer]:
+              - img [ref=e725]
+        - generic [ref=e728]:
+          - generic [ref=e729]:
+            - generic [ref=e730]:
+              - generic [ref=e731]: code
+              - generic [ref=e732]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e733]: "@frappe.whitelist() def make_sales_invoice( source_name: str, target_doc: str | Document | None = None, ignore_permissions: bool = False,"
+          - generic [ref=e734]:
+            - button "Edit" [ref=e735] [cursor=pointer]:
+              - img [ref=e736]
+            - button "Delete" [ref=e739] [cursor=pointer]:
+              - img [ref=e740]
+        - generic [ref=e743]:
+          - generic [ref=e744]:
+            - generic [ref=e745]:
+              - generic [ref=e746]: code
+              - generic [ref=e747]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e748]: "@frappe.whitelist() def make_maintenance_schedule(source_name: str, target_doc: str | Document | None = None): maint_schedule = frappe.db.e"
+          - generic [ref=e749]:
+            - button "Edit" [ref=e750] [cursor=pointer]:
+              - img [ref=e751]
+            - button "Delete" [ref=e754] [cursor=pointer]:
+              - img [ref=e755]
+        - generic [ref=e758]:
+          - generic [ref=e759]:
+            - generic [ref=e760]:
+              - generic [ref=e761]: code
+              - generic [ref=e762]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e763]: "@frappe.whitelist() def make_maintenance_visit(source_name: str, target_doc: str | Document | None = None): MaintenanceVisit = frappe.qb.Do"
+          - generic [ref=e764]:
+            - button "Edit" [ref=e765] [cursor=pointer]:
+              - img [ref=e766]
+            - button "Delete" [ref=e769] [cursor=pointer]:
+              - img [ref=e770]
+        - generic [ref=e773]:
+          - generic [ref=e774]:
+            - generic [ref=e775]:
+              - generic [ref=e776]: code
+              - generic [ref=e777]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e778]: "@frappe.whitelist() def make_purchase_order( source_name: str, selected_items: str | list | None = None, target_doc: str | Document | None"
+          - generic [ref=e779]:
+            - button "Edit" [ref=e780] [cursor=pointer]:
+              - img [ref=e781]
+            - button "Delete" [ref=e784] [cursor=pointer]:
+              - img [ref=e785]
+        - generic [ref=e788]:
+          - generic [ref=e789]:
+            - generic [ref=e790]:
+              - generic [ref=e791]: code
+              - generic [ref=e792]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py::set_delivery_date
+            - generic [ref=e793]: "def set_delivery_date(items: list, sales_order: str) -> None: # `product_bundle` now holds the Product Bundle *version*, so match the Purch"
+          - generic [ref=e794]:
+            - button "Edit" [ref=e795] [cursor=pointer]:
+              - img [ref=e796]
+            - button "Delete" [ref=e799] [cursor=pointer]:
+              - img [ref=e800]
+        - generic [ref=e803]:
+          - generic [ref=e804]:
+            - generic [ref=e805]:
+              - generic [ref=e806]: code
+              - generic [ref=e807]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e808]: "@frappe.whitelist() def make_work_orders(items: str, sales_order: str, company: str, project: str | None = None): \"\"\"Make Work Orders again"
+          - generic [ref=e809]:
+            - button "Edit" [ref=e810] [cursor=pointer]:
+              - img [ref=e811]
+            - button "Delete" [ref=e814] [cursor=pointer]:
+              - img [ref=e815]
+        - generic [ref=e818]:
+          - generic [ref=e819]:
+            - generic [ref=e820]:
+              - generic [ref=e821]: code
+              - generic [ref=e822]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e823]: "@frappe.whitelist() def make_production_plan(source_name: str, target_doc: str | Document | None = None): sales_order = frappe.get_doc(\"Sal"
+          - generic [ref=e824]:
+            - button "Edit" [ref=e825] [cursor=pointer]:
+              - img [ref=e826]
+            - button "Delete" [ref=e829] [cursor=pointer]:
+              - img [ref=e830]
+        - generic [ref=e833]:
+          - generic [ref=e834]:
+            - generic [ref=e835]:
+              - generic [ref=e836]: code
+              - generic [ref=e837]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e838]: "@frappe.whitelist() def make_raw_material_request( items: str | frappe._dict, company: str, sales_order: str, project: str | None = None ):"
+          - generic [ref=e839]:
+            - button "Edit" [ref=e840] [cursor=pointer]:
+              - img [ref=e841]
+            - button "Delete" [ref=e844] [cursor=pointer]:
+              - img [ref=e845]
+        - generic [ref=e848]:
+          - generic [ref=e849]:
+            - generic [ref=e850]:
+              - generic [ref=e851]: code
+              - generic [ref=e852]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e853]: "@frappe.whitelist() def make_inter_company_purchase_order(source_name: str, target_doc: str | Document | None = None): from erpnext.account"
+          - generic [ref=e854]:
+            - button "Edit" [ref=e855] [cursor=pointer]:
+              - img [ref=e856]
+            - button "Delete" [ref=e859] [cursor=pointer]:
+              - img [ref=e860]
+        - generic [ref=e863]:
+          - generic [ref=e864]:
+            - generic [ref=e865]:
+              - generic [ref=e866]: code
+              - generic [ref=e867]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e868]: "@frappe.whitelist() def create_pick_list(source_name: str, target_doc: str | Document | None = None): def validate_sales_order(): so = fr"
+          - generic [ref=e869]:
+            - button "Edit" [ref=e870] [cursor=pointer]:
+              - img [ref=e871]
+            - button "Delete" [ref=e874] [cursor=pointer]:
+              - img [ref=e875]
+        - generic [ref=e878]:
+          - generic [ref=e879]:
+            - generic [ref=e880]:
+              - generic [ref=e881]: code
+              - generic [ref=e882]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py
+            - generic [ref=e883]: "@frappe.whitelist() def make_subcontracting_inward_order(source_name: str, target_doc: str | Document | None = None): if not is_so_fully_su"
+          - generic [ref=e884]:
+            - button "Edit" [ref=e885] [cursor=pointer]:
+              - img [ref=e886]
+            - button "Delete" [ref=e889] [cursor=pointer]:
+              - img [ref=e890]
+        - generic [ref=e893]:
+          - generic [ref=e894]:
+            - generic [ref=e895]:
+              - generic [ref=e896]: code
+              - generic [ref=e897]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py::is_so_fully_subcontracted
+            - generic [ref=e898]: "def is_so_fully_subcontracted(so_name: str) -> bool: table = frappe.qb.DocType(\"Sales Order Item\") query = ( frappe.qb.from_(table) .s"
+          - generic [ref=e899]:
+            - button "Edit" [ref=e900] [cursor=pointer]:
+              - img [ref=e901]
+            - button "Delete" [ref=e904] [cursor=pointer]:
+              - img [ref=e905]
+        - generic [ref=e908]:
+          - generic [ref=e909]:
+            - generic [ref=e910]:
+              - generic [ref=e911]: code
+              - generic [ref=e912]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py::get_mapped_subcontracting_inward_order
+            - generic [ref=e913]: "def get_mapped_subcontracting_inward_order( source_name: str, target_doc: str | Document | None = None ) -> Document: def post_process(sou"
+          - generic [ref=e914]:
+            - button "Edit" [ref=e915] [cursor=pointer]:
+              - img [ref=e916]
+            - button "Delete" [ref=e919] [cursor=pointer]:
+              - img [ref=e920]
+        - generic [ref=e923]:
+          - generic [ref=e924]:
+            - generic [ref=e925]:
+              - generic [ref=e926]: code
+              - generic [ref=e927]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/sales_order.js
+            - generic [ref=e928]: "// Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors // License: GNU General Public License v3. See license.txt cur_frm.cs"
+          - generic [ref=e929]:
+            - button "Edit" [ref=e930] [cursor=pointer]:
+              - img [ref=e931]
+            - button "Delete" [ref=e934] [cursor=pointer]:
+              - img [ref=e935]
+        - generic [ref=e938]:
+          - generic [ref=e939]:
+            - generic [ref=e940]:
+              - generic [ref=e941]: code
+              - generic [ref=e942]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/sales_order.js
+            - generic [ref=e943]: "frappe.ui.form.on(\"Sales Order\", { setup: function (frm) { frm.custom_make_buttons = { \"Delivery Note\": \"Delivery Note\", \"Pick List"
+          - generic [ref=e944]:
+            - button "Edit" [ref=e945] [cursor=pointer]:
+              - img [ref=e946]
+            - button "Delete" [ref=e949] [cursor=pointer]:
+              - img [ref=e950]
+        - generic [ref=e953]:
+          - generic [ref=e954]:
+            - generic [ref=e955]:
+              - generic [ref=e956]: code
+              - generic [ref=e957]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/sales_order.js
+            - generic [ref=e958]: "frappe.ui.form.on(\"Sales Order Item\", { item_code: async function (frm, cdt, cdn) { var row = locals[cdt][cdn]; if (frm.doc.delivery_da"
+          - generic [ref=e959]:
+            - button "Edit" [ref=e960] [cursor=pointer]:
+              - img [ref=e961]
+            - button "Delete" [ref=e964] [cursor=pointer]:
+              - img [ref=e965]
+        - generic [ref=e968]:
+          - generic [ref=e969]:
+            - generic [ref=e970]:
+              - generic [ref=e971]: code
+              - generic [ref=e972]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/sales_order.js
+            - generic [ref=e973]: "erpnext.selling.SalesOrderController = class SalesOrderController extends erpnext.selling.SellingController { setup(doc) { this.setup_acc"
+          - generic [ref=e974]:
+            - button "Edit" [ref=e975] [cursor=pointer]:
+              - img [ref=e976]
+            - button "Delete" [ref=e979] [cursor=pointer]:
+              - img [ref=e980]
+        - generic [ref=e983]:
+          - generic [ref=e984]:
+            - generic [ref=e985]:
+              - generic [ref=e986]: code
+              - generic [ref=e987]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/sales_order.js
+            - generic [ref=e988]: "extend_cscript(cur_frm.cscript, new erpnext.selling.SalesOrderController({ frm: cur_frm }));"
+          - generic [ref=e989]:
+            - button "Edit" [ref=e990] [cursor=pointer]:
+              - img [ref=e991]
+            - button "Delete" [ref=e994] [cursor=pointer]:
+              - img [ref=e995]
+      - generic [ref=e998]:
+        - generic [ref=e999]: Page 1
+        - generic [ref=e1000]:
+          - button "Prev" [disabled] [ref=e1001]
+          - button "Next" [ref=e1002] [cursor=pointer]

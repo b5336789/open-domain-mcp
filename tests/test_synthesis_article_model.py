@@ -13,11 +13,19 @@ def _article(**kw):
     return Article(**base)
 
 
-def test_article_id_is_stable_and_order_independent():
+def test_article_id_depends_only_on_topic():
+    # Same topic, completely different member chunks → same id, so re-synthesis
+    # under a shifting corpus overwrites one article per topic instead of
+    # accumulating a new row each time the retrieval set moves.
     a1 = _article(source_chunk_ids=["a", "b"])
-    a2 = _article(source_chunk_ids=["b", "a"])
-    assert a1.id == a2.id  # sorted member ids → idempotent regardless of order
+    a2 = _article(source_chunk_ids=["x", "y", "z"])
+    assert a1.id == a2.id
     assert _article(topic="other").id != a1.id
+
+
+def test_id_for_topic_matches_article_id():
+    a = _article(topic="billing engine")
+    assert Article.id_for_topic("billing engine") == a.id
 
 
 def test_article_duck_types_chunk_storage_interface():

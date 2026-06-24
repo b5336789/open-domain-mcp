@@ -1,0 +1,266 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e12]:
+          - generic [ref=e13]: openDomainMcp
+          - generic [ref=e14]: knowledge console
+      - generic [ref=e15]:
+        - generic [ref=e16]: Knowledge base
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - combobox [ref=e19]:
+              - option "domain_knowledge (176)" [selected]
+              - option "erpnext (134)"
+              - option "project_self (1185)"
+            - generic: ▾
+          - button "New knowledge base" [ref=e20] [cursor=pointer]:
+            - img [ref=e21]
+          - button "Delete knowledge base" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+      - navigation [ref=e27]:
+        - link "Dashboard" [ref=e28] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e29]
+          - text: Dashboard
+        - link "Ingest" [ref=e34] [cursor=pointer]:
+          - /url: "#/ingest"
+          - img [ref=e35]
+          - text: Ingest
+        - link "Explore" [ref=e37] [cursor=pointer]:
+          - /url: "#/explore"
+          - img [ref=e38]
+          - text: Explore
+        - link "Ask" [ref=e41] [cursor=pointer]:
+          - /url: "#/ask"
+          - img [ref=e42]
+          - text: Ask
+        - link "Browse / Edit" [ref=e45] [cursor=pointer]:
+          - /url: "#/browse"
+          - img [ref=e46]
+          - text: Browse / Edit
+        - link "Articles" [ref=e47] [cursor=pointer]:
+          - /url: "#/articles"
+          - img [ref=e48]
+          - text: Articles
+        - link "Review" [ref=e52] [cursor=pointer]:
+          - /url: "#/review"
+          - img [ref=e53]
+          - text: Review
+        - link "Graph" [ref=e56] [cursor=pointer]:
+          - /url: "#/graph"
+          - img [ref=e57]
+          - text: Graph
+        - link "Advisor" [ref=e62] [cursor=pointer]:
+          - /url: "#/advisor"
+          - img [ref=e63]
+          - text: Advisor
+        - link "MCP Builder" [ref=e65] [cursor=pointer]:
+          - /url: "#/mcp"
+          - img [ref=e66]
+          - text: MCP Builder
+        - link "Simulator" [ref=e70] [cursor=pointer]:
+          - /url: "#/simulator"
+          - img [ref=e71]
+          - text: Simulator
+        - link "Metrics" [ref=e73] [cursor=pointer]:
+          - /url: "#/metrics"
+          - img [ref=e74]
+          - text: Metrics
+        - link "Settings" [ref=e77] [cursor=pointer]:
+          - /url: "#/settings"
+          - img [ref=e78]
+          - text: Settings
+      - generic [ref=e81]:
+        - button "Dark mode" [ref=e82] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e85]: Dark mode
+        - paragraph [ref=e86]: Domain knowledge workflow platform
+  - main [ref=e87]:
+    - generic [ref=e1760]:
+      - generic [ref=e1762]:
+        - img [ref=e1764]
+        - generic [ref=e1768]:
+          - heading "MCP Builder" [level=2] [ref=e1769]
+          - paragraph [ref=e1770]: Configure retrieval policy and publish role-specific MCP views.
+      - generic [ref=e1771]:
+        - heading "Retrieval policy" [level=3] [ref=e1772]
+        - generic [ref=e1773]:
+          - generic [ref=e1774]:
+            - generic [ref=e1775]: Approved knowledge only
+            - generic [ref=e1776]: Views and search return only reviewed-and-approved knowledge.
+          - switch [ref=e1777] [cursor=pointer]
+        - generic [ref=e1779]:
+          - generic [ref=e1780]:
+            - generic [ref=e1781]: Cross-encoder re-ranking
+            - generic [ref=e1782]: Re-rank fused candidates for higher precision (slower).
+          - switch [ref=e1783] [cursor=pointer]
+        - generic [ref=e1785]:
+          - generic [ref=e1786]:
+            - generic [ref=e1787]: Search mode
+            - generic [ref=e1788]: hybrid fuses dense + BM25
+          - combobox [ref=e1789]:
+            - option "hybrid" [selected]
+            - option "vector"
+        - button "Save policy" [ref=e1791] [cursor=pointer]
+      - generic [ref=e1792]:
+        - generic [ref=e1793]:
+          - heading "HTTP endpoints" [level=3] [ref=e1794]
+          - paragraph [ref=e1795]: Publish a view to serve it live over HTTP (SSE) at its endpoint URL.
+        - generic [ref=e1813]:
+          - generic [ref=e1814]:
+            - generic [ref=e1815]:
+              - generic [ref=e1816]:
+                - generic [ref=e1817]: Product MCP
+                - generic [ref=e1818]: unpublished
+              - generic [ref=e1819]:
+                - code [ref=e1820]: http://127.0.0.1:8088/mcp/product
+                - button "Copy endpoint URL" [ref=e1821] [cursor=pointer]:
+                  - img [ref=e1822]
+            - button "Publish" [ref=e1825] [cursor=pointer]
+          - generic [ref=e1826]:
+            - generic [ref=e1827]:
+              - generic [ref=e1828]:
+                - generic [ref=e1829]: Operations MCP
+                - generic [ref=e1830]: unpublished
+              - generic [ref=e1831]:
+                - code [ref=e1832]: http://127.0.0.1:8088/mcp/operations
+                - button "Copy endpoint URL" [ref=e1833] [cursor=pointer]:
+                  - img [ref=e1834]
+            - button "Publish" [ref=e1837] [cursor=pointer]
+          - generic [ref=e1838]:
+            - generic [ref=e1839]:
+              - generic [ref=e1840]:
+                - generic [ref=e1841]: Developer MCP
+                - generic [ref=e1842]: unpublished
+              - generic [ref=e1843]:
+                - code [ref=e1844]: http://127.0.0.1:8088/mcp/developer
+                - button "Copy endpoint URL" [ref=e1845] [cursor=pointer]:
+                  - img [ref=e1846]
+            - button "Publish" [ref=e1849] [cursor=pointer]
+          - generic [ref=e1850]:
+            - generic [ref=e1851]:
+              - generic [ref=e1852]:
+                - generic [ref=e1853]: Support MCP
+                - generic [ref=e1854]: unpublished
+              - generic [ref=e1855]:
+                - code [ref=e1856]: http://127.0.0.1:8088/mcp/support
+                - button "Copy endpoint URL" [ref=e1857] [cursor=pointer]:
+                  - img [ref=e1858]
+            - button "Publish" [ref=e1861] [cursor=pointer]
+          - generic [ref=e1862]:
+            - generic [ref=e1863]:
+              - generic [ref=e1864]:
+                - generic [ref=e1865]: Architecture MCP
+                - generic [ref=e1866]: unpublished
+              - generic [ref=e1867]:
+                - code [ref=e1868]: http://127.0.0.1:8088/mcp/architecture
+                - button "Copy endpoint URL" [ref=e1869] [cursor=pointer]:
+                  - img [ref=e1870]
+            - button "Publish" [ref=e1873] [cursor=pointer]
+      - generic [ref=e1874]:
+        - generic [ref=e1875]:
+          - generic [ref=e1876]:
+            - generic [ref=e1877]:
+              - heading "Product MCP" [level=3] [ref=e1878]
+              - generic [ref=e1879]: product
+            - paragraph [ref=e1880]: Product usage understanding
+          - generic [ref=e1881]:
+            - generic [ref=e1882]:
+              - code [ref=e1883]: get_feature
+              - generic [ref=e1884]: knowledge_type=Feature
+            - generic [ref=e1885]:
+              - code [ref=e1886]: get_workflow
+              - generic [ref=e1887]: knowledge_type=Workflow
+            - generic [ref=e1888]:
+              - code [ref=e1889]: get_constraint
+              - generic [ref=e1890]: knowledge_type=Constraint
+            - generic [ref=e1891]:
+              - code [ref=e1892]: search_product_knowledge
+              - generic [ref=e1893]: audience=product_manager
+          - button "Publish" [ref=e1895] [cursor=pointer]
+        - generic [ref=e1896]:
+          - generic [ref=e1897]:
+            - generic [ref=e1898]:
+              - heading "Operations MCP" [level=3] [ref=e1899]
+              - generic [ref=e1900]: operations
+            - paragraph [ref=e1901]: Execution guidance
+          - generic [ref=e1902]:
+            - generic [ref=e1903]:
+              - code [ref=e1904]: get_runbook
+              - generic [ref=e1905]: knowledge_type=Runbook
+            - generic [ref=e1906]:
+              - code [ref=e1907]: get_troubleshooting
+              - generic [ref=e1908]: knowledge_type=Troubleshooting
+            - generic [ref=e1909]:
+              - code [ref=e1910]: get_incident_response
+              - generic [ref=e1911]: knowledge_type=Runbook
+              - generic [ref=e1912]: audience=operations
+            - generic [ref=e1913]:
+              - code [ref=e1914]: get_rollback_procedure
+              - generic [ref=e1915]: knowledge_type=Runbook
+          - button "Publish" [ref=e1917] [cursor=pointer]
+        - generic [ref=e1918]:
+          - generic [ref=e1919]:
+            - generic [ref=e1920]:
+              - heading "Developer MCP" [level=3] [ref=e1921]
+              - generic [ref=e1922]: developer
+            - paragraph [ref=e1923]: Code understanding
+          - generic [ref=e1924]:
+            - generic [ref=e1925]:
+              - code [ref=e1926]: search_code
+              - generic [ref=e1927]: kind=code
+            - generic [ref=e1928]:
+              - code [ref=e1929]: get_class
+              - generic [ref=e1930]: kind=code
+            - generic [ref=e1931]:
+              - code [ref=e1932]: get_function
+              - generic [ref=e1933]: kind=code
+            - generic [ref=e1934]:
+              - code [ref=e1935]: trace_dependency
+              - generic [ref=e1936]: kind=code
+            - generic [ref=e1937]:
+              - code [ref=e1938]: get_api_implementation
+              - generic [ref=e1939]: knowledge_type=API
+          - button "Publish" [ref=e1941] [cursor=pointer]
+        - generic [ref=e1942]:
+          - generic [ref=e1943]:
+            - generic [ref=e1944]:
+              - heading "Support MCP" [level=3] [ref=e1945]
+              - generic [ref=e1946]: support
+            - paragraph [ref=e1947]: Customer support
+          - generic [ref=e1948]:
+            - generic [ref=e1949]:
+              - code [ref=e1950]: get_known_issue
+              - generic [ref=e1951]: knowledge_type=Error
+            - generic [ref=e1952]:
+              - code [ref=e1953]: get_error_explanation
+              - generic [ref=e1954]: knowledge_type=Error
+            - generic [ref=e1955]:
+              - code [ref=e1956]: get_resolution_steps
+              - generic [ref=e1957]: knowledge_type=Troubleshooting
+            - generic [ref=e1958]:
+              - code [ref=e1959]: search_faq
+              - generic [ref=e1960]: knowledge_type=FAQ
+          - button "Publish" [ref=e1962] [cursor=pointer]
+        - generic [ref=e1963]:
+          - generic [ref=e1964]:
+            - generic [ref=e1965]:
+              - heading "Architecture MCP" [level=3] [ref=e1966]
+              - generic [ref=e1967]: architecture
+            - paragraph [ref=e1968]: System understanding
+          - generic [ref=e1969]:
+            - generic [ref=e1970]:
+              - code [ref=e1971]: get_component
+              - generic [ref=e1972]: knowledge_type=Architecture
+            - generic [ref=e1973]:
+              - code [ref=e1974]: get_dependency
+              - generic [ref=e1975]: knowledge_type=Architecture
+            - generic [ref=e1976]:
+              - code [ref=e1977]: get_dataflow
+              - generic [ref=e1978]: knowledge_type=Architecture
+            - generic [ref=e1979]:
+              - code [ref=e1980]: search_architecture
+              - generic [ref=e1981]: audience=solutions_architect
+          - button "Publish" [ref=e1983] [cursor=pointer]

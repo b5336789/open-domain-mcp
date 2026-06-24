@@ -1,0 +1,206 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e12]:
+          - generic [ref=e13]: openDomainMcp
+          - generic [ref=e14]: knowledge console
+      - generic [ref=e15]:
+        - generic [ref=e16]: Knowledge base
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - combobox [ref=e19]:
+              - option "domain_knowledge (176)" [selected]
+              - option "erpnext (134)"
+              - option "project_self (1185)"
+            - generic: ▾
+          - button "New knowledge base" [ref=e20] [cursor=pointer]:
+            - img [ref=e21]
+          - button "Delete knowledge base" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+      - navigation [ref=e27]:
+        - link "Dashboard" [ref=e28] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e29]
+          - text: Dashboard
+        - link "Ingest" [ref=e34] [cursor=pointer]:
+          - /url: "#/ingest"
+          - img [ref=e35]
+          - text: Ingest
+        - link "Explore" [ref=e37] [cursor=pointer]:
+          - /url: "#/explore"
+          - img [ref=e38]
+          - text: Explore
+        - link "Ask" [ref=e41] [cursor=pointer]:
+          - /url: "#/ask"
+          - img [ref=e42]
+          - text: Ask
+        - link "Browse / Edit" [ref=e45] [cursor=pointer]:
+          - /url: "#/browse"
+          - img [ref=e46]
+          - text: Browse / Edit
+        - link "Articles" [ref=e47] [cursor=pointer]:
+          - /url: "#/articles"
+          - img [ref=e48]
+          - text: Articles
+        - link "Review" [ref=e52] [cursor=pointer]:
+          - /url: "#/review"
+          - img [ref=e53]
+          - text: Review
+        - link "Graph" [ref=e56] [cursor=pointer]:
+          - /url: "#/graph"
+          - img [ref=e57]
+          - text: Graph
+        - link "Advisor" [ref=e62] [cursor=pointer]:
+          - /url: "#/advisor"
+          - img [ref=e63]
+          - text: Advisor
+        - link "MCP Builder" [ref=e65] [cursor=pointer]:
+          - /url: "#/mcp"
+          - img [ref=e66]
+          - text: MCP Builder
+        - link "Simulator" [ref=e70] [cursor=pointer]:
+          - /url: "#/simulator"
+          - img [ref=e71]
+          - text: Simulator
+        - link "Metrics" [ref=e73] [cursor=pointer]:
+          - /url: "#/metrics"
+          - img [ref=e74]
+          - text: Metrics
+        - link "Settings" [ref=e77] [cursor=pointer]:
+          - /url: "#/settings"
+          - img [ref=e78]
+          - text: Settings
+      - generic [ref=e81]:
+        - button "Dark mode" [ref=e82] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e85]: Dark mode
+        - paragraph [ref=e86]: Domain knowledge workflow platform
+  - main [ref=e87]:
+    - generic [ref=e90]:
+      - generic [ref=e92]:
+        - img [ref=e94]
+        - generic [ref=e99]:
+          - heading "Dashboard" [level=2] [ref=e100]
+          - paragraph [ref=e101]: Status of the active knowledge base and the indexing pipeline.
+      - generic [ref=e102]:
+        - heading "Pipeline" [level=3] [ref=e103]:
+          - img [ref=e104]
+          - text: Pipeline
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]: load
+              - generic "6 sources" [ref=e111]
+            - generic [ref=e112]: →
+          - generic [ref=e113]:
+            - generic [ref=e114]:
+              - generic [ref=e115]: split
+              - generic "176 chunks" [ref=e116]
+            - generic [ref=e117]: →
+          - generic [ref=e118]:
+            - generic [ref=e119]:
+              - generic [ref=e120]: extract
+              - generic "on" [ref=e121]
+            - generic [ref=e122]: →
+          - generic [ref=e123]:
+            - generic [ref=e124]:
+              - generic [ref=e125]: embed
+              - generic "openai:text-embedding-qwen3-embedding-0.6b" [ref=e126]
+            - generic [ref=e127]: →
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: store
+              - generic "domain_knowledge" [ref=e131]
+            - generic [ref=e132]: →
+          - generic [ref=e134]:
+            - generic [ref=e135]: search
+            - generic "hybrid" [ref=e136]
+      - generic [ref=e137]:
+        - generic [ref=e138]:
+          - generic [ref=e139]:
+            - img [ref=e140]
+            - text: Indexed chunks
+          - generic [ref=e144]: "176"
+        - generic [ref=e145]:
+          - generic [ref=e146]:
+            - img [ref=e147]
+            - text: Collection
+          - generic [ref=e150]: domain_knowledge
+        - generic [ref=e151]:
+          - generic [ref=e152]:
+            - img [ref=e153]
+            - text: Embedder
+          - generic [ref=e156]: openai:text-embedding-qwen3-embedding-0.6b
+        - generic [ref=e157]:
+          - generic [ref=e158]: Vector dim
+          - generic [ref=e159]: "1024"
+        - generic [ref=e160]:
+          - generic [ref=e161]: Extraction
+          - generic [ref=e163]: "on"
+        - generic [ref=e164]:
+          - generic [ref=e165]:
+            - img [ref=e166]
+            - text: Data dir
+          - generic [ref=e168]: .opendomain
+      - generic [ref=e169]:
+        - heading "Sources (6)" [level=3] [ref=e170]:
+          - img [ref=e171]
+          - text: Sources
+          - generic [ref=e175]: (6)
+        - generic [ref=e176]:
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - generic "/Users/b5336789/Documents/workspace/open-domain-mcp/src/opendomainmcp/config.py" [ref=e179]
+              - generic [ref=e180]:
+                - generic [ref=e181]: code
+                - generic [ref=e182]: approved 9
+            - generic [ref=e183]: 10chunks
+            - button "Delete /Users/b5336789/Documents/workspace/open-domain-mcp/src/opendomainmcp/config.py" [ref=e184] [cursor=pointer]:
+              - img [ref=e185]
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - generic "/tmp/erpnext-scope/accounting/pricing_rule.py" [ref=e190]
+              - generic [ref=e191]:
+                - generic [ref=e192]: code
+                - generic [ref=e193]: approved 24
+            - generic [ref=e194]: 32chunks
+            - button "Delete /tmp/erpnext-scope/accounting/pricing_rule.py" [ref=e195] [cursor=pointer]:
+              - img [ref=e196]
+          - generic [ref=e199]:
+            - generic [ref=e200]:
+              - generic "/tmp/erpnext-scope/accounting/pricing_rule_utils.py" [ref=e201]
+              - generic [ref=e202]:
+                - generic [ref=e203]: code
+                - generic [ref=e204]: approved 26
+            - generic [ref=e205]: 29chunks
+            - button "Delete /tmp/erpnext-scope/accounting/pricing_rule_utils.py" [ref=e206] [cursor=pointer]:
+              - img [ref=e207]
+          - generic [ref=e210]:
+            - generic [ref=e211]:
+              - generic "/tmp/erpnext-scope/accounting/tax_rule.py" [ref=e212]
+              - generic [ref=e213]:
+                - generic [ref=e214]: code
+                - generic [ref=e215]: approved 13
+            - generic [ref=e216]: 14chunks
+            - button "Delete /tmp/erpnext-scope/accounting/tax_rule.py" [ref=e217] [cursor=pointer]:
+              - img [ref=e218]
+          - generic [ref=e221]:
+            - generic [ref=e222]:
+              - generic "/tmp/erpnext-scope/accounting/taxes_and_totals.py" [ref=e223]
+              - generic [ref=e224]:
+                - generic [ref=e225]: code
+                - generic [ref=e226]: approved 49
+            - generic [ref=e227]: 59chunks
+            - button "Delete /tmp/erpnext-scope/accounting/taxes_and_totals.py" [ref=e228] [cursor=pointer]:
+              - img [ref=e229]
+          - generic [ref=e232]:
+            - generic [ref=e233]:
+              - generic "README.md" [ref=e234]
+              - generic [ref=e235]:
+                - generic [ref=e236]: text
+                - generic [ref=e237]: approved 21
+            - generic [ref=e238]: 32chunks
+            - button "Delete README.md" [ref=e239] [cursor=pointer]:
+              - img [ref=e240]

@@ -1,0 +1,140 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e12]:
+          - generic [ref=e13]: openDomainMcp
+          - generic [ref=e14]: knowledge console
+      - generic [ref=e15]:
+        - generic [ref=e16]: Knowledge base
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - combobox [ref=e19]:
+              - option "domain_knowledge (243)" [selected]
+            - generic: ▾
+          - button "New knowledge base" [ref=e20] [cursor=pointer]:
+            - img [ref=e21]
+          - button "Delete knowledge base" [disabled] [ref=e23]:
+            - img [ref=e24]
+      - navigation [ref=e27]:
+        - link "Dashboard" [ref=e28] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e29]
+          - text: Dashboard
+        - link "Ingest" [ref=e34] [cursor=pointer]:
+          - /url: "#/ingest"
+          - img [ref=e35]
+          - text: Ingest
+        - link "Explore" [ref=e37] [cursor=pointer]:
+          - /url: "#/explore"
+          - img [ref=e38]
+          - text: Explore
+        - link "Ask" [ref=e41] [cursor=pointer]:
+          - /url: "#/ask"
+          - img [ref=e42]
+          - text: Ask
+        - link "Browse / Edit" [ref=e45] [cursor=pointer]:
+          - /url: "#/browse"
+          - img [ref=e46]
+          - text: Browse / Edit
+        - link "Articles" [ref=e47] [cursor=pointer]:
+          - /url: "#/articles"
+          - img [ref=e48]
+          - text: Articles
+        - link "Review" [ref=e52] [cursor=pointer]:
+          - /url: "#/review"
+          - img [ref=e53]
+          - text: Review
+        - link "Graph" [ref=e56] [cursor=pointer]:
+          - /url: "#/graph"
+          - img [ref=e57]
+          - text: Graph
+        - link "Advisor" [ref=e62] [cursor=pointer]:
+          - /url: "#/advisor"
+          - img [ref=e63]
+          - text: Advisor
+        - link "MCP Builder" [ref=e65] [cursor=pointer]:
+          - /url: "#/mcp"
+          - img [ref=e66]
+          - text: MCP Builder
+        - link "Simulator" [ref=e70] [cursor=pointer]:
+          - /url: "#/simulator"
+          - img [ref=e71]
+          - text: Simulator
+        - link "Metrics" [ref=e73] [cursor=pointer]:
+          - /url: "#/metrics"
+          - img [ref=e74]
+          - text: Metrics
+        - link "Settings" [ref=e77] [cursor=pointer]:
+          - /url: "#/settings"
+          - img [ref=e78]
+          - text: Settings
+      - generic [ref=e81]:
+        - button "Dark mode" [ref=e82] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e85]: Dark mode
+        - paragraph [ref=e86]: Domain knowledge workflow platform
+  - main [ref=e87]:
+    - generic [ref=e361]:
+      - generic [ref=e362]:
+        - generic [ref=e363]:
+          - img [ref=e365]
+          - generic [ref=e369]:
+            - heading "Articles" [level=2] [ref=e370]
+            - paragraph [ref=e371]: Synthesized business-meaning articles from your knowledge base.
+        - textbox "Filter articles…" [ref=e373]
+      - generic [ref=e374]:
+        - generic [ref=e375]:
+          - button "Sales Order Cancellation and Status Management sales order relevance 0.90 cross-validated" [ref=e376] [cursor=pointer]:
+            - generic [ref=e377]: Sales Order Cancellation and Status Management
+            - generic [ref=e378]: sales order
+            - generic [ref=e379]:
+              - generic [ref=e380]: relevance 0.90
+              - generic [ref=e381]: cross-validated
+          - button "Customer Validation in Sales Orders customer relevance 0.80 cross-validated" [ref=e382] [cursor=pointer]:
+            - generic [ref=e383]: Customer Validation in Sales Orders
+            - generic [ref=e384]: customer
+            - generic [ref=e385]:
+              - generic [ref=e386]: relevance 0.80
+              - generic [ref=e387]: cross-validated
+          - button "Purchase Order Creation from Sales Orders purchase order relevance 0.80 cross-validated" [ref=e388] [cursor=pointer]:
+            - generic [ref=e389]: Purchase Order Creation from Sales Orders
+            - generic [ref=e390]: purchase order
+            - generic [ref=e391]:
+              - generic [ref=e392]: relevance 0.80
+              - generic [ref=e393]: cross-validated
+          - button "Understanding Per Billed in ERPNext per billed relevance 0.70 cross-validated" [ref=e394] [cursor=pointer]:
+            - generic [ref=e395]: Understanding Per Billed in ERPNext
+            - generic [ref=e396]: per billed
+            - generic [ref=e397]:
+              - generic [ref=e398]: relevance 0.70
+              - generic [ref=e399]: cross-validated
+          - button "Sales Order Validation and Validation in ERPNext validation relevance 0.70 cross-validated" [ref=e400] [cursor=pointer]:
+            - generic [ref=e401]: Sales Order Validation and Validation in ERPNext
+            - generic [ref=e402]: validation
+            - generic [ref=e403]:
+              - generic [ref=e404]: relevance 0.70
+              - generic [ref=e405]: cross-validated
+          - button "Sales Order's Relationship to Production Planning and Work Orders sales_order relevance 0.70 cross-validated" [ref=e406] [cursor=pointer]:
+            - generic [ref=e407]: Sales Order's Relationship to Production Planning and Work Orders
+            - generic [ref=e408]: sales_order
+            - generic [ref=e409]:
+              - generic [ref=e410]: relevance 0.70
+              - generic [ref=e411]: cross-validated
+        - generic [ref=e412]:
+          - generic [ref=e413]:
+            - heading "Sales Order Cancellation and Status Management" [level=2] [ref=e414]
+            - generic [ref=e415]: sales order
+          - generic [ref=e416]: A Sales Order in ERPNext serves as a document that captures customer orders, including details like items, quantities, prices, and delivery terms. It's central to the sales process, enabling tracking from order creation through fulfillment and billing [4]. When a Sales Order is canceled, certain conditions must be met; for example, if linked sales invoices have already been submitted, the system prevents cancellation to maintain data integrity [7]. Specifically, ERPNext throws an error if a Sales Order has been linked to submitted sales invoices or maintenance visit records, ensuring that cancellation doesn't disrupt related transactions [7][8].
+          - generic [ref=e417]:
+            - generic [ref=e418]: Sources
+            - list [ref=e419]:
+              - listitem [ref=e420]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py:870
+              - listitem [ref=e421]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py:963
+              - listitem [ref=e422]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/sales_order.py:526
+              - listitem [ref=e423]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/sales_order_list.js:1
+              - listitem [ref=e424]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/mapper.py:1049
+              - listitem [ref=e425]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/sales_order.py:779
+              - listitem [ref=e426]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/test_sales_order.py:1779
+              - listitem [ref=e427]: /Users/b5336789/.claude/jobs/c4ee47d9/tmp/erpnext/erpnext/selling/doctype/sales_order/test_sales_order.py:1818

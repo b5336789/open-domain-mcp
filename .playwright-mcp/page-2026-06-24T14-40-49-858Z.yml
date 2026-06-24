@@ -1,0 +1,171 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e12]:
+          - generic [ref=e13]: openDomainMcp
+          - generic [ref=e14]: knowledge console
+      - generic [ref=e15]:
+        - generic [ref=e16]: Knowledge base
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - combobox [ref=e19]:
+              - option "domain_knowledge (176)" [selected]
+              - option "erpnext (134)"
+              - option "project_self (1185)"
+            - generic: ▾
+          - button "New knowledge base" [ref=e20] [cursor=pointer]:
+            - img [ref=e21]
+          - button "Delete knowledge base" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+      - navigation [ref=e27]:
+        - link "Dashboard" [ref=e28] [cursor=pointer]:
+          - /url: "#/"
+          - img [ref=e29]
+          - text: Dashboard
+        - link "Ingest" [ref=e34] [cursor=pointer]:
+          - /url: "#/ingest"
+          - img [ref=e35]
+          - text: Ingest
+        - link "Explore" [ref=e37] [cursor=pointer]:
+          - /url: "#/explore"
+          - img [ref=e38]
+          - text: Explore
+        - link "Ask" [ref=e41] [cursor=pointer]:
+          - /url: "#/ask"
+          - img [ref=e42]
+          - text: Ask
+        - link "Browse / Edit" [ref=e45] [cursor=pointer]:
+          - /url: "#/browse"
+          - img [ref=e46]
+          - text: Browse / Edit
+        - link "Articles" [ref=e47] [cursor=pointer]:
+          - /url: "#/articles"
+          - img [ref=e48]
+          - text: Articles
+        - link "Review" [ref=e52] [cursor=pointer]:
+          - /url: "#/review"
+          - img [ref=e53]
+          - text: Review
+        - link "Graph" [ref=e56] [cursor=pointer]:
+          - /url: "#/graph"
+          - img [ref=e57]
+          - text: Graph
+        - link "Advisor" [ref=e62] [cursor=pointer]:
+          - /url: "#/advisor"
+          - img [ref=e63]
+          - text: Advisor
+        - link "MCP Builder" [ref=e65] [cursor=pointer]:
+          - /url: "#/mcp"
+          - img [ref=e66]
+          - text: MCP Builder
+        - link "Simulator" [ref=e70] [cursor=pointer]:
+          - /url: "#/simulator"
+          - img [ref=e71]
+          - text: Simulator
+        - link "Metrics" [ref=e73] [cursor=pointer]:
+          - /url: "#/metrics"
+          - img [ref=e74]
+          - text: Metrics
+        - link "Settings" [ref=e77] [cursor=pointer]:
+          - /url: "#/settings"
+          - img [ref=e78]
+          - text: Settings
+      - generic [ref=e81]:
+        - button "Dark mode" [ref=e82] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e85]: Dark mode
+        - paragraph [ref=e86]: Domain knowledge workflow platform
+  - main [ref=e87]:
+    - generic [ref=e1985]:
+      - generic [ref=e1987]:
+        - img [ref=e1989]
+        - generic [ref=e1991]:
+          - heading "Agent Simulator" [level=2] [ref=e1992]
+          - paragraph [ref=e1993]: Run a task against an MCP view and inspect the grounding it returns.
+      - generic [ref=e1994]:
+        - generic [ref=e1995]:
+          - generic [ref=e1996]:
+            - generic [ref=e1997]: Agent task
+            - textbox "e.g. How do I roll back a failed deployment?" [ref=e1998]: How are taxes and totals calculated on an invoice?
+          - generic [ref=e1999]:
+            - generic [ref=e2000]: MCP view
+            - combobox [ref=e2001]:
+              - option "Product MCP" [selected]
+              - option "Operations MCP"
+              - option "Developer MCP"
+              - option "Support MCP"
+              - option "Architecture MCP"
+        - button "Simulate" [ref=e2003] [cursor=pointer]
+      - generic [ref=e2004]:
+        - generic [ref=e2005]:
+          - generic [ref=e2006]: Context hits
+          - generic [ref=e2007]: "7"
+        - generic [ref=e2008]:
+          - generic [ref=e2009]: Avg score
+          - generic [ref=e2010]: "0.237"
+        - generic [ref=e2011]:
+          - generic [ref=e2012]: Types
+          - generic [ref=e2013]: Constraint
+          - generic [ref=e2014]: Feature
+          - generic [ref=e2015]: Workflow
+      - generic [ref=e2016]:
+        - generic [ref=e2017]:
+          - code [ref=e2018]: get_feature()
+          - generic [ref=e2019]: 2 results
+        - generic [ref=e2020]:
+          - generic [ref=e2021]:
+            - generic [ref=e2022]:
+              - generic [ref=e2023]: Feature
+              - generic [ref=e2024]: README.md
+              - generic [ref=e2025]: "0.138"
+            - generic [ref=e2026]: OpenAI or Voyage as drop-in cloud backends. - **Runtime-editable settings** persisted to disk and editable from the web UI. - **Security rails** — confine ingestion to an allowed root (symlink-safe)
+          - generic [ref=e2027]:
+            - generic [ref=e2028]:
+              - generic [ref=e2029]: Feature
+              - generic [ref=e2030]: README.md
+              - generic [ref=e2031]: "0.214"
+            - generic [ref=e2032]: "- **AST-aware code chunking** for 11 languages via bundled tree-sitter grammars, with graceful fallbacks for everything else. - **LLM knowledge extraction** — Claude produces a `summary / concepts /"
+      - generic [ref=e2033]:
+        - generic [ref=e2034]:
+          - code [ref=e2035]: get_workflow()
+          - generic [ref=e2036]: 4 results
+        - generic [ref=e2037]:
+          - generic [ref=e2038]:
+            - generic [ref=e2039]:
+              - generic [ref=e2040]: Workflow
+              - generic [ref=e2041]: README.md
+              - generic [ref=e2042]: "0.304"
+            - generic [ref=e2043]: "If no chunk matches, it returns *\"No indexed content matched this question.\"* Without an `ANTHROPIC_API_KEY` it **fails loudly** with a clear message rather than fabricating an answer. --- ## Module"
+          - generic [ref=e2044]:
+            - generic [ref=e2045]:
+              - generic [ref=e2046]: Workflow
+              - generic [ref=e2047]: README.md
+              - generic [ref=e2048]: "0.281"
+            - generic [ref=e2049]: "**Reading the diagram:** dependencies are *injected* into the pipeline and store (extractor, embedder, reranker), which is why the entire stack can run offline in tests by swapping in fakes. --- ##"
+          - generic [ref=e2050]:
+            - generic [ref=e2051]:
+              - generic [ref=e2052]: Workflow
+              - generic [ref=e2053]: README.md
+              - generic [ref=e2054]: "0.269"
+            - generic [ref=e2055]: "- **`mode=\"vector\"`** skips the lexical/fusion branch entirely (pure dense). - **Filters** (`kind`, `language`, `symbol`) become a Chroma `where` clause; `source` is a substring post-filter. - **Re-"
+          - generic [ref=e2056]:
+            - generic [ref=e2057]:
+              - generic [ref=e2058]: Workflow
+              - generic [ref=e2059]: README.md
+              - generic [ref=e2060]: "0.150"
+            - generic [ref=e2061]: "```mermaid flowchart TD SEARCH[\"search(query, top_k, where, mode, source_contains)\"] SEARCH -->|\"over-fetch n = max(top_k*5, 30) when fusing / post-filtering\"| FORK(( )) FORK --> DENSE[\"DE"
+      - generic [ref=e2062]:
+        - generic [ref=e2063]:
+          - code [ref=e2064]: get_constraint()
+          - generic [ref=e2065]: 1 result
+        - generic [ref=e2067]:
+          - generic [ref=e2068]:
+            - generic [ref=e2069]: Constraint
+            - generic [ref=e2070]: /tmp/erpnext-scope/accounting/pricing_rule.py::validate_mixed_with_recursion
+            - generic [ref=e2071]: "0.302"
+          - generic [ref=e2072]: "def validate_mixed_with_recursion(self): if self.mixed_conditions and self.is_recursive: frappe.throw(_(\"Recursive Discounts with Mixed condition is not supported by the system\"))"
+      - generic [ref=e2074]:
+        - code [ref=e2075]: search_product_knowledge()
+        - generic [ref=e2076]: 0 results

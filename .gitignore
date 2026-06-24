@@ -44,3 +44,6 @@ src/opendomainmcp/api/static/
 # ERPNext benchmark corpus (re-fetched via setup_corpus.sh; do not commit GPL source)
 benchmarks/erpnext/.corpus/
 benchmarks/erpnext/*.report.json
+
+# Playwright MCP debug dumps (local artifacts)
+.playwright-mcp/

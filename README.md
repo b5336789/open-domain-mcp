@@ -75,6 +75,9 @@ searchable from the MCP server and the web UI, and vice versa.
   and lexical hits.
 - **Cited Q&A (`ask`)** — retrieval-augmented answers that cite their sources
   inline as `[n]`, streamed token-by-token over SSE.
+- **Synthesized articles (`synthesize`)** — autonomously distils the corpus into
+  topic-level, business-meaning articles, self-critiqued and grounded strictly in
+  retrieved chunks, then folded back into search and `ask`.
 - **Multiple knowledge bases** — first-class Chroma collections you can create,
   switch between, and drop.
 - **Incremental sync** — re-ingesting prunes stale chunks; directory sync prunes
@@ -435,40 +438,186 @@ command over stdio to give it retrieval tools across your knowledge base.
 opendomainmcp-web        # http://127.0.0.1:8000  (ODM_WEB_HOST / ODM_WEB_PORT to override)
 ```
 
-A six-page console (React SPA served by FastAPI):
+A multi-page console (React SPA served by FastAPI). The core pages:
 
 | Page | What it does |
 | --- | --- |
-| **Dashboard** | Collection status: chunk count, embedder, dimension, data dir |
+| **Dashboard** | Collection status: chunk count, embedder, dimension, data dir + ingested sources |
 | **Ingest** | Upload files or ingest a path with **live SSE progress** + optional sync |
 | **Explore** | Hybrid search with `kind` / `language` / `source` filters |
 | **Ask** | Cited Q&A, **streamed token-by-token** with clickable sources |
 | **Browse / Edit** | Page through stored chunks; edit metadata; delete items |
+| **Articles** | **Synthesized business-meaning articles** distilled from the knowledge base |
 | **Settings** | View/edit runtime settings (persisted to `settings.json`) |
 
-#### Screenshots
+(Plus Review, Graph, Advisor, MCP Builder, Simulator, and Metrics for the
+review/graph/advisor subsystems.)
 
-The **Dashboard** shows live collection status — chunk count, embedder, dimension,
-data dir, and the ingested sources (here a real ERPNext knowledge base of 243 docs):
+The **sidebar** is the spine of the console. At the top, a **knowledge-base
+switcher** lets you create (`+`), delete (🗑), and switch between collections —
+the choice is remembered in `localStorage` and sent on every request via the
+`X-Collection` header / `collection` query param, so each collection is an
+isolated vector store. Below it, thirteen page links; at the bottom, a light/dark
+**theme toggle**. Every page below operates on whichever knowledge base is
+selected (the screenshots show a `domain_knowledge` base of 176 chunks across 6
+sources — ERPNext accounting code plus this repo's `config.py` and `README.md`).
 
-![Dashboard](docs/screenshots/dashboard-erpnext.png)
+#### Page-by-page tour
 
-The **Articles** page surfaces synthesized, business-meaning articles distilled from
-the knowledge base:
+##### Dashboard
+
+The landing page is a live projection of `/api/stats`, `/api/sources`, and
+`/api/settings`. The **Pipeline** card walks the six ingestion stages
+(`load → split → extract → embed → store → search`), each showing its real
+current value (source count, chunk count, extraction on/off, embedder, collection,
+search mode). The stat grid repeats the headline numbers, and **Sources** lists
+every ingested file with its kind, review-status badges (`approved` / `pending` /
+`rejected`), chunk count, and a delete button that removes all of that source's
+chunks.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+##### Ingest
+
+Index a server path or upload files; progress **streams live over SSE**. Tick
+*Sync directory* to prune chunks for files that no longer exist. The dark **Live
+log** colour-codes each stage (`load` / `split` / `extract` / `embed` / `store` /
+`prune` / `skip` / `error`) as it arrives, and a final report summarises files,
+chunks, pruned count, and any skipped or errored files — surfaced explicitly,
+never silently dropped.
+
+![Ingest](docs/screenshots/ingest.png)
+
+##### Explore
+
+Hybrid search over the index — dense vectors and BM25 fused with RRF (the
+`dense + BM25 · RRF` badge). Filter by `kind` (code/text), `language`, and a
+`source contains` substring. Each result card shows the source (and `::symbol`),
+relevance score, the extracted summary, concept tags, and the raw chunk text.
+
+![Explore](docs/screenshots/explore.png)
+
+##### Ask
+
+Retrieval-augmented Q&A. The most relevant chunks are retrieved and Claude
+composes an answer **strictly from the numbered sources**, streamed token by
+token, with each inline `[n]` mapping to the **Sources** list below (source path,
+`::symbol`, and score). No API key fails loud; no matching chunk yields an explicit
+"no content matched" rather than a fabricated answer. A copy button lifts the
+answer.
+
+![Ask](docs/screenshots/ask.png)
+
+##### Browse / Edit
+
+Page through the stored chunks 25 at a time, filtered by kind. Each row previews
+the chunk text and source; the inline icons let you **edit any metadata field**
+(in a per-key form) or **delete** the chunk outright.
+
+![Browse / Edit](docs/screenshots/browse.png)
+
+##### Articles
+
+The **synthesized business-meaning articles** distilled from the knowledge base
+(see [Articles](#articles--synthesized-knowledge) below). The left list is sorted
+by `business_relevance` and tags cross-validated articles; an inline filter
+narrows by title/topic/body. Selecting one opens its full text and the source
+chunks it was grounded in.
 
 ![Articles](docs/screenshots/articles.png)
 
-More views — Ingest with live progress, Explore, Ask, and Browse / Edit:
+##### Review
 
-| Ingest | Explore |
-| --- | --- |
-| ![Ingest](docs/screenshots/02-ingest.jpg) | ![Explore](docs/screenshots/03-explore.jpg) |
-| **Ask** | **Browse / Edit** |
-| ![Ask](docs/screenshots/07-ask.jpg) | ![Browse / Edit](docs/screenshots/05-browse-edit.jpg) |
+The human-in-the-loop gate for extracted knowledge. Tabs switch between
+**pending / approved / rejected**; each item shows its `knowledge_type`,
+`audience`, confidence, source, and summary, with **Approve / Reject** actions.
+*Add knowledge* hand-authors a fact (content, type, audience, tags), stored
+directly as approved. Turn on review mode in Settings to start queueing new
+extractions into *pending*.
 
-A **knowledge-base switcher** in the sidebar lets you create, switch, and target
-collections; the choice is remembered in `localStorage` and sent via the
-`X-Collection` header / `collection` query param. Dark mode included.
+![Review](docs/screenshots/review.png)
+
+##### Graph
+
+Browse the knowledge graph built from extracted relations. **Entities** mode
+searches typed entities and, for a selected one, shows its confidence and its
+**incoming / outgoing** relationships (relation type + neighbour). **Workflows**
+mode shows a workflow's prerequisites and its ordered steps with preconditions.
+
+![Graph](docs/screenshots/graph.png)
+
+##### Advisor
+
+The **pre-execution advisor**: describe what you're about to do and get back, in
+five facets — **Workflow / Risks / Permissions / Dependencies / Constraints** —
+the knowledge to know first. A summary strip counts each facet and the knowledge
+types involved; the Workflow facet also renders any matching graph workflow. This
+is a pure (no-LLM) aggregation of retrieval + graph.
+
+![Advisor](docs/screenshots/advisor.png)
+
+##### MCP Builder
+
+Configure the **retrieval policy** (approved-only, cross-encoder re-ranking,
+hybrid vs. vector) and **publish role-specific MCP views**. The five views
+(Product / Operations / Developer / Support / Architecture) are listed as data —
+each with its tool names and filters — and any view can be served live over HTTP
+(SSE) or copied as a local stdio command / MCP-client config block.
+
+![MCP Builder](docs/screenshots/mcp.png)
+
+##### Simulator
+
+Dry-run an agent task against a chosen MCP view and inspect the **grounding** it
+would receive: context hits, average score, the knowledge types returned, and the
+per-tool result breakdown. A zero-hit result flags that the agent would be
+ungrounded for that task under that view.
+
+![Simulator](docs/screenshots/simulator.png)
+
+##### Metrics
+
+What the knowledge base publishes and how well it grounds agents. **Product
+metrics** cover scale (published MCPs, knowledge objects, indexed sources);
+**Agent metrics** cover observed retrieval quality (total events, grounding hit
+rate, average hits, average score, retrieval precision) accumulated across
+searches, asks, and simulations.
+
+![Metrics](docs/screenshots/metrics.png)
+
+##### Settings
+
+The runtime-editable configuration, persisted to `settings.json` in the data dir
+and layered over env at load. Booleans render as toggles, numbers/strings as
+inputs; saving applies to subsequent ingests. The read-only **Environment** panel
+shows collection, embedder backend, and data dir — credentials and `data_dir` are
+deliberately *not* runtime-editable.
+
+![Settings](docs/screenshots/settings.png)
+
+### Articles — synthesized knowledge
+
+Beyond chunk-level retrieval, openDomainMcp can **autonomously synthesize
+business-meaning articles** from what's indexed. The `synthesize` step aggregates
+candidate topics from the extracted chunk concepts, applies a structural gate to
+drop thin ones (keeps cross-validated topics or those with multiple business
+hits), drafts a concise article per topic **strictly from retrieved chunks**, then
+**self-critiques** each draft (relevance score + cross-validation) before storing
+it in a sibling `<collection>__articles` store. Rejected drafts are reported, not
+silently dropped.
+
+```bash
+opendomainmcp --collection erpnext synthesize          # all gated topics
+opendomainmcp --collection erpnext synthesize --limit 6 # cap topics (cost control)
+opendomainmcp --collection erpnext synthesize --dry-run # critique only, store nothing
+```
+
+The **Articles** page lists each synthesized article with its topic and relevance
+score, opening to the full text and the sources it was grounded in. Articles are
+also fused back into search/`ask`, so a question can be answered from a distilled
+article as well as raw chunks:
+
+![Articles](docs/screenshots/articles.png)
 
 ---
 

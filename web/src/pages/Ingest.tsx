@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { api, IngestJob, ingestStream } from "../api";
+import { useRef, useState } from "react";
+import { api, ingestStream } from "../api";
 import {
   Badge,
   Button,
@@ -7,6 +7,7 @@ import {
   Input,
   Label,
   PageHeader,
+  useToast,
 } from "../components/ui";
 import { IconIngest, IconUpload } from "../components/icons";
 
@@ -42,14 +43,8 @@ export default function Ingest() {
   const [running, setRunning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
-  const [job, setJob] = useState<IngestJob | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Stop polling if the user navigates away mid-run.
-  useEffect(() => () => {
-    if (pollRef.current) clearInterval(pollRef.current);
-  }, []);
+  const toast = useToast();
 
   function run(target: string) {
     setLog([]);
@@ -71,49 +66,12 @@ export default function Ingest() {
     );
   }
 
-  // Background ingest: kick off a server-side job, then poll its status so the
-  // user can leave this screen and an interrupted run can resume.
   async function runBackground(target: string) {
-    setLog([]);
-    setReport(null);
-    setJob(null);
-    setRunning(true);
-    let last = "";
     try {
-      const { job_id } = await api.ingestAsync(target, sync);
-      pollRef.current = setInterval(async () => {
-        let status: IngestJob;
-        try {
-          status = await api.ingestJob(job_id);
-        } catch {
-          return; // transient; keep polling
-        }
-        setJob(status);
-        const cur = status.progress.current_file;
-        if (cur && cur !== last) {
-          last = cur;
-          setLog((prev) => [...prev, { stage: "store", text: cur }]);
-        }
-        if (["done", "error", "cancelled"].includes(status.status)) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          pollRef.current = null;
-          setRunning(false);
-          if (status.report)
-            setReport({ ...status.report, skipped: [], errors: status.errors });
-        }
-      }, 1000);
+      await api.createTask("ingest", { path: target, sync });
+      toast.show("Queued in Task Center (top-right) — you can leave this page", "green");
     } catch (e) {
-      setLog((prev) => [...prev, { stage: "error", text: String(e) }]);
-      setRunning(false);
-    }
-  }
-
-  async function cancelJob() {
-    if (!job) return;
-    try {
-      await api.cancelIngestJob(job.job_id);
-    } catch {
-      /* already finished */
+      toast.show(String(e), "red");
     }
   }
 
@@ -158,15 +116,10 @@ export default function Ingest() {
             variant="secondary"
             disabled={!path || running}
             onClick={() => runBackground(path)}
-            title="Start a server-side job and poll its progress; you can leave this page."
+            title="Queue as a background task in the Task Center."
           >
             Run in background
           </Button>
-          {job && job.status === "running" && (
-            <Button variant="secondary" onClick={cancelJob}>
-              Cancel
-            </Button>
-          )}
         </div>
         <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
           <input

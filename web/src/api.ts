@@ -174,6 +174,25 @@ export interface Article {
   body: string;
 }
 
+// --- Task center ---------------------------------------------------------
+export interface TaskItem {
+  id: string;
+  type: "ingest" | "synthesize" | "extract";
+  title: string;
+  collection: string;
+  status: "queued" | "running" | "done" | "error" | "cancelled";
+  total: number;
+  done: number;
+  failures: { name: string; status: string }[];
+  error: string | null;
+  result: Record<string, unknown> | null;
+}
+
+export interface TaskChild {
+  name: string;
+  status: string;
+}
+
 // --- Async (resumable) ingest job ---------------------------------------
 export interface IngestJob {
   job_id: string;
@@ -437,6 +456,39 @@ export const api = {
       method: "DELETE",
       headers: headers(),
     }).then(json<{ unpublished: string }>),
+
+  // -- task center --------------------------------------------------------
+  createTask: (type: string, params: Record<string, unknown>) =>
+    fetch(withCollection("/api/tasks"), {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ type, params }),
+    }).then(json<TaskItem>),
+
+  listTasks: () =>
+    fetch(withCollection("/api/tasks"), { headers: headers() }).then(
+      json<{ tasks: TaskItem[] }>
+    ),
+
+  taskChildren: (id: string, offset = 0, limit = 100) =>
+    fetch(
+      withCollection(
+        `/api/tasks/${encodeURIComponent(id)}/children?offset=${offset}&limit=${limit}`
+      ),
+      { headers: headers() }
+    ).then(json<{ children: TaskChild[]; total: number }>),
+
+  cancelTask: (id: string) =>
+    fetch(withCollection(`/api/tasks/${encodeURIComponent(id)}`), {
+      method: "DELETE",
+      headers: headers(),
+    }).then(json<{ cancelled: boolean }>),
+
+  clearTasks: () =>
+    fetch(withCollection("/api/tasks/clear"), {
+      method: "POST",
+      headers: headers(),
+    }).then(json<{ cleared: number }>),
 };
 
 // Stream a cited answer via Server-Sent Events. Answer text arrives as "delta"

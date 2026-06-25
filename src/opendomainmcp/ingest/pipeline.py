@@ -154,6 +154,16 @@ class Pipeline:
         self._emit(progress, "done", str(path), detail=f"{report.files_indexed} files")
         return report
 
+    def list_files(self, path: str | Path) -> list[str]:
+        """The file paths ingest_path would process, in processing order.
+        Used by the Task Center to enumerate child entries up front."""
+        p = Path(path)
+        if p.is_dir():
+            return [str(f) for f in self._walk(p)]
+        if p.is_file():
+            return [str(p)]
+        return []
+
     # -- internals ------------------------------------------------------
     def _walk(self, root: Path):
         # followlinks defaults to False, so symlinked sub-directories are not

@@ -235,6 +235,7 @@ export default function Dashboard() {
                 source={s}
                 onDelete={() => setPending(s)}
                 disabled={deleting}
+                toast={toast}
               />
             ))}
           </div>
@@ -288,10 +289,12 @@ function SourceRow({
   source,
   onDelete,
   disabled,
+  toast,
 }: {
   source: SourceInfo;
   onDelete: () => void;
   disabled: boolean;
+  toast: ReturnType<typeof useToast>;
 }) {
   const buckets: ReviewBucket[] = [
     { key: "approved", count: source.review.approved, tone: "green" },
@@ -328,6 +331,19 @@ function SourceRow({
           chunks
         </span>
       </div>
+      <Button
+        variant="secondary"
+        onClick={() =>
+          api
+            .createTask("extract", { source: source.source })
+            .then(() =>
+              toast.show("Re-extract queued (refreshes knowledge, not vectors)", "green"),
+            )
+            .catch((e: unknown) => toast.show(String(e), "red"))
+        }
+      >
+        Re-extract
+      </Button>
       <IconButton
         onClick={onDelete}
         disabled={disabled}

@@ -17,7 +17,6 @@ const STATUS_TONE: Record<string, string> = {
 export default function TaskCenter() {
   const [open, setOpen] = useState(false);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -29,23 +28,19 @@ export default function TaskCenter() {
 
   const activeCount = tasks.filter((t) => ACTIVE.has(t.status)).length;
 
-  // Poll while the panel is open or any task is active.
+  // Mirror "should poll" into a ref so the interval callback can read it
+  // without being recreated on every activeCount change.
+  const pollRef = useRef(false);
+  pollRef.current = open || activeCount > 0;
+
+  // Single stable interval; only torn down/restarted when `open` changes.
   useEffect(() => {
     refresh();
-    const shouldPoll = open || activeCount > 0;
-    if (shouldPoll && !timer.current) {
-      timer.current = setInterval(refresh, 1500);
-    } else if (!shouldPoll && timer.current) {
-      clearInterval(timer.current);
-      timer.current = null;
-    }
-    return () => {
-      if (timer.current) {
-        clearInterval(timer.current);
-        timer.current = null;
-      }
-    };
-  }, [open, activeCount, refresh]);
+    const id = setInterval(() => {
+      if (pollRef.current) refresh();
+    }, 1500);
+    return () => clearInterval(id);
+  }, [open, refresh]);
 
   return (
     <>
@@ -110,7 +105,11 @@ function TaskCard({ task, onChanged }: { task: TaskItem; onChanged: () => void }
     const next = !expanded;
     setExpanded(next);
     if (next && children === null) {
-      setChildren((await api.taskChildren(task.id, 0, 100)).children);
+      try {
+        setChildren((await api.taskChildren(task.id, 0, 100)).children);
+      } catch {
+        setChildren([]);
+      }
     }
   }
 
@@ -161,8 +160,8 @@ function TaskCard({ task, onChanged }: { task: TaskItem; onChanged: () => void }
       )}
       {expanded && children && (
         <ul className="mt-1.5 max-h-40 space-y-0.5 overflow-auto font-mono text-[11px]">
-          {children.map((c) => (
-            <li key={c.name} className="flex justify-between gap-2">
+          {children.map((c, i) => (
+            <li key={`${i}-${c.name}`} className="flex justify-between gap-2">
               <span className="truncate text-slate-500">{c.name}</span>
               <span className={STATUS_TONE[c.status] ?? "text-slate-400"}>{c.status}</span>
             </li>

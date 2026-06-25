@@ -22,6 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..context import Context, build_context
 from . import insight_routes, mcp_endpoints, source_routes
+from .task_routes import register_task_routes
 from .auth import auth_dependency, require_view_access
 from .deps import get_ctx
 from .observability import RequestLoggingMiddleware, health_payload, setup_logging
@@ -588,6 +589,20 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     # before the catch-all static mount at "/" below, or it would shadow them.
     mcp_endpoints.mount_mcp_apps(app)
     app.include_router(mcp_endpoints.router, dependencies=[Depends(auth_dependency)])
+
+    # -- task center (background jobs) ----------------------------------
+    def _resolve_ctx(collection):
+        # Reuse the same per-collection context resolution as get_ctx: a pinned
+        # context (tests) ignores the collection; otherwise build per collection.
+        if app.state.context is not None:
+            return app.state.context
+        cached = app.state.contexts.get(collection)
+        if cached is None:
+            cached = app.state.context_factory()
+            app.state.contexts[collection] = cached
+        return cached
+
+    register_task_routes(app, _resolve_ctx)
 
     # -- static SPA (built frontend), if present ------------------------
     if STATIC_DIR.exists():

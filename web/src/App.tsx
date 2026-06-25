@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { api, Collection, getActiveCollection, setActiveCollection } from "./api";
 import { useTheme } from "./lib/theme";
+import TaskCenter from "./components/TaskCenter";
 import {
   Button,
   IconButton,
@@ -342,6 +343,9 @@ export default function App() {
       )}
 
       <main className="flex-1">
+        <div className="sticky top-0 z-20 flex justify-end border-b border-slate-200 bg-white/80 px-5 py-2.5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+          <TaskCenter />
+        </div>
         <div className="mx-auto w-full max-w-5xl p-5 sm:p-8">
           <div key={location.pathname} className="animate-fade-in-up">
             <Outlet />

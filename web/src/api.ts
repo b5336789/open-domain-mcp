@@ -174,6 +174,27 @@ export interface Article {
   body: string;
 }
 
+// --- Async (resumable) ingest job ---------------------------------------
+export interface IngestJob {
+  job_id: string;
+  status: "queued" | "running" | "done" | "error" | "cancelled";
+  ingest_path: string;
+  cancel_requested: boolean;
+  progress: {
+    files_indexed: number;
+    chunks_indexed: number;
+    chunks_pruned: number;
+    current_file: string;
+    completed_files: number;
+  };
+  errors: { path: string; error: string }[];
+  report: {
+    files_indexed: number;
+    chunks_indexed: number;
+    chunks_pruned: number;
+  } | null;
+}
+
 // --- Dynamic MCP endpoints ----------------------------------------------
 export interface McpEndpoint {
   view: string;
@@ -376,6 +397,26 @@ export const api = {
       body: JSON.stringify({ source }),
     }).then(json<{ deleted: number; source: string }>),
 
+  // -- async (resumable) ingest ------------------------------------------
+  ingestAsync: (path: string, sync = false) =>
+    fetch(
+      withCollection(
+        `/api/ingest/async?path=${encodeURIComponent(path)}&sync=${sync}`
+      ),
+      { method: "POST", headers: headers() }
+    ).then(json<{ job_id: string; status: string }>),
+
+  ingestJob: (jobId: string) =>
+    fetch(withCollection(`/api/ingest/jobs/${encodeURIComponent(jobId)}`), {
+      headers: headers(),
+    }).then(json<IngestJob>),
+
+  cancelIngestJob: (jobId: string) =>
+    fetch(withCollection(`/api/ingest/jobs/${encodeURIComponent(jobId)}`), {
+      method: "DELETE",
+      headers: headers(),
+    }).then(json<{ job_id: string; status: string }>),
+
   // -- articles -----------------------------------------------------------
   articles: () =>
     fetch("/api/articles", { headers: headers() }).then(json<Article[]>),
@@ -469,6 +510,45 @@ export function ingestStream(
     source.close();
     onDone();
   });
+  source.onerror = () => {
+    source.close();
+    onDone();
+  };
+  return () => source.close();
+}
+
+// Stream article-synthesis progress via Server-Sent Events. Per-topic events
+// (topic/stored/rejected/...) drive a live log; a final "report" event carries
+// the SynthesisReport counts. Returns an unsubscribe fn.
+export function synthesizeStream(
+  onEvent: (e: Record<string, unknown>) => void,
+  onDone: () => void,
+  opts: { limit?: number; dryRun?: boolean } = {}
+): () => void {
+  const params = new URLSearchParams();
+  if (opts.limit != null) params.set("limit", String(opts.limit));
+  if (opts.dryRun) params.set("dry_run", "true");
+  const qs = params.toString();
+  const source = new EventSource(
+    withCollection(`/api/synthesize/stream${qs ? `?${qs}` : ""}`)
+  );
+  const handler = (ev: MessageEvent) => {
+    try {
+      onEvent(JSON.parse(ev.data));
+    } catch {
+      /* ignore keep-alive */
+    }
+  };
+  ["start", "topic", "stored", "rejected", "removed", "topic_error", "error", "report"].forEach(
+    (name) => source.addEventListener(name, handler as EventListener)
+  );
+  // Both a successful report and a fatal error end the run.
+  ["report", "error"].forEach((name) =>
+    source.addEventListener(name, () => {
+      source.close();
+      onDone();
+    })
+  );
   source.onerror = () => {
     source.close();
     onDone();

@@ -85,16 +85,21 @@ class Pipeline:
         progress: Optional[Progress] = None,
         sync: bool = False,
         allowed_root: Optional[str | Path] = None,
+        checkpoint=None,
     ) -> IngestReport:
         # A Git URL or .zip is materialised into a temp dir which then doubles as
-        # the allowed_root; plain paths fall through unchanged.
+        # the allowed_root; plain paths fall through unchanged. An optional
+        # ``checkpoint`` (see ingest/checkpoint.py) makes the run resumable:
+        # already-completed files are skipped and progress is persisted per file.
         from .sources import prepared_source
 
         with prepared_source(path, self._settings.data_dir) as prepared:
             if prepared is not None:
                 self._emit(progress, "fetch", str(path), detail="materialised source")
-                return self._ingest(prepared, progress, sync=False, allowed_root=prepared)
-            return self._ingest(Path(path), progress, sync=sync, allowed_root=allowed_root)
+                return self._ingest(prepared, progress, sync=False,
+                                    allowed_root=prepared, checkpoint=checkpoint)
+            return self._ingest(Path(path), progress, sync=sync,
+                                allowed_root=allowed_root, checkpoint=checkpoint)
 
     def _ingest(
         self,
@@ -102,6 +107,7 @@ class Pipeline:
         progress: Optional[Progress],
         sync: bool,
         allowed_root: Optional[str | Path],
+        checkpoint=None,
     ) -> IngestReport:
         report = IngestReport()
         # Confine ingestion to an allowed root when one is configured. The
@@ -121,9 +127,28 @@ class Pipeline:
             raise FileNotFoundError(f"{path} does not exist")
         if root is not None:
             files = self._filter_within(files, root, report, progress)
+        if checkpoint is not None:
+            # If the extraction config changed since this checkpoint was written,
+            # discard the completed-file set so everything re-extracts.
+            from .checkpoint import extractor_signature
+            checkpoint.reset_if_signature_changed(extractor_signature(self._settings))
         with self._batch_prepass(files, report, progress):
             for file_path in files:
+                if checkpoint is not None:
+                    if checkpoint.cancelled:
+                        self._emit(progress, "cancelled", str(file_path),
+                                   detail="run cancelled")
+                        break
+                    if checkpoint.is_file_done(file_path):
+                        # Resumed run: this file was indexed previously. Skipping
+                        # avoids re-extracting and re-embedding it.
+                        self._emit(progress, "skip", str(file_path), detail="resumed")
+                        continue
                 self._ingest_file(file_path, report, progress)
+                if checkpoint is not None:
+                    checkpoint.mark_file_done(file_path)
+                    checkpoint.update_from_report(report, current_file=str(file_path))
+                    checkpoint.save()
         if sync and path.is_dir():
             self._sync_deletions(path, {str(f) for f in files}, report, progress)
         self._emit(progress, "done", str(path), detail=f"{report.files_indexed} files")

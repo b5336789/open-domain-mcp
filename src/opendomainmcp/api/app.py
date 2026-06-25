@@ -8,7 +8,9 @@ to the browser via Server-Sent Events.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import threading
 import uuid
 from pathlib import Path
 
@@ -25,6 +27,17 @@ from .deps import get_ctx
 from .observability import RequestLoggingMiddleware, health_payload, setup_logging
 
 STATIC_DIR = Path(__file__).parent / "static"
+
+# Serialize article synthesis: it is LLM-rate-limited and writes a shared
+# collection, so one run at a time (a double-click or concurrent request gets a
+# 409 rather than two competing runs). Process-local; matches the single-process
+# web server. See the /api/synthesize/stream endpoint.
+_synthesize_lock = threading.Lock()
+
+# Live background-ingest jobs (job_id -> Checkpoint), so polling and cancellation
+# reach the running job's in-memory state. The checkpoint file on disk is the
+# durable record; the registry holds the live object while the run is active.
+_ingest_jobs: dict = {}
 
 
 class SearchRequest(BaseModel):
@@ -224,6 +237,140 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
                 await task
 
         return EventSourceResponse(events())
+
+    @app.get("/api/synthesize/stream")
+    async def synthesize_stream(limit: int | None = None, dry_run: bool = False,
+                                ctx: Context = Depends(get_ctx)):
+        from ..synthesis import synthesize_articles
+
+        # One run at a time: reject (409) rather than launch a competing run.
+        if not _synthesize_lock.acquire(blocking=False):
+            raise HTTPException(
+                status_code=409, detail="A synthesis run is already in progress"
+            )
+
+        queue: asyncio.Queue = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+
+        def progress(event):
+            loop.call_soon_threadsafe(queue.put_nowait, event)
+
+        async def run():
+            try:
+                report = await asyncio.to_thread(
+                    synthesize_articles, ctx.store, ctx.settings,
+                    graph=ctx.graph, limit=limit, dry_run=dry_run,
+                    on_event=progress,
+                )
+                queue.put_nowait({"stage": "report", **report.to_dict()})
+            except Exception as exc:  # surface failures to the UI (Fail Loud)
+                queue.put_nowait({"stage": "error", "detail": repr(exc)})
+            finally:
+                _synthesize_lock.release()
+                queue.put_nowait(None)
+
+        async def events():
+            task = asyncio.create_task(run())
+            try:
+                while True:
+                    event = await queue.get()
+                    if event is None:
+                        break
+                    yield {"event": event["stage"], "data": json.dumps(event)}
+            finally:
+                await task
+
+        return EventSourceResponse(events())
+
+    # -- async (resumable) ingest --------------------------------------
+    @app.post("/api/ingest/async")
+    def ingest_async(path: str, sync: bool = False,
+                     ctx: Context = Depends(get_ctx)):
+        from ..ingest.checkpoint import Checkpoint, extractor_signature
+        from ..ingest.pipeline import PathNotAllowedError, _resolve_within
+
+        # Reject paths that escape the configured ingest root before scheduling.
+        if ctx.settings.ingest_root is not None:
+            try:
+                _resolve_within(Path(path), ctx.settings.ingest_root)
+            except PathNotAllowedError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+
+        # Key the job by collection+path so resubmitting the same path resumes an
+        # interrupted run (斷點續傳) instead of starting an unrelated job. A run
+        # that already finished ("done") starts fresh, so content changes are
+        # re-ingested rather than skipped.
+        collection = ctx.store.stats().get("collection", "")
+        job_id = hashlib.sha256(f"{collection}\n{path}".encode("utf-8")).hexdigest()[:32]
+
+        active = _ingest_jobs.get(job_id)
+        if active is not None and active.status in ("queued", "running"):
+            # Already in progress — don't launch a competing run on the same job.
+            return {"job_id": job_id, "status": active.status}
+
+        cp = None
+        cp_path = Checkpoint.directory(ctx.settings.data_dir) / f"{job_id}.json"
+        if cp_path.exists():
+            prev = Checkpoint.load(cp_path)
+            if prev.status != "done":
+                # Resume an interrupted/errored/cancelled run: keep completed_files
+                # so they are skipped. (A stale "running" left by a crash resumes.)
+                cp = prev
+                cp.cancel_requested = False
+                cp.report = None
+                cp.status = "queued"
+        if cp is None:
+            cp = Checkpoint.new(ctx.settings.data_dir, job_id, path, sync,
+                                extractor_signature(ctx.settings))
+        cp.save()
+        _ingest_jobs[job_id] = cp
+
+        # Run in a daemon thread so the request returns immediately and the work
+        # continues independently of the event loop. The checkpoint (in the
+        # registry + on disk) is the status source polled by GET .../jobs/{id}.
+        def run():
+            try:
+                cp.status = "running"
+                cp.save()
+                report = ctx.pipeline.ingest_path(path, None, sync, None, cp)
+                cp.update_from_report(report)
+                cp.report = report.to_dict()
+                cp.status = "cancelled" if cp.cancelled else "done"
+            except Exception as exc:  # surface failures via the job record (Fail Loud)
+                cp.status = "error"
+                cp.errors = cp.errors + [{"path": path, "error": repr(exc)}]
+            finally:
+                cp.save()
+
+        threading.Thread(target=run, name=f"ingest-{job_id}", daemon=True).start()
+        return {"job_id": job_id, "status": cp.status}
+
+    def _load_job(job_id: str, ctx: Context):
+        cp = _ingest_jobs.get(job_id)
+        if cp is not None:
+            return cp
+        # Fall back to the on-disk checkpoint (e.g. after a server restart).
+        from ..ingest.checkpoint import Checkpoint
+
+        path = Checkpoint.directory(ctx.settings.data_dir) / f"{job_id}.json"
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"unknown ingest job {job_id}")
+        return Checkpoint.load(path)
+
+    @app.get("/api/ingest/jobs/{job_id}")
+    def ingest_job(job_id: str, ctx: Context = Depends(get_ctx)):
+        return _load_job(job_id, ctx).to_status()
+
+    @app.delete("/api/ingest/jobs/{job_id}")
+    def cancel_ingest_job(job_id: str, ctx: Context = Depends(get_ctx)):
+        cp = _ingest_jobs.get(job_id)
+        if cp is None:
+            raise HTTPException(
+                status_code=404, detail=f"no active ingest job {job_id} to cancel"
+            )
+        cp.request_cancel()
+        cp.save()
+        return {"job_id": job_id, "status": "cancelling"}
 
     # -- browse, edit & review -----------------------------------------
     @app.get("/api/articles")

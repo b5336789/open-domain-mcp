@@ -43,6 +43,7 @@ class OpenAIEmbedder(Embedder):
         client=None,
         basic_auth: str | None = None,
         basic_auth_header: str = "Authorization",
+        base_url: str | None = None,
     ):
         self.name = f"openai:{model_name}"
         self._model_name = model_name
@@ -51,7 +52,8 @@ class OpenAIEmbedder(Embedder):
         # response, mirroring LocalEmbedder.
         self._dim: int | None = _OPENAI_DIMS.get(model_name)
         # ``client`` is injectable for tests; otherwise built from the env.
-        # OpenAI() reads OPENAI_API_KEY / OPENAI_BASE_URL.
+        # OpenAI() reads OPENAI_API_KEY / OPENAI_BASE_URL; ``base_url`` overrides
+        # the env var per-function when set.
         if client is None:
             if not os.environ.get("OPENAI_API_KEY"):
                 raise RuntimeError("OPENAI_API_KEY is required for the openai embedder backend")
@@ -59,15 +61,17 @@ class OpenAIEmbedder(Embedder):
                 from openai import OpenAI
             except ImportError as exc:  # pragma: no cover - optional dep
                 raise RuntimeError("Install the 'openai' package to use the openai backend") from exc
+            kwargs = {}
+            if base_url:
+                kwargs["base_url"] = base_url
             # Optional HTTP Basic Auth for a server behind a proxy/gateway. The
             # SDK merges default_headers after its Bearer auth header, so the
             # "Authorization" default overrides Bearer; a custom name coexists.
             if basic_auth:
-                client = OpenAI(
-                    default_headers={basic_auth_header: _basic_auth_value(basic_auth)}
-                )
-            else:
-                client = OpenAI()
+                kwargs["default_headers"] = {
+                    basic_auth_header: _basic_auth_value(basic_auth)
+                }
+            client = OpenAI(**kwargs)
         self._client = client
 
     def embed(self, texts: list[str]) -> list[list[float]]:

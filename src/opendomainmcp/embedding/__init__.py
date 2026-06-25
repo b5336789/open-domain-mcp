@@ -19,6 +19,7 @@ def get_embedder(settings: Settings) -> Embedder:
             settings.embedder_model,
             basic_auth=settings.embedder_basic_auth or None,
             basic_auth_header=settings.embedder_basic_auth_header,
+            base_url=settings.embedder_base_url or None,
         )
     if backend == "voyage":
         from .cloud import VoyageEmbedder

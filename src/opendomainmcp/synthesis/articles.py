@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from ..models import Article
 from .llm import get_article_llms, keep_article
@@ -17,6 +17,9 @@ class SynthesisReport:
     removed: int = 0
     rejected: list[dict] = field(default_factory=list)
     errors: list[dict] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 def _evidence_block(results) -> tuple[str, list[str], list[str]]:
@@ -35,7 +38,10 @@ def _evidence_block(results) -> tuple[str, list[str], list[str]]:
 
 
 def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None,
-                        limit=None, dry_run=False) -> SynthesisReport:
+                        limit=None, dry_run=False, on_event=None) -> SynthesisReport:
+    # on_event (optional) receives a progress dict per stage so a UI/CLI can show
+    # live progress; default is a no-op so existing callers are unaffected.
+    emit = on_event or (lambda event: None)
     if writer is None or critic is None:
         w, c = get_article_llms(settings)
         writer, critic = writer or w, critic or c
@@ -57,6 +63,8 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
 
     article_store = store.sibling(f"{store.stats()['collection']}__articles")
     report = SynthesisReport(topics_gated=len(topics))
+    total = len(topics)
+    emit({"stage": "start", "total": total, "dry_run": dry_run})
 
     dropped: set[str] = set()  # article ids already removed/counted in the loop
 
@@ -72,7 +80,8 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
             report.removed += 1
             dropped.add(aid)
 
-    for tc in topics:
+    for index, tc in enumerate(topics, 1):
+        emit({"stage": "topic", "topic": tc.name, "index": index, "total": total})
         try:
             results = store.search(tc.name, top_k=8, mode="hybrid")
             if not results:
@@ -81,6 +90,8 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
                     {"topic": tc.name, "verdict": {"note": "no evidence retrieved"}}
                 )
                 _drop(tc.name)
+                emit({"stage": "rejected", "topic": tc.name,
+                      "note": "no evidence retrieved"})
                 continue
             evidence, ids, sources = _evidence_block(results)
             draft = writer.write(tc.name, evidence)
@@ -89,6 +100,8 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
             if not keep_article(verdict):
                 report.rejected.append({"topic": tc.name, "verdict": verdict})
                 _drop(tc.name)
+                emit({"stage": "rejected", "topic": tc.name,
+                      "note": verdict.get("note", "")})
                 continue
             article = Article(
                 title=draft["title"], topic=tc.name, body=draft["body"],
@@ -99,8 +112,10 @@ def synthesize_articles(store, settings, *, graph=None, writer=None, critic=None
             if not dry_run:
                 article_store.upsert([article])
             report.stored += 1
+            emit({"stage": "stored", "topic": tc.name, "title": draft["title"]})
         except Exception as exc:  # noqa: BLE001 - Fail Loud into the report, keep going
             report.errors.append({"topic": tc.name, "error": str(exc)})
+            emit({"stage": "topic_error", "topic": tc.name, "detail": str(exc)})
 
     # Dead-chunk prune: drop any stored article that cites a chunk no longer in
     # the main collection. `items` is that collection's current chunks, already

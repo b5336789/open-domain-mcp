@@ -27,10 +27,16 @@ _API_KEY_FIELD_COUNT = 3
 EDITABLE_FIELDS = (
     "embedder_backend",
     "embedder_model",
+    "embedder_base_url",
     "extract_knowledge",
     "extraction_model",
+    "extract_provider",
+    "extract_base_url",
     "extract_structured_output",
     "extract_batch",
+    "synthesize_provider",
+    "synthesize_model",
+    "synthesize_base_url",
     "chunk_size",
     "chunk_overlap",
     "code_max_chunk_chars",
@@ -73,17 +79,31 @@ class Settings(BaseSettings):
     # a custom name (e.g. "X-Proxy-Authorization") coexists with the Bearer key.
     embedder_basic_auth: str = ""
     embedder_basic_auth_header: str = "Authorization"
+    # Optional OpenAI-compatible endpoint for the openai embedder backend,
+    # overriding the global OPENAI_BASE_URL env var for embedding only. Lets
+    # embedding point at a different server than extraction/synthesis (e.g. a
+    # hosted embedding API while extraction runs on a local LM Studio). Empty
+    # means "use OPENAI_BASE_URL / the SDK default".
+    embedder_base_url: str = ""
 
     # LLM backend for extraction + RAG answering. "anthropic" uses the Anthropic
     # Messages API (ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL); "openai" uses the
     # OpenAI chat-completions API (OPENAI_API_KEY / OPENAI_BASE_URL), which lets
     # any OpenAI-compatible endpoint — e.g. a local LM Studio / vLLM server —
     # drive both. The model ids below name the model on the chosen backend.
+    # This is the global default; ``extract_provider`` and ``synthesize_provider``
+    # below override it per-function when set (the 'ask' RAG path uses it directly).
     llm_backend: str = "anthropic"  # anthropic | openai
 
     # Domain-knowledge extraction (Anthropic)
     extract_knowledge: bool = True
     extraction_model: str = "claude-sonnet-4-6"
+    # Per-function provider override for extraction. Empty inherits ``llm_backend``;
+    # set to "anthropic"/"openai" to pin extraction independently of RAG answering.
+    extract_provider: str = ""  # "" (inherit llm_backend) | anthropic | openai
+    # Optional per-function OpenAI-compatible endpoint for extraction, overriding
+    # OPENAI_BASE_URL (and, for anthropic, ANTHROPIC_BASE_URL). Empty == SDK default.
+    extract_base_url: str = ""
     extract_concurrency: int = 8  # parallel extraction calls per file
     # Request JSON-schema structured output from the OpenAI backend so the model
     # cannot emit malformed JSON. Prevents extraction failures on endpoints that
@@ -113,6 +133,15 @@ class Settings(BaseSettings):
 
     # RAG answer synthesis (Anthropic)
     answer_model: str = "claude-sonnet-4-6"
+
+    # Article synthesis (the `synthesize` command / web button; writer + critic).
+    # Per-function provider override: empty inherits ``llm_backend``. The model is
+    # independent of extraction — empty ``synthesize_model`` inherits
+    # ``extraction_model`` (today's behavior). ``synthesize_base_url`` is an
+    # optional per-function OpenAI-compatible endpoint override.
+    synthesize_provider: str = ""  # "" (inherit llm_backend) | anthropic | openai
+    synthesize_model: str = ""  # "" inherits extraction_model
+    synthesize_base_url: str = ""
 
     # Knowledge review workflow. When ``review_mode`` is on, newly extracted
     # knowledge is marked "pending" so it must be approved before it counts as
@@ -206,6 +235,20 @@ class Settings(BaseSettings):
 
     def editable_dict(self) -> dict:
         return {k: getattr(self, k) for k in EDITABLE_FIELDS}
+
+    # --- Per-function provider/model resolution --------------------------------
+    # Each function (extract/synthesize) may pin its own provider; when unset it
+    # inherits the global ``llm_backend``. The synthesize model falls back to the
+    # extraction model so existing single-model setups keep working.
+
+    def resolved_extract_provider(self) -> str:
+        return (self.extract_provider or self.llm_backend).lower()
+
+    def resolved_synthesize_provider(self) -> str:
+        return (self.synthesize_provider or self.llm_backend).lower()
+
+    def resolved_synthesize_model(self) -> str:
+        return self.synthesize_model or self.extraction_model
 
 
 def _parse_api_keys(spec: str) -> dict[str, dict]:

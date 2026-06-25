@@ -72,10 +72,14 @@ def keep_article(verdict: dict) -> bool:
 
 
 class _AnthropicCaller:
-    def __init__(self, model, system, max_tokens, timeout, max_retries, client=None):
+    def __init__(self, model, system, max_tokens, timeout, max_retries,
+                 client=None, base_url=None):
         if client is None:
             import anthropic
-            client = anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
+            kwargs = {"timeout": timeout, "max_retries": max_retries}
+            if base_url:
+                kwargs["base_url"] = base_url
+            client = anthropic.Anthropic(**kwargs)
         self._client, self._model = client, model
         self._system, self._max_tokens = system, max_tokens
 
@@ -87,10 +91,14 @@ class _AnthropicCaller:
 
 
 class _OpenAICaller:
-    def __init__(self, model, system, max_tokens, timeout, max_retries, client=None):
+    def __init__(self, model, system, max_tokens, timeout, max_retries,
+                 client=None, base_url=None):
         if client is None:
             from openai import OpenAI
-            client = OpenAI(timeout=timeout, max_retries=max_retries)
+            kwargs = {"timeout": timeout, "max_retries": max_retries}
+            if base_url:
+                kwargs["base_url"] = base_url
+            client = OpenAI(**kwargs)
         self._client, self._model = client, model
         self._system, self._max_tokens = system, max_tokens
 
@@ -108,10 +116,10 @@ def _caller(backend, **kw):
 
 class ArticleWriter:
     def __init__(self, model, max_tokens=1200, timeout=60.0, max_retries=2,
-                 client=None, backend="anthropic"):
+                 client=None, backend="anthropic", base_url=None):
         self._c = _caller(backend, model=model, system=_WRITER_SYSTEM,
                           max_tokens=max_tokens, timeout=timeout,
-                          max_retries=max_retries, client=client)
+                          max_retries=max_retries, client=client, base_url=base_url)
 
     def write(self, topic: str, evidence: str) -> dict:
         return parse_article(self._c._call(f"Topic: {topic}\n\nEvidence:\n{evidence}"))
@@ -119,10 +127,10 @@ class ArticleWriter:
 
 class ArticleCritic:
     def __init__(self, model, max_tokens=400, timeout=60.0, max_retries=2,
-                 client=None, backend="anthropic"):
+                 client=None, backend="anthropic", base_url=None):
         self._c = _caller(backend, model=model, system=_CRITIC_SYSTEM,
                           max_tokens=max_tokens, timeout=timeout,
-                          max_retries=max_retries, client=client)
+                          max_retries=max_retries, client=client, base_url=base_url)
 
     def judge(self, topic: str, body: str, evidence: str) -> dict:
         return parse_verdict(self._c._call(
@@ -130,6 +138,11 @@ class ArticleCritic:
 
 
 def get_article_llms(settings: Settings) -> tuple[ArticleWriter, ArticleCritic]:
-    kw = dict(model=settings.extraction_model, timeout=settings.request_timeout,
-              max_retries=settings.max_retries, backend=settings.llm_backend)
+    # Article synthesis pins its own provider/model when set, else inherits the
+    # global llm_backend / extraction_model (today's behavior).
+    kw = dict(model=settings.resolved_synthesize_model(),
+              timeout=settings.request_timeout,
+              max_retries=settings.max_retries,
+              backend=settings.resolved_synthesize_provider(),
+              base_url=settings.synthesize_base_url or None)
     return ArticleWriter(**kw), ArticleCritic(**kw)

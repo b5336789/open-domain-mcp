@@ -262,12 +262,18 @@ class NullExtractor:
 
 class ClaudeExtractor:
     def __init__(self, model: str, max_tokens: int = 900,
-                 timeout: float = 60.0, max_retries: int = 2):
+                 timeout: float = 60.0, max_retries: int = 2,
+                 base_url: str | None = None):
         import anthropic
 
         # timeout bounds a single call; max_retries lets the SDK back off and
         # retry transient errors (overloaded / network) rather than hang or fail.
-        self._client = anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
+        # base_url (when set) points at a custom Anthropic-compatible endpoint,
+        # overriding ANTHROPIC_BASE_URL for extraction only.
+        kwargs = {"timeout": timeout, "max_retries": max_retries}
+        if base_url:
+            kwargs["base_url"] = base_url
+        self._client = anthropic.Anthropic(**kwargs)
         self._model = model
         self._max_tokens = max_tokens
 
@@ -296,12 +302,16 @@ class OpenAIExtractor:
 
     def __init__(self, model: str, max_tokens: int = 900,
                  timeout: float = 60.0, max_retries: int = 2, client=None,
-                 structured: bool = False):
+                 structured: bool = False, base_url: str | None = None):
         if client is None:
             from openai import OpenAI
 
-            # OpenAI() reads OPENAI_API_KEY / OPENAI_BASE_URL from the env.
-            client = OpenAI(timeout=timeout, max_retries=max_retries)
+            # OpenAI() reads OPENAI_API_KEY / OPENAI_BASE_URL from the env;
+            # base_url (when set) overrides OPENAI_BASE_URL for extraction only.
+            kwargs = {"timeout": timeout, "max_retries": max_retries}
+            if base_url:
+                kwargs["base_url"] = base_url
+            client = OpenAI(**kwargs)
         self._client = client
         self._model = model
         self._max_tokens = max_tokens
@@ -339,15 +349,18 @@ class OpenAIExtractor:
 def get_extractor(settings: Settings):
     if not settings.extract_knowledge:
         return NullExtractor()
-    if settings.llm_backend.lower() == "openai":
+    base_url = settings.extract_base_url or None
+    if settings.resolved_extract_provider() == "openai":
         return OpenAIExtractor(
             settings.extraction_model,
             timeout=settings.request_timeout,
             max_retries=settings.max_retries,
             structured=settings.extract_structured_output,
+            base_url=base_url,
         )
     return ClaudeExtractor(
         settings.extraction_model,
         timeout=settings.request_timeout,
         max_retries=settings.max_retries,
+        base_url=base_url,
     )

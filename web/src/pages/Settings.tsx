@@ -5,6 +5,7 @@ import {
   Card,
   Input,
   PageHeader,
+  Select,
   Skeleton,
   useToast,
 } from "../components/ui";
@@ -86,6 +87,20 @@ export default function Settings() {
                       }`}
                     />
                   </button>
+                ) : key.endsWith("_provider") ? (
+                  // extract_provider / synthesize_provider: empty inherits the
+                  // global llm_backend, else pin Anthropic or an OpenAI-compatible API.
+                  <Select
+                    className="w-56"
+                    value={String(value)}
+                    onChange={(e) =>
+                      setDraft({ ...draft, [key]: e.target.value })
+                    }
+                  >
+                    <option value="">Inherit (llm_backend)</option>
+                    <option value="anthropic">anthropic</option>
+                    <option value="openai">openai-compatible</option>
+                  </Select>
                 ) : (
                   <Input
                     className="h-9 w-56"

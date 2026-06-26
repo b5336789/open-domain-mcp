@@ -1,5 +1,6 @@
 // web/src/components/TaskCenter.tsx
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, TaskChild, TaskItem } from "../api";
 import { Button, IconButton } from "./ui";
 import { IconClose } from "./icons";
@@ -57,40 +58,45 @@ export default function TaskCenter() {
         )}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute inset-y-0 right-0 flex w-[26rem] max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-xl animate-fade-in dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-              <span className="font-semibold text-slate-900 dark:text-white">
-                Task Center
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => api.clearTasks().then(refresh)}
-                >
-                  Clear finished
-                </Button>
-                <IconButton onClick={() => setOpen(false)} aria-label="Close">
-                  <IconClose />
-                </IconButton>
+      {/* Portal to <body>: the overlay uses position:fixed, but an ancestor with
+          backdrop-blur (the sticky top bar) would otherwise become its containing
+          block and clamp it to that bar's height. The portal escapes that. */}
+      {open &&
+        createPortal(
+          <div className="fixed inset-0 z-50">
+            <div
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in"
+              onClick={() => setOpen(false)}
+            />
+            <div className="absolute inset-y-0 right-0 flex w-[26rem] max-w-[90vw] flex-col border-l border-slate-200 bg-white shadow-xl animate-fade-in dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  Task Center
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => api.clearTasks().then(refresh)}
+                  >
+                    Clear finished
+                  </Button>
+                  <IconButton onClick={() => setOpen(false)} aria-label="Close">
+                    <IconClose />
+                  </IconButton>
+                </div>
+              </div>
+              <div className="scroll-thin flex-1 space-y-3 overflow-auto p-4">
+                {tasks.length === 0 && (
+                  <p className="text-sm text-slate-400">No tasks yet.</p>
+                )}
+                {tasks.map((t) => (
+                  <TaskCard key={t.id} task={t} onChanged={refresh} />
+                ))}
               </div>
             </div>
-            <div className="scroll-thin flex-1 space-y-3 overflow-auto p-4">
-              {tasks.length === 0 && (
-                <p className="text-sm text-slate-400">No tasks yet.</p>
-              )}
-              {tasks.map((t) => (
-                <TaskCard key={t.id} task={t} onChanged={refresh} />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }

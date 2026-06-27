@@ -80,6 +80,26 @@ def test_empty_collection_is_blocked(ctx):
     }
 
 
+def test_empty_collection_with_running_job_is_validating(ctx):
+    readiness = compute_readiness(ctx, tasks=[{"status": "running"}])
+
+    assert readiness["status"] == "validating"
+    assert readiness["next_action"] == "Wait for background jobs to finish."
+    assert readiness["job_health"] == {
+        **EMPTY_JOB_HEALTH,
+        "running": 1,
+    }
+
+
+def test_empty_collection_with_failed_job_prioritizes_failed_job_action(ctx):
+    readiness = compute_readiness(ctx, tasks=[{"status": "error"}])
+
+    assert readiness["status"] == "blocked"
+    assert readiness["next_action"] == "Inspect failed background jobs."
+    assert "1 background job failed." in readiness["blockers"]
+    assert "No indexed knowledge objects." in readiness["blockers"]
+
+
 def test_pending_review_marks_collection_needs_review(ctx):
     ctx.store.upsert(
         [
@@ -298,3 +318,23 @@ def test_workspace_readiness_uses_app_task_store_and_filters_collection(ctx):
         "running": 1,
     }
     assert data["blockers"] == []
+
+
+def test_workspace_readiness_degrades_when_task_store_cannot_load(ctx):
+    app = FastAPI()
+    app.state.context = ctx
+    app.state.contexts = {}
+    (ctx.settings.data_dir / "tasks.json").write_text("{not-json", encoding="utf-8")
+    app.include_router(workspace_routes.router)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    resp = client.get("/api/workspace/readiness")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "blocked"
+    assert data["job_health"] == {
+        **EMPTY_JOB_HEALTH,
+        "error": 1,
+    }
+    assert "1 background job failed." in data["blockers"]

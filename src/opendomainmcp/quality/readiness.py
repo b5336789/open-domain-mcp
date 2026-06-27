@@ -20,11 +20,12 @@ def compute_readiness(ctx: Context, tasks: list[dict] | None = None) -> dict:
     approved_ratio = round(approved / total, 4) if total else 0
     blockers: list[str] = []
     warnings: list[str] = []
+    active_jobs = bool(jobs["queued"] or jobs["running"])
 
-    if total == 0:
-        blockers.append("No indexed knowledge objects.")
     if jobs["error"]:
         blockers.append(_count_text(jobs["error"], "background job failed"))
+    if total == 0 and not active_jobs:
+        blockers.append("No indexed knowledge objects.")
     if pending:
         warnings.append(_count_text(pending, "knowledge object is pending review"))
     if review["rejected"]:
@@ -126,6 +127,8 @@ def _count_text(count: int, singular: str) -> str:
 
 
 def _next_action(status: str, blockers: list[str], warnings: list[str]) -> str:
+    if any("background job" in blocker and "failed" in blocker for blocker in blockers):
+        return "Inspect failed background jobs."
     if "No indexed knowledge objects." in blockers:
         return "Add sources in Source Intake."
     if "blocked" == status:

@@ -260,3 +260,5 @@ Wave 4A 將 Simulator 從一次性試跑工具提升為可重跑的 MCP validati
 - API focused：`tests/test_validation_api.py` + validation wiring → **9 passed**。
 - Quality/MCP focused：`tests/test_quality_evidence.py tests/test_mcp_endpoints.py` → **14 passed**。
 - Frontend focused：`npm run build` 成功；`npm run test:e2e -- tests/simulator.spec.ts tests/quality_lab.spec.ts tests/mcp_builder.spec.ts` → **4 passed**。
+- 後端全測：`PYTHONPATH=src .venv/bin/python -m pytest -q` → **475 passed, 3 skipped**。
+- 前端全測：`npm run build` 成功；`npm run test:e2e` → **15 passed**。

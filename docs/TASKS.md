@@ -284,7 +284,7 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 | E4A.2 | ✅ | Medium | Validation API and shared simulator runner | `/api/validation/scenarios`、`/run`、`/summary`，並把 `/api/simulate` 的執行邏輯抽成 shared runner | `src/opendomainmcp/api/simulation.py`、`src/opendomainmcp/api/validation_routes.py`、`src/opendomainmcp/api/app.py`、`tests/test_validation_api.py` |
 | E4A.3 | ✅ | Medium | Simulation quality gate | Quality Evidence 新增 Simulation gate；MCP endpoint rows 回傳 per-view validation summary | `src/opendomainmcp/quality/evidence.py`、`src/opendomainmcp/api/mcp_endpoints.py`、`tests/test_quality_evidence.py`、`tests/test_mcp_endpoints.py` |
 | E4A.4 | ✅ | Medium | Simulator validation workflow | Simulator 顯示 saved scenarios、可把 current simulation 儲存並 rerun；MCP Publish 顯示 validation passed/failed/scenario count | `web/src/pages/Simulator.tsx`、`web/src/pages/McpBuilder.tsx`、`web/src/api.ts`、`web/tests/simulator.spec.ts`、`web/tests/mcp_builder.spec.ts` |
-| E4A.5 | ✅ | Low | Wave 4A docs and verification | 紀錄 validation suite 範圍與 focused 驗證結果，重新生成 docs HTML | `docs/DEVLOG.md`、`docs/TASKS.md`、`docs/*.html` |
+| E4A.5 | ✅ | Low | Wave 4A docs and verification | 紀錄 validation suite 範圍與完整驗證結果，重新生成 docs HTML | `docs/DEVLOG.md`、`docs/TASKS.md`、`docs/*.html` |
 
 ---
 

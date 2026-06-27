@@ -13,6 +13,7 @@ import {
   IconAdvisor,
   IconArticles,
   IconGraph,
+  IconIngest,
   IconMetrics,
   IconReview,
   IconSimulator,
@@ -130,6 +131,9 @@ export default function QualityLab() {
           )}
 
           <section className="flex flex-wrap gap-2">
+            <ButtonLink href="#/intake" icon={<IconIngest className="h-4 w-4" />}>
+              Source Intake
+            </ButtonLink>
             <ButtonLink href="#/review" icon={<IconReview className="h-4 w-4" />}>
               Review Knowledge
             </ButtonLink>
@@ -144,6 +148,9 @@ export default function QualityLab() {
             </ButtonLink>
             <ButtonLink href="#/simulator" icon={<IconSimulator className="h-4 w-4" />}>
               Run Simulator
+            </ButtonLink>
+            <ButtonLink href="#/metrics" icon={<IconMetrics className="h-4 w-4" />}>
+              Detailed Metrics
             </ButtonLink>
           </section>
         </>

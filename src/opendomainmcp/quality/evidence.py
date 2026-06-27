@@ -6,19 +6,20 @@ from .readiness import compute_readiness
 
 def compute_quality_evidence(ctx: Context, tasks: list[dict] | None = None) -> dict:
     readiness = compute_readiness(ctx, tasks=tasks)
+    evidence = [
+        _coverage_card(readiness),
+        _review_card(readiness),
+        _articles_card(readiness),
+        _retrieval_card(readiness),
+        _graph_card(readiness),
+        _jobs_card(readiness),
+    ]
     return {
         "collection": readiness["collection"],
-        "status": readiness["status"],
-        "score": readiness["score"],
-        "next_action": readiness["next_action"],
-        "evidence": [
-            _coverage_card(readiness),
-            _review_card(readiness),
-            _articles_card(readiness),
-            _retrieval_card(readiness),
-            _graph_card(readiness),
-            _jobs_card(readiness),
-        ],
+        "status": _overall_status(evidence),
+        "score": _overall_score(evidence),
+        "next_action": _overall_action(evidence),
+        "evidence": evidence,
     }
 
 
@@ -221,6 +222,30 @@ def _jobs_card(readiness: dict) -> dict:
         ],
         "action": action,
     }
+
+
+def _overall_status(evidence: list[dict]) -> str:
+    statuses = [card["status"] for card in evidence]
+    for status in ("blocked", "validating", "needs_review"):
+        if status in statuses:
+            return status
+    return "ready"
+
+
+def _overall_score(evidence: list[dict]) -> int:
+    if not evidence:
+        return 0
+    if any(card["status"] == "blocked" for card in evidence):
+        return 0
+    return round(sum(int(card.get("score") or 0) for card in evidence) / len(evidence))
+
+
+def _overall_action(evidence: list[dict]) -> str:
+    for status in ("blocked", "validating", "needs_review"):
+        for card in evidence:
+            if card["status"] == status:
+                return card["action"]
+    return "Quality evidence is ready."
 
 
 def _count_label(count: int, singular: str) -> str:

@@ -93,6 +93,17 @@ test.describe("quality lab", () => {
       await expect(page.getByRole("heading", { name: gate })).toBeVisible();
     }
     await expect(page.getByText("4 synthesized articles, 2 cross-validated.")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Review Knowledge" })).toBeVisible();
+    const main = page.getByRole("main");
+    for (const link of [
+      "Source Intake",
+      "Review Knowledge",
+      "Curate Articles",
+      "Inspect Graph",
+      "Run Advisor",
+      "Run Simulator",
+      "Detailed Metrics",
+    ]) {
+      await expect(main.getByRole("link", { name: link })).toBeVisible();
+    }
   });
 });

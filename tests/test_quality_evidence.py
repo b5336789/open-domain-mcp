@@ -145,6 +145,24 @@ def test_quality_evidence_summarizes_review_articles_retrieval_and_graph(
     assert _card(payload, "jobs")["status"] == "ready"
 
 
+def test_quality_evidence_top_level_status_reflects_unready_gates(
+    store, pipeline, fake_graph, tmp_path
+):
+    ctx = _ctx(store, pipeline, fake_graph, tmp_path)
+    store.upsert([_chunk("approved knowledge", "approved.md", "approved")])
+
+    payload = compute_quality_evidence(ctx, tasks=[])
+
+    assert _card(payload, "coverage")["status"] == "ready"
+    assert _card(payload, "review")["status"] == "ready"
+    assert _card(payload, "articles")["status"] == "needs_review"
+    assert _card(payload, "retrieval")["status"] == "validating"
+    assert _card(payload, "graph")["status"] == "needs_review"
+    assert payload["status"] == "validating"
+    assert payload["score"] == 58
+    assert payload["next_action"] == "Run Advisor or Simulator scenarios."
+
+
 def test_quality_evidence_api_contract(store, pipeline, fake_graph, tmp_path):
     ctx = _ctx(store, pipeline, fake_graph, tmp_path)
     app = create_app(context=ctx, context_factory=lambda **_: ctx)

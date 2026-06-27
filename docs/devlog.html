@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/DEVLOG.md</span>
   <h1><span>📓</span>開發過程記錄</h1>
   <p class="lead">本輪「完成 PRD 所有功能」開發衝刺的詳細過程、並行排程與驗證結果。</p>
-  <p class="stamp">最後更新：2026-06-27 21:22　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-27 22:28　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -447,6 +447,22 @@ Wave 1 實作計畫見 <code>docs/superpowers/plans/2026-06-27-enterprise-wave-1
 <li>前端 build：<code>npm run build</code> 成功，Vite 產出 53 modules。</li>
 <li>Web E2E：<code>npm run test:e2e</code> → <strong>14 passed</strong>。</li>
 <li>Local deployment smoke：<code>ODM_GRAPH_STORE_BACKEND=null</code> 啟動 <code>opendomainmcp-web</code>，<code>/api/health</code> 與 <code>/api/quality/evidence</code> 回 200，前端 SPA 靜態入口正常載入。</li>
+</ul>
+<hr />
+<h2 id="8-2026-06-27-enterprise-redesign-wave-3a">8. 2026-06-27 — Enterprise Redesign Wave 3A</h2>
+<p>Wave 3A 啟動 publish governance 的第一個可交付切片：不替換既有 FastMCP SSE transport，而是讓 MCP publish/unpublish 從 transient toggle 變成可審計 decision record。設計與計畫見 <code>docs/superpowers/specs/2026-06-27-enterprise-wave-3a-publish-governance-design.md</code>、<code>docs/superpowers/plans/2026-06-27-enterprise-wave-3a-publish-governance.md</code>。</p>
+<h3 id="81">8.1 範圍</h3>
+<ul>
+<li><strong>Publish decision store</strong>：新增 <code>src/opendomainmcp/publish/decisions.py</code>，以 <code>settings.data_dir / "publish_decisions.json"</code> 持久化 publish/unpublish decision，支援 collection/view 的 latest/history 查詢。</li>
+<li><strong>Readiness-gated publish API</strong>：<code>/api/mcp/endpoints</code> 回傳 <code>status</code>、<code>latest_decision</code>、<code>history</code>；當 Quality Evidence 不是 <code>ready/published</code> 時，publish 必須提供 <code>override_reason</code>，否則回 409。</li>
+<li><strong>MCP Publish workspace</strong>：<code>/#/mcp</code> 從 MCP Builder 升級為 MCP Publish，顯示 Publish readiness gates、endpoint decision history，以及非 ready 狀態的 override modal。</li>
+<li><strong>Modal accessibility</strong>：共用 Modal 補上 <code>role="dialog"</code>、<code>aria-modal</code> 與 label wiring，讓 override flow 可由 Playwright role/label 穩定驗證。</li>
+</ul>
+<h3 id="82">8.2 驗證</h3>
+<ul>
+<li>後端全測：<code>PYTHONPATH=src .venv/bin/python -m pytest -q</code> → <strong>455 passed, 3 skipped</strong>。</li>
+<li>前端 build：<code>npm run build</code> 成功，Vite 產出 53 modules。</li>
+<li>Web E2E：<code>npm run test:e2e</code> → <strong>14 passed</strong>。</li>
 </ul>
 </main>
 

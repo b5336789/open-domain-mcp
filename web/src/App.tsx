@@ -46,7 +46,7 @@ const links = [
   { to: "/quality", label: "Quality Lab", icon: IconMetrics },
   { to: "/graph", label: "Graph", icon: IconGraph },
   { to: "/advisor", label: "Advisor", icon: IconAdvisor },
-  { to: "/mcp", label: "MCP Builder", icon: IconBuilder },
+  { to: "/mcp", label: "MCP Publish", icon: IconBuilder },
   { to: "/simulator", label: "Simulator", icon: IconSimulator },
   { to: "/metrics", label: "Metrics", icon: IconMetrics },
   { to: "/settings", label: "Settings", icon: IconSettings },

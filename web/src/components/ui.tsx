@@ -331,11 +331,14 @@ export function Modal({
       onMouseDown={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
         className="w-full max-w-lg animate-scale-in rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-          <h3 className="font-semibold text-slate-900 dark:text-white">{title}</h3>
+          <h3 id="modal-title" className="font-semibold text-slate-900 dark:text-white">{title}</h3>
           <IconButton onClick={onClose} aria-label="Close">
             <IconClose className="h-5 w-5" />
           </IconButton>

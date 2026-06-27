@@ -14,11 +14,20 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from ..context import Context
+from ..publish import (
+    PublishDecisionStore,
+    PublishGateError,
+    build_decision,
+    require_publish_override,
+)
+from ..quality.evidence import compute_quality_evidence
 from ..server import build_view_server
 from ..views import VIEW_NAMES, VIEWS
+from .deps import get_ctx
 
 logger = logging.getLogger(__name__)
 
@@ -57,40 +66,107 @@ def published_set(app) -> set[str]:
 
 class PublishRequest(BaseModel):
     view: str
+    override_reason: str = ""
 
 
-def _entry(request: Request, view: str, published: set[str]) -> dict:
+def _collection(ctx: Context) -> str:
+    stats = ctx.store.stats()
+    return str(stats.get("collection") or ctx.settings.collection_name)
+
+
+def _endpoint_url(request: Request, view: str) -> str:
+    base = str(request.base_url).rstrip("/")
+    return f"{base}{_mount_path(view)}"
+
+
+def _entry(
+    request: Request,
+    view: str,
+    _published: set[str],
+    decisions: PublishDecisionStore,
+    collection: str,
+) -> dict:
     """Build the registry entry for a single view."""
     path = _mount_path(view)
-    base = str(request.base_url).rstrip("/")
+    history = decisions.history(collection, view)
+    latest = history[0] if history else None
+    is_published = latest["status"] == "published" if latest else False
     return {
         "view": view,
         "title": VIEWS[view].title,
         "path": path,
-        "published": view in published,
-        "url": f"{base}{path}",
+        "published": is_published,
+        "status": "published" if is_published else "unpublished",
+        "url": _endpoint_url(request, view),
+        "latest_decision": latest,
+        "history": history,
     }
 
 
 @router.get("/api/mcp/endpoints")
-def list_endpoints(request: Request) -> list[dict]:
+def list_endpoints(request: Request, ctx: Context = Depends(get_ctx)) -> list[dict]:
     """List every view with its mount path, publish state and absolute URL."""
     published = published_set(request.app)
-    return [_entry(request, view, published) for view in VIEW_NAMES]
+    decisions = PublishDecisionStore(ctx.settings.data_dir)
+    collection = _collection(ctx)
+    return [
+        _entry(request, view, published, decisions, collection)
+        for view in VIEW_NAMES
+    ]
 
 
 @router.post("/api/mcp/endpoints")
-def publish_endpoint(body: PublishRequest, request: Request) -> dict:
-    """Mark a view as published. 404 for an unknown view."""
+def publish_endpoint(
+    body: PublishRequest,
+    request: Request,
+    ctx: Context = Depends(get_ctx),
+) -> dict:
+    """Mark a view as published and persist the publish decision."""
     if body.view not in VIEW_NAMES:
         raise HTTPException(status_code=404, detail=f"unknown view {body.view!r}")
+    evidence = compute_quality_evidence(ctx)
+    try:
+        require_publish_override(evidence, body.override_reason)
+    except PublishGateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    decisions = PublishDecisionStore(ctx.settings.data_dir)
+    collection = _collection(ctx)
+    decisions.append(
+        build_decision(
+            collection=collection,
+            view=body.view,
+            action="publish",
+            endpoint_url=_endpoint_url(request, body.view),
+            evidence=evidence,
+            override_reason=body.override_reason,
+        )
+    )
     published = published_set(request.app)
     published.add(body.view)
-    return _entry(request, body.view, published)
+    return _entry(request, body.view, published, decisions, collection)
 
 
 @router.delete("/api/mcp/endpoints/{view}")
-def unpublish_endpoint(view: str, request: Request) -> dict:
-    """Mark a view as unpublished."""
-    published_set(request.app).discard(view)
-    return {"unpublished": view}
+def unpublish_endpoint(
+    view: str,
+    request: Request,
+    ctx: Context = Depends(get_ctx),
+) -> dict:
+    """Mark a view as unpublished and persist the unpublish decision."""
+    if view not in VIEW_NAMES:
+        raise HTTPException(status_code=404, detail=f"unknown view {view!r}")
+    published = published_set(request.app)
+    published.discard(view)
+    evidence = compute_quality_evidence(ctx)
+    decisions = PublishDecisionStore(ctx.settings.data_dir)
+    collection = _collection(ctx)
+    decisions.append(
+        build_decision(
+            collection=collection,
+            view=view,
+            action="unpublish",
+            endpoint_url=_endpoint_url(request, view),
+            evidence=evidence,
+        )
+    )
+    return _entry(request, view, published, decisions, collection)

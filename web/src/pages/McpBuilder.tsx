@@ -1,13 +1,23 @@
 import { useEffect, useState } from "react";
-import { api, getActiveCollection, McpEndpoint, ViewsMap } from "../api";
+import {
+  api,
+  getActiveCollection,
+  McpEndpoint,
+  QualityEvidenceResponse,
+  ReadinessStatus,
+  ViewsMap,
+} from "../api";
 import {
   Badge,
   Button,
   Card,
   EmptyState,
   IconButton,
+  Label,
+  Modal,
   PageHeader,
   Skeleton,
+  Textarea,
   useToast,
 } from "../components/ui";
 import { IconBuilder, IconCheck, IconCopy } from "../components/icons";
@@ -21,6 +31,7 @@ export default function McpBuilder() {
   const [saving, setSaving] = useState(false);
   const [published, setPublished] = useState<string | null>(null);
   const [endpoints, setEndpoints] = useState<McpEndpoint[] | null>(null);
+  const [quality, setQuality] = useState<QualityEvidenceResponse | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -28,6 +39,10 @@ export default function McpBuilder() {
     api
       .mcpEndpoints()
       .then(setEndpoints)
+      .catch((e) => toast.show(String(e), "red"));
+    api
+      .qualityEvidence()
+      .then(setQuality)
       .catch((e) => toast.show(String(e), "red"));
     api.getSettings().then((s) => {
       const p: Record<string, string | number | boolean> = {};
@@ -58,10 +73,12 @@ export default function McpBuilder() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="MCP Builder"
-        subtitle="Configure retrieval policy and publish role-specific MCP views."
+        title="MCP Publish"
+        subtitle="Publish role-specific MCP views with quality evidence and auditable decisions."
         icon={<IconBuilder />}
       />
+
+      <QualityGatePanel quality={quality} />
 
       <Card className="space-y-4 p-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -133,6 +150,7 @@ export default function McpBuilder() {
               <EndpointRow
                 key={endpoint.view}
                 endpoint={endpoint}
+                quality={quality}
                 onChange={updateEndpoint}
               />
             ))}
@@ -235,14 +253,71 @@ function Toggle({
   );
 }
 
+function QualityGatePanel({
+  quality,
+}: {
+  quality: QualityEvidenceResponse | null;
+}) {
+  if (!quality) {
+    return (
+      <Card className="space-y-3 p-5">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-2/3" />
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="space-y-4 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Publish readiness
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {quality.next_action}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge tone={statusTone(quality.status)}>{quality.status}</Badge>
+          <span className="text-sm font-semibold text-slate-900 dark:text-white">
+            {quality.score}
+          </span>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        {quality.evidence.map((gate) => (
+          <div
+            key={gate.id}
+            className="rounded-lg border border-slate-100 p-3 dark:border-slate-800"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-medium text-slate-900 dark:text-white">
+                {gate.gate}
+              </h4>
+              <Badge tone={statusTone(gate.status)}>{gate.status}</Badge>
+            </div>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {gate.summary}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 interface EndpointRowProps {
   endpoint: McpEndpoint;
+  quality: QualityEvidenceResponse | null;
   onChange: (next: McpEndpoint) => void;
 }
 
-function EndpointRow({ endpoint, onChange }: EndpointRowProps) {
+function EndpointRow({ endpoint, quality, onChange }: EndpointRowProps) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
   const toast = useToast();
 
   function copy() {
@@ -256,16 +331,26 @@ function EndpointRow({ endpoint, onChange }: EndpointRowProps) {
   }
 
   async function toggle() {
+    if (!endpoint.published && needsOverride(quality?.status)) {
+      setOverrideReason("");
+      setOverrideOpen(true);
+      return;
+    }
+    await publishOrUnpublish("");
+  }
+
+  async function publishOrUnpublish(reason: string) {
     setBusy(true);
     try {
       if (endpoint.published) {
-        await api.unpublishMcp(endpoint.view);
-        onChange({ ...endpoint, published: false });
+        const next = await api.unpublishMcp(endpoint.view);
+        onChange(next);
         toast.show(`Unpublished ${endpoint.title}`, "neutral");
       } else {
-        const next = await api.publishMcp(endpoint.view);
+        const next = await api.publishMcp(endpoint.view, reason);
         onChange(next);
         toast.show(`Published ${next.title}`, "green");
+        setOverrideOpen(false);
       }
     } catch (e) {
       toast.show(String(e), "red");
@@ -274,9 +359,15 @@ function EndpointRow({ endpoint, onChange }: EndpointRowProps) {
     }
   }
 
+  async function submitOverride() {
+    const reason = overrideReason.trim();
+    if (!reason) return;
+    await publishOrUnpublish(reason);
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-3 py-3">
-      <div className="min-w-0 flex-1">
+    <div className="flex flex-wrap items-start gap-3 py-3">
+      <div className="min-w-0 flex-1 space-y-2">
         <div className="flex items-center gap-2">
           <span className="font-medium text-slate-900 dark:text-white">
             {endpoint.title}
@@ -301,6 +392,22 @@ function EndpointRow({ endpoint, onChange }: EndpointRowProps) {
             )}
           </IconButton>
         </div>
+        {endpoint.latest_decision ? (
+          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-950/50 dark:text-slate-400">
+            <div className="font-medium text-slate-700 dark:text-slate-200">
+              Latest decision: {endpoint.latest_decision.action}
+            </div>
+            <div>
+              Readiness {endpoint.latest_decision.readiness_status} · score{" "}
+              {endpoint.latest_decision.readiness_score}
+            </div>
+            {endpoint.latest_decision.override_reason && (
+              <div className="mt-1">{endpoint.latest_decision.override_reason}</div>
+            )}
+          </div>
+        ) : (
+          <div className="text-xs text-slate-400">No publish decisions yet.</div>
+        )}
       </div>
       <Button
         size="sm"
@@ -311,8 +418,58 @@ function EndpointRow({ endpoint, onChange }: EndpointRowProps) {
       >
         {endpoint.published ? "Unpublish" : "Publish"}
       </Button>
+      {overrideOpen && (
+        <Modal
+          title="Publish override"
+          onClose={() => !busy && setOverrideOpen(false)}
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setOverrideOpen(false)}
+                disabled={busy}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={submitOverride}
+                loading={busy}
+                disabled={!overrideReason.trim()}
+              >
+                Publish with override
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Current quality evidence is {quality?.status ?? "blocked"}.
+            </p>
+            <Label>
+              Override reason
+              <Textarea
+                className="mt-1.5 min-h-24"
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="Explain why this view can be published before all gates are ready."
+              />
+            </Label>
+          </div>
+        </Modal>
+      )}
     </div>
   );
+}
+
+function needsOverride(status: ReadinessStatus | undefined): boolean {
+  return status !== "ready" && status !== "published";
+}
+
+function statusTone(status: ReadinessStatus) {
+  if (status === "ready" || status === "published") return "green";
+  if (status === "blocked") return "red";
+  if (status === "validating") return "amber";
+  return "amber";
 }
 
 function PublishSnippet({ view }: { view: string }) {

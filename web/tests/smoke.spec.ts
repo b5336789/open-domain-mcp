@@ -12,7 +12,7 @@ const NAV_LABELS = [
   "Quality Lab",
   "Graph",
   "Advisor",
-  "MCP Builder",
+  "MCP Publish",
   "Simulator",
   "Metrics",
   "Settings",

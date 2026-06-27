@@ -292,12 +292,35 @@ export interface IngestJob {
 }
 
 // --- Dynamic MCP endpoints ----------------------------------------------
+export interface PublishDecision {
+  id: string;
+  collection: string;
+  view: string;
+  action: "publish" | "unpublish";
+  status: "published" | "unpublished";
+  readiness_status: ReadinessStatus;
+  readiness_score: number;
+  override_reason: string;
+  endpoint_url: string;
+  created_at: number;
+  gates: {
+    id: string;
+    gate: string;
+    status: ReadinessStatus;
+    score: number;
+    summary: string;
+  }[];
+}
+
 export interface McpEndpoint {
   view: string;
   title: string;
   path: string;
   published: boolean;
+  status: "published" | "unpublished";
   url: string;
+  latest_decision: PublishDecision | null;
+  history: PublishDecision[];
 }
 
 // Knowledge classification vocabulary, kept in sync with the backend.
@@ -531,18 +554,18 @@ export const api = {
   mcpEndpoints: () =>
     fetch("/api/mcp/endpoints", { headers: headers() }).then(json<McpEndpoint[]>),
 
-  publishMcp: (view: string) =>
+  publishMcp: (view: string, override_reason = "") =>
     fetch("/api/mcp/endpoints", {
       method: "POST",
       headers: headers({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ view }),
+      body: JSON.stringify({ view, override_reason }),
     }).then(json<McpEndpoint>),
 
   unpublishMcp: (view: string) =>
     fetch(`/api/mcp/endpoints/${encodeURIComponent(view)}`, {
       method: "DELETE",
       headers: headers(),
-    }).then(json<{ unpublished: string }>),
+    }).then(json<McpEndpoint>),
 
   // -- task center --------------------------------------------------------
   createTask: (type: string, params: Record<string, unknown>) =>

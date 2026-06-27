@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from opendomainmcp.api import workspace_routes
+from opendomainmcp.api.app import create_app
 from opendomainmcp.config import Settings
 from opendomainmcp.context import Context
 from opendomainmcp.graph.models import Entity, WorkflowStep
@@ -91,6 +94,17 @@ def test_empty_collection_with_running_job_is_validating(ctx):
     }
 
 
+def test_empty_collection_with_queued_job_is_validating(ctx):
+    readiness = compute_readiness(ctx, tasks=[{"status": "queued"}])
+
+    assert readiness["status"] == "validating"
+    assert readiness["next_action"] == "Wait for background jobs to finish."
+    assert readiness["job_health"] == {
+        **EMPTY_JOB_HEALTH,
+        "queued": 1,
+    }
+
+
 def test_empty_collection_with_failed_job_prioritizes_failed_job_action(ctx):
     readiness = compute_readiness(ctx, tasks=[{"status": "error"}])
 
@@ -163,6 +177,25 @@ def test_readiness_response_contains_full_contract(ctx):
         "available": True,
         "entities": 1,
         "workflows": 1,
+    }
+
+
+def test_graph_health_degrades_when_graph_store_fails(ctx):
+    def fail_graph_call(**_kwargs):
+        raise RuntimeError("graph down")
+
+    ctx.store.upsert([_chunk("approved knowledge", "approved.md", "approved")])
+    ctx.graph = SimpleNamespace(
+        list_entities=fail_graph_call,
+        list_workflows=fail_graph_call,
+    )
+
+    readiness = compute_readiness(ctx, tasks=[])
+
+    assert readiness["graph_health"] == {
+        "available": False,
+        "entities": 0,
+        "workflows": 0,
     }
 
 
@@ -284,6 +317,16 @@ def test_workspace_readiness_endpoint_returns_context_summary(ctx):
     assert data["source_health"]["sources"] == 0
 
 
+def test_create_app_mounts_workspace_readiness_endpoint(ctx):
+    app = create_app(context=ctx, context_factory=lambda **_kwargs: ctx)
+    client = TestClient(app)
+
+    resp = client.get("/api/workspace/readiness")
+
+    assert resp.status_code == 200
+    assert set(resp.json()) == EXPECTED_KEYS
+
+
 def test_workspace_readiness_uses_app_task_store_and_filters_collection(ctx):
     app = FastAPI()
     app.state.context = ctx
@@ -333,6 +376,56 @@ def test_workspace_readiness_degrades_when_task_store_cannot_load(ctx):
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "blocked"
+    assert data["job_health"] == {
+        **EMPTY_JOB_HEALTH,
+        "error": 1,
+    }
+    assert "1 background job failed." in data["blockers"]
+
+
+def test_workspace_readiness_degrades_when_task_store_list_fails(ctx):
+    class BrokenTaskStore:
+        def list(self):
+            raise RuntimeError("task history unavailable")
+
+    app = FastAPI()
+    app.state.context = ctx
+    app.state.contexts = {}
+    app.state.task_store = BrokenTaskStore()
+    app.include_router(workspace_routes.router)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    resp = client.get("/api/workspace/readiness")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["job_health"] == {
+        **EMPTY_JOB_HEALTH,
+        "error": 1,
+    }
+    assert "1 background job failed." in data["blockers"]
+
+
+def test_workspace_readiness_degrades_when_task_row_conversion_fails(ctx):
+    class BrokenTask:
+        def to_dict(self):
+            raise RuntimeError("bad task row")
+
+    class BrokenTaskStore:
+        def list(self):
+            return [BrokenTask()]
+
+    app = FastAPI()
+    app.state.context = ctx
+    app.state.contexts = {}
+    app.state.task_store = BrokenTaskStore()
+    app.include_router(workspace_routes.router)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    resp = client.get("/api/workspace/readiness")
+
+    assert resp.status_code == 200
+    data = resp.json()
     assert data["job_health"] == {
         **EMPTY_JOB_HEALTH,
         "error": 1,

@@ -157,8 +157,78 @@ export const DEFAULT_READINESS = {
   stats: { count: 1234, embedder: "all-MiniLM-L6-v2", dim: 384 },
   source_health: { sources: 2, chunks: 60, stale: 0, failed: 0 },
   review_health: { approved: 48, pending: 10, rejected: 2, unset: 0, approved_ratio: 0.8 },
+  article_health: { articles: 4, cross_validated: 2, avg_relevance: 0.76 },
+  retrieval_health: {
+    events: 250,
+    grounding_hit_rate: 0.82,
+    avg_score: 0.731,
+    retrieval_precision: 0.64,
+  },
   job_health: { queued: 0, running: 0, done: 3, error: 0, cancelled: 0 },
   graph_health: { available: true, entities: 2, workflows: 1 },
+};
+
+export const DEFAULT_QUALITY_EVIDENCE = {
+  collection: "default",
+  status: "needs_review",
+  score: 72,
+  next_action: "Review pending knowledge before publishing MCP views.",
+  evidence: [
+    {
+      id: "coverage",
+      gate: "Coverage",
+      status: "ready",
+      score: 100,
+      summary: "60 indexed knowledge objects across 2 sources.",
+      details: ["2 sources", "60 chunks", "0 stale", "0 failed"],
+      action: "Coverage is sufficient.",
+    },
+    {
+      id: "review",
+      gate: "Review",
+      status: "needs_review",
+      score: 80,
+      summary: "48 of 60 knowledge objects are approved.",
+      details: ["10 pending", "2 rejected", "0 unreviewed"],
+      action: "Review pending knowledge objects.",
+    },
+    {
+      id: "articles",
+      gate: "Articles",
+      status: "needs_review",
+      score: 76,
+      summary: "4 synthesized articles, 2 cross-validated.",
+      details: ["average relevance 76%", "2 needs curation"],
+      action: "Curate synthesized articles.",
+    },
+    {
+      id: "retrieval",
+      gate: "Retrieval",
+      status: "ready",
+      score: 82,
+      summary: "250 retrieval events with 82% grounding hit rate.",
+      details: ["average score 73%", "precision 64%"],
+      action: "Keep validating with representative scenarios.",
+    },
+    {
+      id: "graph",
+      gate: "Graph",
+      status: "ready",
+      score: 100,
+      summary: "2 entities and 1 workflows indexed.",
+      details: ["2 entities", "1 workflows"],
+      action: "Graph evidence is ready.",
+    },
+    {
+      id: "jobs",
+      gate: "Jobs",
+      status: "ready",
+      score: 100,
+      summary: "No active or failed background jobs.",
+      details: ["0 queued", "0 running", "0 failed"],
+      action: "Job gate is clear.",
+    },
+  ],
 };
 
 function buildDefaults(): Record<string, MockValue> {
@@ -174,6 +244,7 @@ function buildDefaults(): Record<string, MockValue> {
     "GET /api/graph/workflows": DEFAULT_GRAPH_WORKFLOWS,
     "GET /api/tasks": DEFAULT_TASKS,
     "GET /api/workspace/readiness": DEFAULT_READINESS,
+    "GET /api/quality/evidence": DEFAULT_QUALITY_EVIDENCE,
     "GET /api/items": [],
     "GET /api/articles": [],
   };

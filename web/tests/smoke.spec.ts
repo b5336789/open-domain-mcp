@@ -9,6 +9,7 @@ const NAV_LABELS = [
   "Browse / Edit",
   "Articles",
   "Review",
+  "Quality Lab",
   "Graph",
   "Advisor",
   "MCP Builder",

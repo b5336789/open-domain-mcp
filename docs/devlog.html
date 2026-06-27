@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/DEVLOG.md</span>
   <h1><span>📓</span>開發過程記錄</h1>
   <p class="lead">本輪「完成 PRD 所有功能」開發衝刺的詳細過程、並行排程與驗證結果。</p>
-  <p class="stamp">最後更新：2026-06-27 20:24　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-27 21:22　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -429,6 +429,24 @@ Wave 1 實作計畫見 <code>docs/superpowers/plans/2026-06-27-enterprise-wave-1
 <li>後端 focused：<code>tests/test_workspace_readiness.py</code> → <strong>20 passed</strong>；<code>tests/test_integration_wiring.py tests/test_observability.py</code> → <strong>13 passed</strong>。</li>
 <li>前端 focused：<code>npm run build</code> 成功；<code>npm run test:e2e -- tests/source_intake.spec.ts</code> → <strong>2 passed</strong>；<code>npm run test:e2e -- tests/smoke.spec.ts</code> → <strong>3 passed</strong>。</li>
 <li>Source Intake review：spec pass、quality approved。已知非阻塞風險：focused E2E 未覆蓋 foreground SSE ingest、upload 與 drag/drop；legacy <code>/#/ingest</code> alias 不會高亮 <code>/intake</code> nav。</li>
+</ul>
+<hr />
+<h2 id="7-2026-06-27-enterprise-redesign-wave-2a">7. 2026-06-27 — Enterprise Redesign Wave 2A</h2>
+<p>Wave 2A 承接企業重設計藍圖的「Quality Lab And Readiness Gates」，先建立可量測的品質證據層，不提前引入 publish override / audit decision 的重治理。設計與計畫見 <code>docs/superpowers/specs/2026-06-27-enterprise-wave-2a-quality-lab-design.md</code>、<code>docs/superpowers/plans/2026-06-27-enterprise-wave-2a-quality-lab.md</code>。</p>
+<h3 id="71">7.1 範圍</h3>
+<ul>
+<li><strong>Readiness health 擴充</strong>：<code>/api/workspace/readiness</code> 新增 <code>article_health</code> 與 <code>retrieval_health</code>，在沒有文章或 metrics 時維持 zero-filled contract。</li>
+<li><strong>Quality Evidence API</strong>：新增 <code>/api/quality/evidence</code>，將 Coverage、Review、Articles、Retrieval、Graph、Jobs 六個 gate 彙整成穩定 evidence cards。</li>
+<li><strong>Quality Lab workspace</strong>：新增 <code>/quality</code> 前端工作區，呈現 evidence score、gate 狀態、details、action 與跨工作區捷徑。</li>
+<li><strong>Knowledge Review article curation</strong>：Review 頁新增 Article Curation 旁欄，列出 synthesized articles、relevance、cross-validation、source count，並可排程 synthesis task。</li>
+<li><strong>Local deployment hardening</strong>：新增 env-only <code>graph_store_backend</code>，可用 <code>ODM_GRAPH_STORE_BACKEND=null</code> 在沒有 MariaDB 的環境啟動 dashboard；同時序列化 per-collection context 首次建立，避免瀏覽器並行 API 請求觸發 Chroma 初始化競態。</li>
+</ul>
+<h3 id="72">7.2 驗證</h3>
+<ul>
+<li>後端全測：<code>PYTHONPATH=src .venv/bin/python -m pytest -q</code> → <strong>448 passed, 3 skipped</strong>。</li>
+<li>前端 build：<code>npm run build</code> 成功，Vite 產出 53 modules。</li>
+<li>Web E2E：<code>npm run test:e2e</code> → <strong>14 passed</strong>。</li>
+<li>Local deployment smoke：<code>ODM_GRAPH_STORE_BACKEND=null</code> 啟動 <code>opendomainmcp-web</code>，<code>/api/health</code> 與 <code>/api/quality/evidence</code> 回 200，前端 SPA 靜態入口正常載入。</li>
 </ul>
 </main>
 

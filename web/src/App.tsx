@@ -43,6 +43,7 @@ const links = [
   { to: "/browse", label: "Browse / Edit", icon: IconBrowse },
   { to: "/articles", label: "Articles", icon: IconArticles },
   { to: "/review", label: "Review", icon: IconReview },
+  { to: "/quality", label: "Quality Lab", icon: IconMetrics },
   { to: "/graph", label: "Graph", icon: IconGraph },
   { to: "/advisor", label: "Advisor", icon: IconAdvisor },
   { to: "/mcp", label: "MCP Builder", icon: IconBuilder },

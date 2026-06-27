@@ -47,6 +47,22 @@ def resolve_tenant(request: Request, settings) -> str | None:
     return tenant
 
 
+def get_or_create_context(state, name: str) -> Context:
+    cached = state.contexts.get(name)
+    if cached is not None:
+        return cached
+    lock = getattr(state, "contexts_lock", None)
+    if lock is None:
+        state.contexts[name] = state.context_factory(collection=name)
+        return state.contexts[name]
+    with lock:
+        cached = state.contexts.get(name)
+        if cached is None:
+            cached = state.context_factory(collection=name)
+            state.contexts[name] = cached
+        return cached
+
+
 def get_ctx(request: Request) -> Context:
     state = request.app.state
     if getattr(state, "context", None) is not None:
@@ -60,6 +76,4 @@ def get_ctx(request: Request) -> Context:
     tenant = resolve_tenant(request, settings)
     if tenant is not None:
         name = tenant_collection(tenant, name)
-    if name not in state.contexts:
-        state.contexts[name] = state.context_factory(collection=name)
-    return state.contexts[name]
+    return get_or_create_context(state, name)

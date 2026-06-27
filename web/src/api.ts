@@ -143,9 +143,16 @@ export interface MetricsView {
   };
 }
 
+export type ReadinessStatus =
+  | "blocked"
+  | "needs_review"
+  | "validating"
+  | "ready"
+  | "published";
+
 export interface KnowledgeBaseReadiness {
   collection: string;
-  status: "blocked" | "needs_review" | "validating" | "ready" | "published";
+  status: ReadinessStatus;
   score: number;
   next_action: string;
   blockers: string[];
@@ -168,6 +175,17 @@ export interface KnowledgeBaseReadiness {
     unset: number;
     approved_ratio: number;
   };
+  article_health: {
+    articles: number;
+    cross_validated: number;
+    avg_relevance: number;
+  };
+  retrieval_health: {
+    events: number;
+    grounding_hit_rate: number;
+    avg_score: number;
+    retrieval_precision: number;
+  };
   job_health: {
     queued: number;
     running: number;
@@ -180,6 +198,24 @@ export interface KnowledgeBaseReadiness {
     entities: number;
     workflows: number;
   };
+}
+
+export interface QualityEvidence {
+  id: string;
+  gate: string;
+  status: ReadinessStatus;
+  score: number;
+  summary: string;
+  details: string[];
+  action: string;
+}
+
+export interface QualityEvidenceResponse {
+  collection: string;
+  status: ReadinessStatus;
+  score: number;
+  next_action: string;
+  evidence: QualityEvidence[];
 }
 
 // --- Pre-Execution Advisor ----------------------------------------------
@@ -439,6 +475,11 @@ export const api = {
   workspaceReadiness: () =>
     fetch(withCollection("/api/workspace/readiness"), { headers: headers() }).then(
       json<KnowledgeBaseReadiness>
+    ),
+
+  qualityEvidence: () =>
+    fetch(withCollection("/api/quality/evidence"), { headers: headers() }).then(
+      json<QualityEvidenceResponse>
     ),
 
   // -- pre-execution advisor ---------------------------------------------

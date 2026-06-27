@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/FEATURES.md</span>
   <h1><span>🧩</span>系統功能說明</h1>
   <p class="lead">每項系統功能的詳細說明：用途、使用方式（CLI / HTTP / MCP / Web）與設定。</p>
-  <p class="stamp">最後更新：2026-06-21 10:58　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-27 21:22　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -622,7 +622,7 @@
 <h2 id="17-settings">17. 設定（Settings）</h2>
 <p>env 前綴 <code>ODM_</code>，可選 <code>.env</code>；UI 可編輯子集存於 <code>data_dir/settings.json</code>。</p>
 <p><strong>UI 可編輯（<code>EDITABLE_FIELDS</code>）</strong>：<code>embedder_backend</code>、<code>embedder_model</code>、<code>extract_knowledge</code>、<code>extraction_model</code>、<code>chunk_size</code>、<code>chunk_overlap</code>、<code>code_max_chunk_chars</code>、<code>extract_concurrency</code>、<code>search_mode</code>、<code>rerank_enabled</code>、<code>answer_model</code>、<code>review_mode</code>、<code>retrieve_approved_only</code>。</p>
-<p><strong>env-only（不可由 UI 編輯）</strong>：<code>auth_enabled</code>、<code>api_keys</code>、<code>multi_tenant</code>、<code>graph_db_*</code>、<code>ingest_root</code>、<code>max_upload_mb</code>、<code>data_dir</code>、<code>request_timeout</code>、<code>max_retries</code>、憑證（<code>ANTHROPIC_API_KEY</code> 等）。</p>
+<p><strong>env-only（不可由 UI 編輯）</strong>：<code>auth_enabled</code>、<code>api_keys</code>、<code>multi_tenant</code>、<code>graph_store_backend</code>、<code>graph_db_*</code>、<code>ingest_root</code>、<code>max_upload_mb</code>、<code>data_dir</code>、<code>request_timeout</code>、<code>max_retries</code>、憑證（<code>ANTHROPIC_API_KEY</code> 等）。</p>
 <ul>
 <li>HTTP：<code>GET /api/settings</code>、<code>PATCH /api/settings</code>（<code>{values}</code>，限 editable，否則拋錯）。</li>
 <li><strong>Web — Settings 頁（<code>/settings</code>）</strong>：編輯可變設定；collection / embedder backend / data_dir 唯讀顯示。</li>

@@ -177,7 +177,10 @@ class Settings(BaseSettings):
     # both the vector store (Chroma) and the graph store (keyed by collection).
     multi_tenant: bool = False
 
-    # --- Knowledge graph store (MariaDB, required platform-wide) ---
+    # --- Knowledge graph store ---
+    # "mariadb" keeps the production fail-loud behavior. "null" is an explicit
+    # local-demo mode for running the dashboard without a graph database.
+    graph_store_backend: str = "mariadb"  # mariadb | null
     graph_db_host: str = "localhost"
     graph_db_port: int = 3306
     graph_db_user: str = "opendomain"

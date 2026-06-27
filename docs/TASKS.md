@@ -20,6 +20,8 @@
 | Phase 4（Pre-Execution Advisor + Metrics） | 8 | 8 ✅ |
 | 工程品質與強化 | 7 | 7 ✅ |
 | Phase 5（瀏覽器實測與前端修正） | 2 | 2 ✅ |
+| Enterprise Redesign Wave 1 | 5 | 5 ✅ |
+| Enterprise Redesign Wave 2A | 5 | 5 ✅ |
 
 > **2026-06-19 衝刺：PRD 全功能完成。** 所有先前 ⬜ 任務（3.2/3.3/3.6、4.4/4.5/4.8、
 > 5.1/5.2/5.3/5.5/5.6/5.7、6.1/6.2/6.3/6.4/6.5/6.7）已於本輪以三個並行 wave 完成並併入，
@@ -240,6 +242,20 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 | E1.3 | ✅ | Medium | Command Center | 首頁改為 knowledge base lifecycle/readiness workspace | `web/src/pages/CommandCenter.tsx`、`web/src/api.ts`、`web/src/main.tsx`、`web/src/App.tsx` |
 | E1.4 | ✅ | Medium | Source Intake | `/intake` 來源進場 workspace；保留 `/ingest` alias，整合 path/upload ingest、source registry、delete source | `web/src/pages/SourceIntake.tsx`、`web/tests/source_intake.spec.ts` |
 | E1.5 | ✅ | Low | Wave 1 docs and verification | 紀錄企業重設計 Wave 1 範圍、review gate、驗證結果 | `docs/DEVLOG.md`、`docs/TASKS.md` |
+
+---
+
+## ✅ Enterprise Redesign Wave 2A（已完成，2026-06-27）
+
+建立 Wave 2「Quality Lab And Readiness Gates」的第一個可交付切片：先讓品質證據有後端 contract 與前端 workspace，為後續 MCP publish governance 提供資料來源。設計與計畫見 `docs/superpowers/specs/2026-06-27-enterprise-wave-2a-quality-lab-design.md`、`docs/superpowers/plans/2026-06-27-enterprise-wave-2a-quality-lab.md`。
+
+| # | 狀態 | Effort | 任務 | 內容 | 位置 |
+|---|------|--------|------|------|------|
+| E2A.1 | ✅ | Low | Readiness health extension | readiness contract 新增 article/retrieval health，缺資料時 zero-fill | `src/opendomainmcp/quality/readiness.py`、`tests/test_workspace_readiness.py` |
+| E2A.2 | ✅ | Medium | Quality Evidence API | `/api/quality/evidence` 彙整 Coverage/Review/Articles/Retrieval/Graph/Jobs evidence cards | `src/opendomainmcp/quality/evidence.py`、`src/opendomainmcp/api/quality_routes.py`、`tests/test_quality_evidence.py` |
+| E2A.3 | ✅ | Medium | Quality Lab workspace | 新增 `/quality`，呈現 evidence score、gate 狀態、details、action 與跨工作區捷徑 | `web/src/pages/QualityLab.tsx`、`web/src/api.ts`、`web/tests/quality_lab.spec.ts` |
+| E2A.4 | ✅ | Low | Review article curation | Knowledge Review 新增 Article Curation 旁欄與 synthesis task action | `web/src/pages/Review.tsx`、`web/tests/review.spec.ts` |
+| E2A.5 | ✅ | Low | Wave 2A docs and verification | 紀錄品質證據層範圍與驗證結果 | `docs/DEVLOG.md`、`docs/TASKS.md` |
 
 ---
 

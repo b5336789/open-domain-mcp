@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/TASKS.md</span>
   <h1><span>✅</span>開發任務與進度</h1>
   <p class="lead">自專案起始至今的所有任務，含進度總覽與各 Phase 拆解。</p>
-  <p class="stamp">最後更新：2026-06-27 20:24　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-27 21:22　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -163,6 +163,16 @@
 <td>Phase 5（瀏覽器實測與前端修正）</td>
 <td>2</td>
 <td>2 ✅</td>
+</tr>
+<tr>
+<td>Enterprise Redesign Wave 1</td>
+<td>5</td>
+<td>5 ✅</td>
+</tr>
+<tr>
+<td>Enterprise Redesign Wave 2A</td>
+<td>5</td>
+<td>5 ✅</td>
 </tr>
 </tbody>
 </table>
@@ -1108,6 +1118,63 @@
 <td>Low</td>
 <td>Wave 1 docs and verification</td>
 <td>紀錄企業重設計 Wave 1 範圍、review gate、驗證結果</td>
+<td><code>docs/DEVLOG.md</code>、<code>docs/TASKS.md</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="enterprise-redesign-wave-2a2026-06-27">✅ Enterprise Redesign Wave 2A（已完成，2026-06-27）</h2>
+<p>建立 Wave 2「Quality Lab And Readiness Gates」的第一個可交付切片：先讓品質證據有後端 contract 與前端 workspace，為後續 MCP publish governance 提供資料來源。設計與計畫見 <code>docs/superpowers/specs/2026-06-27-enterprise-wave-2a-quality-lab-design.md</code>、<code>docs/superpowers/plans/2026-06-27-enterprise-wave-2a-quality-lab.md</code>。</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>狀態</th>
+<th>Effort</th>
+<th>任務</th>
+<th>內容</th>
+<th>位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E2A.1</td>
+<td>✅</td>
+<td>Low</td>
+<td>Readiness health extension</td>
+<td>readiness contract 新增 article/retrieval health，缺資料時 zero-fill</td>
+<td><code>src/opendomainmcp/quality/readiness.py</code>、<code>tests/test_workspace_readiness.py</code></td>
+</tr>
+<tr>
+<td>E2A.2</td>
+<td>✅</td>
+<td>Medium</td>
+<td>Quality Evidence API</td>
+<td><code>/api/quality/evidence</code> 彙整 Coverage/Review/Articles/Retrieval/Graph/Jobs evidence cards</td>
+<td><code>src/opendomainmcp/quality/evidence.py</code>、<code>src/opendomainmcp/api/quality_routes.py</code>、<code>tests/test_quality_evidence.py</code></td>
+</tr>
+<tr>
+<td>E2A.3</td>
+<td>✅</td>
+<td>Medium</td>
+<td>Quality Lab workspace</td>
+<td>新增 <code>/quality</code>，呈現 evidence score、gate 狀態、details、action 與跨工作區捷徑</td>
+<td><code>web/src/pages/QualityLab.tsx</code>、<code>web/src/api.ts</code>、<code>web/tests/quality_lab.spec.ts</code></td>
+</tr>
+<tr>
+<td>E2A.4</td>
+<td>✅</td>
+<td>Low</td>
+<td>Review article curation</td>
+<td>Knowledge Review 新增 Article Curation 旁欄與 synthesis task action</td>
+<td><code>web/src/pages/Review.tsx</code>、<code>web/tests/review.spec.ts</code></td>
+</tr>
+<tr>
+<td>E2A.5</td>
+<td>✅</td>
+<td>Low</td>
+<td>Wave 2A docs and verification</td>
+<td>紀錄品質證據層範圍與驗證結果</td>
 <td><code>docs/DEVLOG.md</code>、<code>docs/TASKS.md</code></td>
 </tr>
 </tbody>

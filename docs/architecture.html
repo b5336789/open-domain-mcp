@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/ARCHITECTURE.md</span>
   <h1><span>🏗️</span>技術架構</h1>
   <p class="lead">系統實作架構與資料流程，含即時渲染的 mermaid 架構圖。</p>
-  <p class="stamp">最後更新：2026-06-21 10:58　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-27 21:22　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -717,7 +717,8 @@
 <p>Phase 3/4 新增設定（<strong>env-only，不在 <code>EDITABLE_FIELDS</code>、不可由 UI 編輯</strong>）：
 - <code>multi_tenant: bool = False</code> — 開啟後每個請求須帶 <code>X-Tenant</code> header，集合命名空間化為 <code>&lt;tenant&gt;::&lt;collection&gt;</code>（見 §21）。
 - <code>auth_enabled: bool = False</code> + <code>api_keys: str = ""</code> — RBAC / API key 認證（見 §19）。
-- <code>graph_db_host/port/user/password/name</code> — 知識圖 MariaDB 連線（<code>MariaGraphStore</code>；未配置時 pipeline 以 <code>NullGraphStore</code> 退化，不影響向量流程）。</p>
+- <code>graph_store_backend</code> — <code>mariadb</code>（預設，fail-loud）或 <code>null</code>（本機 dashboard demo，不連 graph DB）。
+- <code>graph_db_host/port/user/password/name</code> — 知識圖 MariaDB 連線（<code>MariaGraphStore</code>）。</p>
 <p>其餘：storage、security（<code>ingest_root</code>、<code>max_upload_mb</code>）、embedding、chunking、retrieval、RAG、resilience（<code>request_timeout</code>、<code>max_retries</code>）。憑證（<code>ANTHROPIC_API_KEY</code> 等）僅由 env 讀取，不可由 UI 編輯。</p>
 <hr />
 <h2 id="14-pyprojecttoml">14. 入口點與相依（<code>pyproject.toml</code>）</h2>

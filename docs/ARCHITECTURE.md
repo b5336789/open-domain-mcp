@@ -328,7 +328,8 @@ Phase 2 新增設定：
 Phase 3/4 新增設定（**env-only，不在 `EDITABLE_FIELDS`、不可由 UI 編輯**）：
 - `multi_tenant: bool = False` — 開啟後每個請求須帶 `X-Tenant` header，集合命名空間化為 `<tenant>::<collection>`（見 §21）。
 - `auth_enabled: bool = False` + `api_keys: str = ""` — RBAC / API key 認證（見 §19）。
-- `graph_db_host/port/user/password/name` — 知識圖 MariaDB 連線（`MariaGraphStore`；未配置時 pipeline 以 `NullGraphStore` 退化，不影響向量流程）。
+- `graph_store_backend` — `mariadb`（預設，fail-loud）或 `null`（本機 dashboard demo，不連 graph DB）。
+- `graph_db_host/port/user/password/name` — 知識圖 MariaDB 連線（`MariaGraphStore`）。
 
 其餘：storage、security（`ingest_root`、`max_upload_mb`）、embedding、chunking、retrieval、RAG、resilience（`request_timeout`、`max_retries`）。憑證（`ANTHROPIC_API_KEY` 等）僅由 env 讀取，不可由 UI 編輯。
 

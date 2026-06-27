@@ -10,6 +10,7 @@ import Ask from "./pages/Ask";
 import Browse from "./pages/Browse";
 import Articles from "./pages/Articles";
 import Review from "./pages/Review";
+import QualityLab from "./pages/QualityLab";
 import McpBuilder from "./pages/McpBuilder";
 import Simulator from "./pages/Simulator";
 import Settings from "./pages/Settings";
@@ -31,6 +32,7 @@ const router = createHashRouter([
       { path: "browse", element: <Browse /> },
       { path: "articles", element: <Articles /> },
       { path: "review", element: <Review /> },
+      { path: "quality", element: <QualityLab /> },
       { path: "graph", element: <Graph /> },
       { path: "advisor", element: <Advisor /> },
       { path: "mcp", element: <McpBuilder /> },

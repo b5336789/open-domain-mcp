@@ -26,6 +26,8 @@ EXPECTED_KEYS = {
     "stats",
     "source_health",
     "review_health",
+    "article_health",
+    "retrieval_health",
     "job_health",
     "graph_health",
 }
@@ -74,6 +76,17 @@ def test_empty_collection_is_blocked(ctx):
         "rejected": 0,
         "unset": 0,
         "approved_ratio": 0,
+    }
+    assert readiness["article_health"] == {
+        "articles": 0,
+        "cross_validated": 0,
+        "avg_relevance": 0,
+    }
+    assert readiness["retrieval_health"] == {
+        "events": 0,
+        "grounding_hit_rate": 0,
+        "avg_score": 0,
+        "retrieval_precision": 0,
     }
     assert readiness["job_health"] == EMPTY_JOB_HEALTH
     assert readiness["graph_health"] == {
@@ -167,6 +180,17 @@ def test_readiness_response_contains_full_contract(ctx):
         "rejected": 1,
         "unset": 1,
         "approved_ratio": 0.25,
+    }
+    assert readiness["article_health"] == {
+        "articles": 0,
+        "cross_validated": 0,
+        "avg_relevance": 0,
+    }
+    assert readiness["retrieval_health"] == {
+        "events": 0,
+        "grounding_hit_rate": 0,
+        "avg_score": 0,
+        "retrieval_precision": 0,
     }
     assert readiness["job_health"] == {
         **EMPTY_JOB_HEALTH,

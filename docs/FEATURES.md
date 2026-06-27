@@ -334,7 +334,7 @@ env 前綴 `ODM_`，可選 `.env`；UI 可編輯子集存於 `data_dir/settings.
 
 **UI 可編輯（`EDITABLE_FIELDS`）**：`embedder_backend`、`embedder_model`、`extract_knowledge`、`extraction_model`、`chunk_size`、`chunk_overlap`、`code_max_chunk_chars`、`extract_concurrency`、`search_mode`、`rerank_enabled`、`answer_model`、`review_mode`、`retrieve_approved_only`。
 
-**env-only（不可由 UI 編輯）**：`auth_enabled`、`api_keys`、`multi_tenant`、`graph_db_*`、`ingest_root`、`max_upload_mb`、`data_dir`、`request_timeout`、`max_retries`、憑證（`ANTHROPIC_API_KEY` 等）。
+**env-only（不可由 UI 編輯）**：`auth_enabled`、`api_keys`、`multi_tenant`、`graph_store_backend`、`graph_db_*`、`ingest_root`、`max_upload_mb`、`data_dir`、`request_timeout`、`max_retries`、憑證（`ANTHROPIC_API_KEY` 等）。
 
 - HTTP：`GET /api/settings`、`PATCH /api/settings`（`{values}`，限 editable，否則拋錯）。
 - **Web — Settings 頁（`/settings`）**：編輯可變設定；collection / embedder backend / data_dir 唯讀顯示。

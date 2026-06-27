@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, AUDIENCES, Item, KNOWLEDGE_TYPES } from "../api";
+import { api, Article, AUDIENCES, Item, KNOWLEDGE_TYPES } from "../api";
 import {
   Badge,
   Button,
@@ -95,107 +95,113 @@ export default function Review() {
         ))}
       </div>
 
-      {!items && (
-        <Card className="divide-y divide-slate-100 dark:divide-slate-800">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="space-y-2 p-3.5">
-              <Skeleton className="h-3 w-1/3" />
-              <Skeleton className="h-3 w-2/3" />
-            </div>
-          ))}
-        </Card>
-      )}
-
-      {items && items.length === 0 && (
-        <EmptyState
-          icon={<IconReview className="h-6 w-6" />}
-          title={`No ${status} knowledge`}
-          hint={
-            status === "pending"
-              ? "Turn on review mode in Settings to queue new extractions here."
-              : undefined
-          }
-        />
-      )}
-
-      {items && items.length > 0 && (
-        <Card className="divide-y divide-slate-100 dark:divide-slate-800">
-          {items.map((it) => (
-            <div key={it.id} className="flex items-start justify-between gap-4 p-3.5">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  {it.metadata.knowledge_type && (
-                    <Badge tone="brand">{it.metadata.knowledge_type}</Badge>
-                  )}
-                  {it.metadata.audience && (
-                    <Badge tone="neutral">{it.metadata.audience}</Badge>
-                  )}
-                  {it.metadata.confidence !== undefined && (
-                    <span className="text-xs text-slate-400">
-                      conf {Number(it.metadata.confidence).toFixed(2)}
-                    </span>
-                  )}
-                  <span className="truncate font-mono text-xs text-slate-500 dark:text-slate-400">
-                    {it.metadata.source}
-                  </span>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="space-y-4">
+          {!items && (
+            <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="space-y-2 p-3.5">
+                  <Skeleton className="h-3 w-1/3" />
+                  <Skeleton className="h-3 w-2/3" />
                 </div>
-                {it.metadata.summary && (
-                  <div className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-                    {it.metadata.summary}
+              ))}
+            </Card>
+          )}
+
+          {items && items.length === 0 && (
+            <EmptyState
+              icon={<IconReview className="h-6 w-6" />}
+              title={`No ${status} knowledge`}
+              hint={
+                status === "pending"
+                  ? "Turn on review mode in Settings to queue new extractions here."
+                  : undefined
+              }
+            />
+          )}
+
+          {items && items.length > 0 && (
+            <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+              {items.map((it) => (
+                <div key={it.id} className="flex items-start justify-between gap-4 p-3.5">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {it.metadata.knowledge_type && (
+                        <Badge tone="brand">{it.metadata.knowledge_type}</Badge>
+                      )}
+                      {it.metadata.audience && (
+                        <Badge tone="neutral">{it.metadata.audience}</Badge>
+                      )}
+                      {it.metadata.confidence !== undefined && (
+                        <span className="text-xs text-slate-400">
+                          conf {Number(it.metadata.confidence).toFixed(2)}
+                        </span>
+                      )}
+                      <span className="truncate font-mono text-xs text-slate-500 dark:text-slate-400">
+                        {it.metadata.source}
+                      </span>
+                    </div>
+                    {it.metadata.summary && (
+                      <div className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {it.metadata.summary}
+                      </div>
+                    )}
+                    <div className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
+                      {it.text.slice(0, 160)}
+                    </div>
                   </div>
-                )}
-                <div className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
-                  {it.text.slice(0, 160)}
+                  <div className="flex shrink-0 gap-1.5">
+                    {status !== "approved" && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={busy === it.id}
+                        onClick={() => act(it, "approve")}
+                      >
+                        <IconCheck className="h-4 w-4" /> Approve
+                      </Button>
+                    )}
+                    {status !== "rejected" && (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={busy === it.id}
+                        onClick={() => act(it, "reject")}
+                      >
+                        <IconClose className="h-4 w-4" /> Reject
+                      </Button>
+                    )}
+                    <Badge tone={STATUS_TONE[status]}>{status}</Badge>
+                  </div>
                 </div>
-              </div>
-              <div className="flex shrink-0 gap-1.5">
-                {status !== "approved" && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    loading={busy === it.id}
-                    onClick={() => act(it, "approve")}
-                  >
-                    <IconCheck className="h-4 w-4" /> Approve
-                  </Button>
-                )}
-                {status !== "rejected" && (
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    disabled={busy === it.id}
-                    onClick={() => act(it, "reject")}
-                  >
-                    <IconClose className="h-4 w-4" /> Reject
-                  </Button>
-                )}
-                <Badge tone={STATUS_TONE[status]}>{status}</Badge>
-              </div>
-            </div>
-          ))}
-        </Card>
-      )}
+              ))}
+            </Card>
+          )}
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-slate-400">Page {page}</span>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={offset === 0}
-            onClick={() => setOffset(Math.max(0, offset - PAGE))}
-          >
-            Prev
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!items || items.length < PAGE}
-            onClick={() => setOffset(offset + PAGE)}
-          >
-            Next
-          </Button>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-400">Page {page}</span>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - PAGE))}
+              >
+                Prev
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!items || items.length < PAGE}
+                onClick={() => setOffset(offset + PAGE)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </div>
+
+        <ArticleCurationPanel />
       </div>
 
       {adding && (
@@ -209,6 +215,104 @@ export default function Review() {
         />
       )}
     </div>
+  );
+}
+
+function ArticleCurationPanel() {
+  const [articles, setArticles] = useState<Article[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  function load() {
+    setArticles(null);
+    api
+      .articles()
+      .then((rows) =>
+        setArticles(
+          [...rows].sort((a, b) => b.business_relevance - a.business_relevance),
+        ),
+      )
+      .catch((e) => {
+        toast.show(String(e), "red");
+        setArticles([]);
+      });
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function synthesize() {
+    setBusy(true);
+    try {
+      await api.createTask("synthesize", {});
+      toast.show("Synthesis queued in Task Center", "green");
+    } catch (e) {
+      toast.show(String(e), "red");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="h-fit p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            Article Curation
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Business-meaning articles synthesized from approved knowledge.
+          </p>
+        </div>
+        <Button size="sm" variant="secondary" onClick={synthesize} loading={busy}>
+          Synthesize articles
+        </Button>
+      </div>
+
+      {!articles && (
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+      )}
+
+      {articles && articles.length === 0 && (
+        <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+          No synthesized articles yet.
+        </div>
+      )}
+
+      {articles && articles.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {articles.slice(0, 5).map((article) => (
+            <article
+              key={article.id}
+              className="border-t border-slate-100 pt-3 first:border-t-0 first:pt-0 dark:border-slate-800"
+            >
+              <div className="font-medium text-slate-800 dark:text-slate-100">
+                {article.title}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <Badge tone="brand">
+                  relevance {Math.round(article.business_relevance * 100)}%
+                </Badge>
+                {article.cross_validated && (
+                  <Badge tone="green">cross-validated</Badge>
+                )}
+                <Badge tone="neutral">
+                  {article.sources.length} {article.sources.length === 1 ? "source" : "sources"}
+                </Badge>
+              </div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {article.topic}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

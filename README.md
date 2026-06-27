@@ -438,6 +438,12 @@ command over stdio to give it retrieval tools across your knowledge base.
 opendomainmcp-web        # http://127.0.0.1:8000  (ODM_WEB_HOST / ODM_WEB_PORT to override)
 ```
 
+For a dashboard-only local demo without MariaDB, run:
+
+```bash
+ODM_GRAPH_STORE_BACKEND=null opendomainmcp-web
+```
+
 A multi-page console (React SPA served by FastAPI). The core pages:
 
 | Page | What it does |

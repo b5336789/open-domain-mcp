@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 
 from ..context import Context
+from ..metrics import MetricsRecorder
 
 JOB_STATUSES = ("queued", "running", "done", "error", "cancelled")
 REVIEW_STATUSES = ("approved", "pending", "rejected", "unset")
@@ -69,6 +70,8 @@ def compute_readiness(ctx: Context, tasks: list[dict] | None = None) -> dict:
             "unset": review["unset"],
             "approved_ratio": approved_ratio,
         },
+        "article_health": _article_health(ctx),
+        "retrieval_health": _retrieval_health(ctx),
         "job_health": {status: jobs[status] for status in JOB_STATUSES},
         "graph_health": _graph_health(ctx),
     }
@@ -99,6 +102,38 @@ def _sum_source_flag(sources: list[dict], key: str) -> int:
     return sum(int(source.get(key) or 0) for source in sources)
 
 
+def _article_health(ctx: Context) -> dict:
+    stats = ctx.store.stats()
+    try:
+        articles = ctx.store.sibling(f"{stats['collection']}__articles")
+        rows = articles.get_items(limit=500, offset=0)
+    except Exception:  # noqa: BLE001 - article collection is optional evidence
+        return _empty_article_health()
+
+    relevance: list[float] = []
+    cross_validated = 0
+    for row in rows:
+        meta = row.get("metadata") or {}
+        relevance.append(_float(meta.get("business_relevance")))
+        if _truthy(meta.get("cross_validated")):
+            cross_validated += 1
+    return {
+        "articles": len(rows),
+        "cross_validated": cross_validated,
+        "avg_relevance": round(sum(relevance) / len(relevance), 4) if relevance else 0,
+    }
+
+
+def _retrieval_health(ctx: Context) -> dict:
+    metrics = MetricsRecorder(ctx.settings.data_dir).agent_metrics()
+    return {
+        "events": int(metrics.get("total_events") or 0),
+        "grounding_hit_rate": round(float(metrics.get("grounding_hit_rate") or 0), 4),
+        "avg_score": round(float(metrics.get("avg_score") or 0), 4),
+        "retrieval_precision": round(float(metrics.get("retrieval_precision") or 0), 4),
+    }
+
+
 def _graph_health(ctx: Context) -> dict:
     try:
         entities = ctx.graph.list_entities(limit=500) or []
@@ -124,6 +159,29 @@ def _count_text(count: int, singular: str) -> str:
     if singular == "background job failed":
         return f"{count} background jobs failed."
     return f"{count} {singular}s."
+
+
+def _empty_article_health() -> dict:
+    return {
+        "articles": 0,
+        "cross_validated": 0,
+        "avg_relevance": 0,
+    }
+
+
+def _float(value) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _truthy(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes"}
+    return bool(value)
 
 
 def _next_action(status: str, blockers: list[str], warnings: list[str]) -> str:

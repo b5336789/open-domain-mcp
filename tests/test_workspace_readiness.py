@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
+from opendomainmcp.api import workspace_routes
 from opendomainmcp.config import Settings
 from opendomainmcp.context import Context
 from opendomainmcp.models import Chunk, KnowledgeUnit
@@ -57,3 +60,19 @@ def test_failed_jobs_block_readiness(ctx):
     assert readiness["status"] == "blocked"
     assert readiness["job_health"]["error"] == 1
     assert readiness["blockers"] == ["1 background job failed."]
+
+
+def test_workspace_readiness_endpoint_returns_context_summary(ctx):
+    app = FastAPI()
+    app.state.context = ctx
+    app.state.contexts = {}
+    app.include_router(workspace_routes.router)
+    client = TestClient(app)
+
+    resp = client.get("/api/workspace/readiness")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["collection"] == ctx.store.stats()["collection"]
+    assert data["status"] == "blocked"
+    assert data["source_health"]["sources"] == 0

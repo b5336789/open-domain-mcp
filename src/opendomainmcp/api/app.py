@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from ..context import Context, build_context
-from . import insight_routes, mcp_endpoints, source_routes
+from . import insight_routes, mcp_endpoints, source_routes, workspace_routes
 from .task_routes import register_task_routes
 from .auth import auth_dependency, require_view_access
 from .deps import get_ctx
@@ -580,7 +580,8 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
                         ctx: Context = Depends(get_ctx)):
         return {"items": ctx.graph.list_workflows(q=q, limit=limit)}
 
-    # -- pre-execution advisor, metrics, source registry ----------------
+    # -- workspace quality, pre-execution advisor, metrics, source registry --
+    app.include_router(workspace_routes.router)
     app.include_router(insight_routes.router)
     app.include_router(source_routes.router, dependencies=[Depends(auth_dependency)])
 

@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/DEVLOG.md</span>
   <h1><span>📓</span>開發過程記錄</h1>
   <p class="lead">本輪「完成 PRD 所有功能」開發衝刺的詳細過程、並行排程與驗證結果。</p>
-  <p class="stamp">最後更新：2026-06-21 10:58　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-27 20:24　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -404,6 +404,31 @@ commit <code>df8c9fa</code>。</p>
 <li>合成與檢索全離線測試覆蓋：<code>test_synthesis_topics</code>／<code>test_synthesis_article_model</code>／<code>test_synthesis_articles</code>（含冪等、dry-run、critic 拒絕）／<code>test_synthesis_llm</code>／<code>test_retrieval_unified</code>。</li>
 <li>Web E2E（Playwright，API mock）全綠，含新 Articles smoke 與 Dashboard pipeline 斷言。</li>
 <li>PR #20–24 均已併入 <code>main</code>。</li>
+</ul>
+<hr />
+<h2 id="6-2026-06-27-enterprise-redesign-wave-1">6. 2026-06-27 — Enterprise Redesign Wave 1</h2>
+<p>依企業技術主管視角完成系統盤點與第一波重設計實作。完整藍圖見
+<code>docs/superpowers/specs/2026-06-27-enterprise-redesign-blueprint-design.md</code>，
+Wave 1 實作計畫見 <code>docs/superpowers/plans/2026-06-27-enterprise-wave-1-command-center.md</code>。</p>
+<h3 id="61">6.1 範圍</h3>
+<ul>
+<li><strong>Command Center</strong>：將首頁改為 knowledge base 生命週期總覽，呈現 readiness score、blockers/warnings、source/review/job/graph health 與下一步動作。</li>
+<li><strong>Workspace readiness API</strong>：新增 <code>/api/workspace/readiness</code>，由 Chroma stats/source registry、review state、TaskStore、graph availability 彙整企業操作狀態。</li>
+<li><strong>Source Intake</strong>：以新 <code>/intake</code> workspace 取代舊 Ingest 導覽，保留 <code>/ingest</code> legacy route，整合 server path ingest、upload ingest、source registry 與 delete source。</li>
+<li><strong>測試穩定化</strong>：修正 direct pytest launcher 對 <code>tests.conftest</code> 的 import、Playwright API mocks、Task Center 對 malformed task list 的防禦。</li>
+</ul>
+<h3 id="62-review-gate">6.2 Review Gate 與修正</h3>
+<ul>
+<li>Readiness contract 經兩段 review 補齊 <code>stats</code>、<code>source_health</code>、<code>review_health.approved_ratio</code>、zero-filled <code>job_health</code>、<code>graph_health</code>。</li>
+<li>修正 no-approved、rejected、unset、pending、active jobs、failed jobs 的狀態優先序，避免錯誤標示 <code>ready</code> 或引導重複 ingest。</li>
+<li><code>/api/workspace/readiness</code> 改用 app-level <code>task_store</code>，依 active collection 篩選；task history 損壞時降級為 failed job signal，而不是 500。</li>
+<li>補齊 graph exception、queued/running jobs、task-store list/row conversion failure、<code>create_app</code> mounted endpoint 的回歸測試。</li>
+</ul>
+<h3 id="63">6.3 驗證</h3>
+<ul>
+<li>後端 focused：<code>tests/test_workspace_readiness.py</code> → <strong>20 passed</strong>；<code>tests/test_integration_wiring.py tests/test_observability.py</code> → <strong>13 passed</strong>。</li>
+<li>前端 focused：<code>npm run build</code> 成功；<code>npm run test:e2e -- tests/source_intake.spec.ts</code> → <strong>2 passed</strong>；<code>npm run test:e2e -- tests/smoke.spec.ts</code> → <strong>3 passed</strong>。</li>
+<li>Source Intake review：spec pass、quality approved。已知非阻塞風險：focused E2E 未覆蓋 foreground SSE ingest、upload 與 drag/drop；legacy <code>/#/ingest</code> alias 不會高亮 <code>/intake</code> nav。</li>
 </ul>
 </main>
 

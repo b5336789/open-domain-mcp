@@ -3,7 +3,7 @@ import { installApiMocks } from "./helpers/mockApi";
 
 const NAV_LABELS = [
   "Command Center",
-  "Ingest",
+  "Source Intake",
   "Explore",
   "Ask",
   "Browse / Edit",

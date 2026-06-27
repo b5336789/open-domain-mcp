@@ -157,7 +157,7 @@ export default function CommandCenter() {
               <Button
                 variant={data.status === "blocked" ? "primary" : "secondary"}
                 onClick={() => {
-                  window.location.hash = "#/ingest";
+                  window.location.hash = "#/intake";
                 }}
               >
                 <IconIngest className="h-4 w-4" />

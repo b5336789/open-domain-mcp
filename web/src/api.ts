@@ -188,6 +188,8 @@ export interface TaskItem {
   result: Record<string, unknown> | null;
 }
 
+export interface TaskList { tasks: TaskItem[]; }
+
 export interface TaskChild {
   name: string;
   status: string;
@@ -466,9 +468,9 @@ export const api = {
     }).then(json<TaskItem>),
 
   listTasks: () =>
-    fetch(withCollection("/api/tasks"), { headers: headers() }).then(
-      json<{ tasks: TaskItem[] }>
-    ),
+    fetch(withCollection("/api/tasks"), { headers: headers() })
+      .then(json<Partial<TaskList>>)
+      .then((body) => ({ tasks: Array.isArray(body.tasks) ? body.tasks : [] })),
 
   taskChildren: (id: string, offset = 0, limit = 100) =>
     fetch(

@@ -21,7 +21,8 @@ export default function TaskCenter() {
 
   const refresh = useCallback(async () => {
     try {
-      setTasks((await api.listTasks()).tasks);
+      const body = await api.listTasks();
+      setTasks(Array.isArray(body.tasks) ? body.tasks : []);
     } catch {
       /* transient */
     }

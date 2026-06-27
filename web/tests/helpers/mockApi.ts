@@ -145,6 +145,22 @@ export const DEFAULT_GRAPH_WORKFLOWS = {
   items: [{ name: "Rollback procedure" }],
 };
 
+export const DEFAULT_TASKS = { tasks: [] };
+
+export const DEFAULT_READINESS = {
+  collection: "default",
+  status: "needs_review",
+  score: 72,
+  next_action: "Review pending knowledge before publishing MCP views.",
+  blockers: [],
+  warnings: ["2 sources need review"],
+  stats: { count: 1234, embedder: "all-MiniLM-L6-v2", dim: 384 },
+  source_health: { sources: 2, chunks: 60, stale: 0, failed: 0 },
+  review_health: { approved: 48, pending: 10, rejected: 2, unset: 0, approved_ratio: 0.8 },
+  job_health: { queued: 0, running: 0, done: 3, error: 0, cancelled: 0 },
+  graph_health: { available: true, entities: 2, workflows: 1 },
+};
+
 function buildDefaults(): Record<string, MockValue> {
   return {
     "GET /api/stats": DEFAULT_STATS,
@@ -156,6 +172,8 @@ function buildDefaults(): Record<string, MockValue> {
     "GET /api/mcp/endpoints": DEFAULT_MCP_ENDPOINTS,
     "GET /api/graph/entities": DEFAULT_GRAPH_ENTITIES,
     "GET /api/graph/workflows": DEFAULT_GRAPH_WORKFLOWS,
+    "GET /api/tasks": DEFAULT_TASKS,
+    "GET /api/workspace/readiness": DEFAULT_READINESS,
     "GET /api/items": [],
     "GET /api/articles": [],
   };

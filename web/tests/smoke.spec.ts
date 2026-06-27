@@ -3,7 +3,7 @@ import { installApiMocks } from "./helpers/mockApi";
 
 const NAV_LABELS = [
   "Command Center",
-  "Source Intake",
+  "Ingest",
   "Explore",
   "Ask",
   "Browse / Edit",
@@ -51,15 +51,16 @@ test.describe("smoke", () => {
   }) => {
     await page.goto("/");
 
-    await expect(page.getByText("Sources", { exact: true })).toBeVisible();
-    await expect(page.getByText("2", { exact: true })).toBeVisible();
-    await expect(page.getByText("60 chunks")).toBeVisible();
-    await expect(page.getByText("Approved", { exact: true })).toBeVisible();
-    await expect(page.getByText("80%")).toBeVisible();
-    await expect(page.getByText("10 pending")).toBeVisible();
-    await expect(page.getByText("Jobs", { exact: true })).toBeVisible();
-    await expect(page.getByText("0 active")).toBeVisible();
-    await expect(page.getByText("Graph", { exact: true })).toBeVisible();
-    await expect(page.getByText("available")).toBeVisible();
+    const main = page.locator("main");
+    await expect(main.getByText("Sources", { exact: true })).toBeVisible();
+    await expect(main.getByText("2", { exact: true })).toBeVisible();
+    await expect(main.getByText("60 chunks")).toBeVisible();
+    await expect(main.getByText("Approved", { exact: true })).toBeVisible();
+    await expect(main.getByText("80%")).toBeVisible();
+    await expect(main.getByText("10 pending")).toBeVisible();
+    await expect(main.getByText("Jobs", { exact: true })).toBeVisible();
+    await expect(main.getByText("0 active")).toBeVisible();
+    await expect(main.getByText("Graph", { exact: true })).toBeVisible();
+    await expect(main.getByText("available")).toBeVisible();
   });
 });

@@ -147,3 +147,35 @@ def test_run_and_save_convenience_endpoint(store, pipeline, fake_graph, tmp_path
     assert payload["run"]["status"] == "passed"
     assert payload["result"]["view"] == "product"
     assert payload["summary"]["status"] == "passed"
+
+
+def test_validation_routes_require_api_key_when_auth_enabled(
+    monkeypatch, store, pipeline, fake_graph, tmp_path
+):
+    monkeypatch.setenv("ODM_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ODM_API_KEYS", "secret:dev:product")
+    client, _ = _client(store, pipeline, fake_graph, tmp_path)
+
+    resp = client.get("/api/validation/scenarios", params={"view": "product"})
+
+    assert resp.status_code == 401
+
+
+def test_validation_run_enforces_view_scope(
+    monkeypatch, store, pipeline, fake_graph, tmp_path
+):
+    monkeypatch.setenv("ODM_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ODM_API_KEYS", "secret:dev:product")
+    client, _ = _client(store, pipeline, fake_graph, tmp_path)
+
+    resp = client.post(
+        "/api/validation/run",
+        headers={"X-API-Key": "secret"},
+        json={
+            "view": "developer",
+            "name": "Restricted",
+            "query": "search code",
+        },
+    )
+
+    assert resp.status_code == 403

@@ -3,6 +3,8 @@ from __future__ import annotations
 import threading
 import time
 
+from .models import JOB_CANCELLED, JOB_DONE, JOB_ERROR, JOB_RUNNING
+
 
 class TaskWorker:
     def __init__(self, store, run_one):
@@ -14,8 +16,8 @@ class TaskWorker:
 
     def recover(self) -> None:
         for t in self._store.list():
-            if t.status == "running":
-                self._store.update(t.id, status="queued", cancel_requested=False)
+            if t.status == JOB_RUNNING:
+                self._store.mark_recovered(t.id)
 
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
@@ -43,7 +45,16 @@ class TaskWorker:
             self._run(task)
 
     def _run(self, task) -> None:
-        self._store.update(task.id, status="running", started_at=time.time())
+        self._store.transition(
+            task.id,
+            JOB_RUNNING,
+            started_at=task.started_at or time.time(),
+            attempts=task.attempts + 1,
+            cancel_requested=False,
+            error=None,
+            error_type=None,
+            error_message=None,
+        )
 
         def is_cancelled():
             t = self._store.get(task.id)
@@ -51,8 +62,22 @@ class TaskWorker:
 
         try:
             self._run_one(task, is_cancelled)
-            status = "cancelled" if is_cancelled() else "done"
-            self._store.update(task.id, status=status, finished_at=time.time())
+            if is_cancelled():
+                self._store.transition(
+                    task.id,
+                    JOB_CANCELLED,
+                    result={
+                        "status": JOB_CANCELLED,
+                        "message": "Task cancelled by request.",
+                    },
+                )
+            else:
+                self._store.transition(task.id, JOB_DONE)
         except Exception as exc:  # noqa: BLE001 - Fail Loud onto the task record
-            self._store.update(task.id, status="error", error=repr(exc),
-                               finished_at=time.time())
+            self._store.transition(
+                task.id,
+                JOB_ERROR,
+                error=repr(exc),
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )

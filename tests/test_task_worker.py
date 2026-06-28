@@ -28,6 +28,8 @@ def test_worker_runs_tasks_serially_in_order(tmp_path):
     assert _wait_for(lambda: s.get(b.id).status == "done")
     assert order == ["A", "B"]
     assert s.get(a.id).status == "done"
+    assert s.get(a.id).attempts == 1
+    assert s.get(b.id).attempts == 1
     w.stop()
 
 
@@ -41,7 +43,11 @@ def test_worker_marks_error_on_exception(tmp_path):
     t = s.create("ingest", "X", "c", {})
     w.start(); w.wake()
     assert _wait_for(lambda: s.get(t.id).status == "error")
-    assert "boom" in s.get(t.id).error
+    row = s.get(t.id)
+    assert "boom" in row.error
+    assert row.error_type == "RuntimeError"
+    assert row.error_message == "boom"
+    assert row.attempts == 1
     w.stop()
 
 
@@ -60,6 +66,9 @@ def test_worker_cancellation_marks_cancelled(tmp_path):
     assert _wait_for(lambda: s.get(t.id).status == "running")
     s.request_cancel(t.id)
     assert _wait_for(lambda: s.get(t.id).status == "cancelled")
+    row = s.get(t.id)
+    assert row.result == {"status": "cancelled", "message": "Task cancelled by request."}
+    assert row.attempts == 1
     w.stop()
 
 
@@ -68,4 +77,8 @@ def test_recover_requeues_stale_running(tmp_path):
     t = s.create("ingest", "X", "c", {})
     s.update(t.id, status="running")
     TaskWorker(s, lambda task, c: None).recover()
-    assert s.get(t.id).status == "queued"
+    row = s.get(t.id)
+    assert row.status == "queued"
+    assert row.recovery_count == 1
+    assert row.recovered_at is not None
+    assert row.last_transition == "recovered_running_to_queued"

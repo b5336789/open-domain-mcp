@@ -50,21 +50,17 @@ class TaskWorker:
             self._run(task)
 
     def _run(self, task) -> None:
-        current = self._store.get(task.id)
-        if current is not None and current.cancel_requested:
-            self._store.transition(task.id, JOB_CANCELLED, result=_cancelled_result())
-            return
-
-        self._store.transition(
+        started = self._store.start(
             task.id,
-            JOB_RUNNING,
             started_at=task.started_at or time.time(),
-            attempts=task.attempts + 1,
             cancel_requested=False,
             error=None,
             error_type=None,
             error_message=None,
+            cancelled_fields={"result": _cancelled_result()},
         )
+        if started is None or started.status == JOB_CANCELLED:
+            return
 
         def is_cancelled():
             t = self._store.get(task.id)

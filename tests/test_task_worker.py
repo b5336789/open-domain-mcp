@@ -95,6 +95,38 @@ def test_worker_respects_cancel_requested_before_run(tmp_path):
         w.stop()
 
 
+def test_worker_start_does_not_clear_concurrent_queued_cancel(tmp_path):
+    class RacingCancelStore(TaskStore):
+        def __init__(self, data_dir):
+            super().__init__(data_dir)
+            self.inject_cancel_for = None
+
+        def start(self, task_id, *args, **kwargs):
+            if self.inject_cancel_for == task_id:
+                self.inject_cancel_for = None
+                self.request_cancel(task_id)
+            return super().start(task_id, *args, **kwargs)
+
+    s = RacingCancelStore(tmp_path)
+    ran = False
+
+    def run_one(task, is_cancelled):
+        nonlocal ran
+        ran = True
+
+    w = TaskWorker(s, run_one)
+    t = s.create("ingest", "X", "c", {})
+    s.inject_cancel_for = t.id
+
+    try:
+        w.start(); w.wake()
+        assert _wait_for(lambda: s.get(t.id).status == "cancelled")
+        assert ran is False
+        assert s.get(t.id).attempts == 0
+    finally:
+        w.stop()
+
+
 def test_recover_requeues_stale_running(tmp_path):
     s = TaskStore(tmp_path)
     t = s.create("ingest", "X", "c", {})

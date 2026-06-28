@@ -301,7 +301,7 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 | E5A.4 | ✅ | Medium | Task Center retry UX | 顯示 structured failure evidence、Recovered badge、Retry button；保留 Cancel/Clear finished；task card 加 `role="group"` 供 E2E 與輔助技術定位 | `web/src/components/TaskCenter.tsx`、`web/src/api.ts`、`web/tests/smoke.spec.ts` |
 | E5A.5 | ✅ | Low | Wave 5A docs and verification | 紀錄 job reliability foundation 範圍與驗證結果，重新生成 docs HTML | `docs/DEVLOG.md`、`docs/TASKS.md`、`docs/*.html` |
 
-> **驗證**：backend task/readiness focused **46 passed**；後端全測 **491 passed, 3 skipped**；前端 build 成功；Playwright E2E **16 passed**。
+> **驗證**：backend task/readiness focused **47 passed**；後端全測 **492 passed, 3 skipped**；前端 build 成功；Playwright E2E **16 passed**。
 
 ---
 

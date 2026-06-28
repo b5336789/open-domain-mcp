@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from .models import (
+    JOB_CANCELLED,
     JOB_QUEUED,
     JOB_RUNNING,
     RETRYABLE_TERMINAL_STATUSES,
@@ -109,6 +110,37 @@ class TaskStore:
                 setattr(t, k, v)
             if status in TERMINAL_STATUSES and t.finished_at is None:
                 t.finished_at = time.time()
+            self._last_write[task_id] = (time.time(), t.done)
+            self._persist()
+            return t
+
+    def start(
+        self,
+        task_id: str,
+        cancelled_fields: Optional[dict] = None,
+        **fields,
+    ) -> Optional[Task]:
+        with self._lock:
+            t = self._tasks.get(task_id)
+            if t is None:
+                return None
+            if t.cancel_requested:
+                previous = t.status
+                t.status = JOB_CANCELLED
+                t.last_transition = f"{previous}_to_{JOB_CANCELLED}"
+                for k, v in (cancelled_fields or {}).items():
+                    setattr(t, k, v)
+                if t.finished_at is None:
+                    t.finished_at = time.time()
+                self._last_write[task_id] = (time.time(), t.done)
+                self._persist()
+                return t
+            previous = t.status
+            t.status = JOB_RUNNING
+            t.last_transition = f"{previous}_to_{JOB_RUNNING}"
+            t.attempts += 1
+            for k, v in fields.items():
+                setattr(t, k, v)
             self._last_write[task_id] = (time.time(), t.done)
             self._persist()
             return t

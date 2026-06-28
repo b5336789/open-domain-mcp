@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/DEVLOG.md</span>
   <h1><span>📓</span>開發過程記錄</h1>
   <p class="lead">本輪「完成 PRD 所有功能」開發衝刺的詳細過程、並行排程與驗證結果。</p>
-  <p class="stamp">最後更新：2026-06-28 08:54　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-28 10:00　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -502,6 +502,24 @@ Wave 1 實作計畫見 <code>docs/superpowers/plans/2026-06-27-enterprise-wave-1
 <li>後端全測：<code>PYTHONPATH=src .venv/bin/python -m pytest -q</code> → <strong>492 passed, 3 skipped</strong>。</li>
 <li>前端 build：<code>npm run build</code> 成功，Vite 產出 53 modules。</li>
 <li>前端全測：<code>npm run test:e2e</code> → <strong>16 passed</strong>。</li>
+</ul>
+<hr />
+<h2 id="11-2026-06-28-enterprise-redesign-wave-6a">11. 2026-06-28 — Enterprise Redesign Wave 6A</h2>
+<p>Wave 6A 將 MCP Publish 既有 retrieval-policy 設定提升為可審計的 publish governance evidence。這一波採 evidence-only policy gate，不改 retrieval 行為、不新增 RBAC secret UI，也不強制本地開發啟用 auth；重點是讓 publish readiness 與 publish decision snapshot 明確反映 policy posture。設計與計畫見 <code>docs/superpowers/specs/2026-06-28-enterprise-wave-6a-policy-gate-design.md</code>、<code>docs/superpowers/plans/2026-06-28-enterprise-wave-6a-policy-gate.md</code>。</p>
+<h3 id="111">11.1 範圍</h3>
+<ul>
+<li><strong>Policy quality gate</strong>：Quality Evidence 新增 <code>Policy</code> gate，依 <code>retrieve_approved_only</code>、<code>search_mode</code>、<code>rerank_enabled</code>、<code>auth_enabled</code> 與 API key view scopes 產生狀態、分數、summary 與 action。</li>
+<li><strong>Publish-safe policy posture</strong>：approved-only retrieval 關閉時標為 <code>needs_review</code>；unsupported search mode 標為 <code>needs_review</code>；approved-only 加上 <code>hybrid</code> 或 <code>vector</code> search mode 時標為 <code>ready</code>。Auth disabled 以 detail 呈現，不阻擋 local/internal publish。</li>
+<li><strong>Publish decision snapshot</strong>：既有 publish decision gate snapshot 自動收錄 <code>Policy</code> gate，舊 decision history 仍可讀且不需要 migration。</li>
+<li><strong>Frontend refresh</strong>：MCP Publish 在 Save policy 後立即重新抓 <code>/api/quality/evidence</code>，讓 Policy gate 不必 reload 頁面即可反映新設定；Quality Lab 與 MCP Publish 延用 generic evidence cards 顯示新 gate。</li>
+</ul>
+<h3 id="112">11.2 驗證</h3>
+<ul>
+<li>Backend focused：<code>tests/test_quality_evidence.py tests/test_mcp_endpoints.py tests/test_publish_decisions.py</code> → <strong>23 passed</strong>。</li>
+<li>Frontend focused：<code>npm run test:e2e -- tests/quality_lab.spec.ts tests/mcp_builder.spec.ts</code> → <strong>3 passed</strong>。</li>
+<li>後端全測：<code>PYTHONPATH=src .venv/bin/python -m pytest -q</code> → <strong>496 passed, 3 skipped</strong>。</li>
+<li>前端 build：<code>npm run build</code> 成功，Vite 產出 53 modules。</li>
+<li>前端全測：<code>npm run test:e2e</code> → <strong>17 passed</strong>。</li>
 </ul>
 </main>
 

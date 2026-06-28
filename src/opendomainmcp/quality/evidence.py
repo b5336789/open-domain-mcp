@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..context import Context
 from ..validation import ValidationStore, summarize_validation
+from .policy import build_policy_evidence
 from .readiness import compute_readiness
 
 
@@ -14,6 +15,7 @@ def compute_quality_evidence(ctx: Context, tasks: list[dict] | None = None) -> d
         _retrieval_card(readiness),
         _graph_card(readiness),
         _simulation_card(ctx, readiness),
+        build_policy_evidence(ctx.settings),
         _jobs_card(readiness),
     ]
     return {

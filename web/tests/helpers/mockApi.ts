@@ -283,6 +283,20 @@ export const DEFAULT_QUALITY_EVIDENCE = {
       action: "Run validation scenarios in Agent Simulator.",
     },
     {
+      id: "policy",
+      gate: "Policy",
+      status: "ready",
+      score: 100,
+      summary: "Published MCP views use approved-only hybrid retrieval.",
+      details: [
+        "approved-only on",
+        "search mode hybrid",
+        "rerank off",
+        "auth disabled",
+      ],
+      action: "Policy gate is clear.",
+    },
+    {
       id: "jobs",
       gate: "Jobs",
       status: "ready",

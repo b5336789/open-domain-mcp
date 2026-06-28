@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/TASKS.md</span>
   <h1><span>✅</span>開發任務與進度</h1>
   <p class="lead">自專案起始至今的所有任務，含進度總覽與各 Phase 拆解。</p>
-  <p class="stamp">最後更新：2026-06-28 08:54　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-28 10:00　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -188,6 +188,11 @@
 <td>Enterprise Redesign Wave 5A</td>
 <td>5</td>
 <td>5 ✅</td>
+</tr>
+<tr>
+<td>Enterprise Redesign Wave 6A</td>
+<td>4</td>
+<td>4 ✅</td>
 </tr>
 </tbody>
 </table>
@@ -1361,6 +1366,58 @@
 <p><strong>驗證</strong>：backend task/readiness focused <strong>47 passed</strong>；後端全測 <strong>492 passed, 3 skipped</strong>；前端 build 成功；Playwright E2E <strong>16 passed</strong>。</p>
 </blockquote>
 <hr />
+<h2 id="enterprise-redesign-wave-6a2026-06-28">✅ Enterprise Redesign Wave 6A（已完成，2026-06-28）</h2>
+<p>建立 publish policy evidence gate：把 MCP Publish 的 retrieval-policy 與 auth posture 納入 Quality Evidence，並讓 publish decision snapshot 留下可稽核的 policy 狀態。設計與計畫見 <code>docs/superpowers/specs/2026-06-28-enterprise-wave-6a-policy-gate-design.md</code>、<code>docs/superpowers/plans/2026-06-28-enterprise-wave-6a-policy-gate.md</code>。</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>狀態</th>
+<th>Effort</th>
+<th>任務</th>
+<th>內容</th>
+<th>位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E6A.1</td>
+<td>✅</td>
+<td>Low</td>
+<td>Policy quality gate</td>
+<td>新增 <code>Policy</code> gate，依 approved-only retrieval、search mode、rerank、auth/key scope posture 產生 readiness evidence</td>
+<td><code>src/opendomainmcp/quality/policy.py</code>、<code>src/opendomainmcp/quality/evidence.py</code>、<code>tests/test_quality_evidence.py</code></td>
+</tr>
+<tr>
+<td>E6A.2</td>
+<td>✅</td>
+<td>Low</td>
+<td>Publish policy snapshot</td>
+<td>驗證 publish decision gate snapshot 會包含 Policy gate，沿用既有 decision store contract</td>
+<td><code>tests/test_mcp_endpoints.py</code></td>
+</tr>
+<tr>
+<td>E6A.3</td>
+<td>✅</td>
+<td>Low</td>
+<td>MCP Publish policy refresh</td>
+<td>Save policy 後重新抓 Quality Evidence；Quality Lab 與 MCP Publish mock/test data 納入 Policy gate</td>
+<td><code>web/src/pages/McpBuilder.tsx</code>、<code>web/tests/helpers/mockApi.ts</code>、<code>web/tests/quality_lab.spec.ts</code>、<code>web/tests/mcp_builder.spec.ts</code></td>
+</tr>
+<tr>
+<td>E6A.4</td>
+<td>✅</td>
+<td>Low</td>
+<td>Wave 6A docs and verification</td>
+<td>紀錄 publish policy gate 範圍與驗證結果，重新生成 docs HTML</td>
+<td><code>docs/DEVLOG.md</code>、<code>docs/TASKS.md</code>、<code>docs/*.html</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>驗證</strong>：backend quality/publish focused <strong>23 passed</strong>；後端全測 <strong>496 passed, 3 skipped</strong>；前端 build 成功；Playwright E2E <strong>17 passed</strong>。</p>
+</blockquote>
+<hr />
 <h2 id="dependency-analysis">相依性分析（Dependency Analysis）</h2>
 <blockquote>
 <p>針對所有 ⬜ 未完成任務（30 項），分析彼此的前置相依，標出<strong>可立即啟動</strong>（無未完成前置）與<strong>須等待</strong>的任務，作為並行開發排程依據。</p>
@@ -1721,7 +1778,7 @@
 </tbody>
 </table>
 <hr />
-<p><em>最後更新：2026-06-28（新增 Enterprise Redesign Wave 5A：Job Reliability Foundation）</em></p>
+<p><em>最後更新：2026-06-28（新增 Enterprise Redesign Wave 6A：Publish Policy Gate）</em></p>
 <blockquote>
 <p><strong>Phase 3 進展備註（2026-06-19）：</strong> 子專案①（Entity Graph 基礎，4.1/4.2/4.3）已完成併入 main。設計與計畫見 <code>docs/superpowers/specs/2026-06-19-entity-graph-foundation-design.md</code> 與 <code>docs/superpowers/plans/2026-06-19-entity-graph-foundation.md</code>。
 - 4.2 圖儲存採 <strong>MariaDB</strong>（全平台必需依賴），向量仍在 Chroma；圖依 collection 隔離。

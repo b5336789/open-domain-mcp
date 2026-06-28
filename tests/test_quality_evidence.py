@@ -51,6 +51,7 @@ def test_quality_evidence_returns_gate_cards_for_empty_collection(
         "retrieval",
         "graph",
         "simulation",
+        "policy",
         "jobs",
     ]
     assert _card(payload, "coverage") == {
@@ -75,6 +76,105 @@ def test_quality_evidence_returns_gate_cards_for_empty_collection(
         "details": ["0 scenarios", "0 latest runs", "0 passed", "0 failed"],
         "action": "Run validation scenarios in Agent Simulator.",
     }
+
+
+def test_policy_gate_is_ready_for_approved_only_supported_search_mode(
+    store, pipeline, fake_graph, tmp_path
+):
+    ctx = Context(
+        settings=Settings(
+            data_dir=tmp_path,
+            retrieve_approved_only=True,
+            search_mode="hybrid",
+            rerank_enabled=True,
+        ),
+        store=store,
+        pipeline=pipeline,
+        graph=fake_graph,
+    )
+
+    policy = _card(compute_quality_evidence(ctx, tasks=[]), "policy")
+
+    assert policy == {
+        "id": "policy",
+        "gate": "Policy",
+        "status": "ready",
+        "score": 100,
+        "summary": "Published MCP views use approved-only hybrid retrieval.",
+        "details": [
+            "approved-only on",
+            "search mode hybrid",
+            "rerank on",
+            "auth disabled",
+        ],
+        "action": "Policy gate is clear.",
+    }
+
+
+def test_policy_gate_needs_review_when_approved_only_is_disabled(
+    store, pipeline, fake_graph, tmp_path
+):
+    ctx = Context(
+        settings=Settings(
+            data_dir=tmp_path,
+            retrieve_approved_only=False,
+            search_mode="hybrid",
+        ),
+        store=store,
+        pipeline=pipeline,
+        graph=fake_graph,
+    )
+
+    policy = _card(compute_quality_evidence(ctx, tasks=[]), "policy")
+
+    assert policy["status"] == "needs_review"
+    assert policy["score"] == 60
+    assert policy["summary"] == "Published MCP views may include unapproved knowledge."
+    assert policy["action"] == "Enable approved-only retrieval before publishing."
+
+
+def test_policy_gate_needs_review_for_unsupported_search_mode(
+    store, pipeline, fake_graph, tmp_path
+):
+    ctx = Context(
+        settings=Settings(
+            data_dir=tmp_path,
+            retrieve_approved_only=True,
+            search_mode="keyword",
+        ),
+        store=store,
+        pipeline=pipeline,
+        graph=fake_graph,
+    )
+
+    policy = _card(compute_quality_evidence(ctx, tasks=[]), "policy")
+
+    assert policy["status"] == "needs_review"
+    assert policy["score"] == 70
+    assert policy["summary"] == "Search mode keyword is not publish-safe."
+    assert policy["action"] == "Select hybrid or vector search mode."
+
+
+def test_policy_gate_reports_auth_enabled_key_scope(
+    store, pipeline, fake_graph, tmp_path
+):
+    ctx = Context(
+        settings=Settings(
+            data_dir=tmp_path,
+            retrieve_approved_only=True,
+            auth_enabled=True,
+            api_keys="admin:admin:*,dev:developer:developer|architecture",
+        ),
+        store=store,
+        pipeline=pipeline,
+        graph=fake_graph,
+    )
+
+    details = _card(compute_quality_evidence(ctx, tasks=[]), "policy")["details"]
+
+    assert "auth enabled" in details
+    assert "2 API keys configured" in details
+    assert "view scopes configured" in details
 
 
 def test_quality_evidence_summarizes_review_articles_retrieval_and_graph(
@@ -169,8 +269,9 @@ def test_quality_evidence_top_level_status_reflects_unready_gates(
     assert _card(payload, "retrieval")["status"] == "validating"
     assert _card(payload, "graph")["status"] == "needs_review"
     assert _card(payload, "simulation")["status"] == "validating"
+    assert _card(payload, "policy")["status"] == "needs_review"
     assert payload["status"] == "validating"
-    assert payload["score"] == 50
+    assert payload["score"] == 51
     assert payload["next_action"] == "Run Advisor or Simulator scenarios."
 
 

@@ -62,6 +62,7 @@ export default function McpBuilder() {
     setSaving(true);
     try {
       await api.patchSettings(policy);
+      setQuality(await api.qualityEvidence());
       toast.show("Retrieval policy saved", "green");
     } catch (e) {
       toast.show(String(e), "red");

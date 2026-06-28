@@ -100,6 +100,14 @@ def test_publish_with_override_records_decision(store, pipeline, fake_graph, tmp
     assert published["latest_decision"]["action"] == "publish"
     assert published["latest_decision"]["override_reason"] == "Internal pilot only."
     assert published["history"][0]["action"] == "publish"
+    gates = {gate["id"]: gate for gate in published["latest_decision"]["gates"]}
+    assert gates["policy"] == {
+        "id": "policy",
+        "gate": "Policy",
+        "status": "needs_review",
+        "score": 60,
+        "summary": "Published MCP views may include unapproved knowledge.",
+    }
 
     data = {e["view"]: e for e in tc.get("/api/mcp/endpoints").json()}
     assert data["product"]["published"] is True

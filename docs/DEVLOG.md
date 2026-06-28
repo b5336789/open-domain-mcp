@@ -262,3 +262,25 @@ Wave 4A 將 Simulator 從一次性試跑工具提升為可重跑的 MCP validati
 - Frontend focused：`npm run build` 成功；`npm run test:e2e -- tests/simulator.spec.ts tests/quality_lab.spec.ts tests/mcp_builder.spec.ts` → **4 passed**。
 - 後端全測：`PYTHONPATH=src .venv/bin/python -m pytest -q` → **479 passed, 3 skipped**。
 - 前端全測：`npm run build` 成功；`npm run test:e2e` → **15 passed**。
+
+---
+
+## 10. 2026-06-28 — Enterprise Redesign Wave 5A
+
+Wave 5A 將既有 Task Center 與 in-process worker 硬化為可解釋、可復原、可重試的 job foundation。這一波不導入 Celery/Redis/RQ 等新 queue 依賴，而是先把 job contract、failure evidence 與 operator action 做穩。設計與計畫見 `docs/superpowers/specs/2026-06-28-enterprise-wave-5a-job-reliability-design.md`、`docs/superpowers/plans/2026-06-28-enterprise-wave-5a-job-reliability.md`。
+
+### 10.1 範圍
+
+- **Job status contract**：`Task` 新增穩定狀態常數、active/terminal/retryable status sets，並在 persisted `tasks.json` 載入與 status update 時 fail loud 驗證未知狀態。
+- **Transition-aware TaskStore**：新增 `transition()`、`mark_recovered()`、`retry()`；terminal transition 自動記錄 `finished_at`，recovery 記錄 `recovery_count/recovered_at/last_transition`，retry 會建立新的 queued task 並保留 `retry_of` reference。
+- **Worker evidence**：worker start 會累計 `attempts`；exception 會寫入 `error_type/error_message/error`；cancelled task 會留下可讀 result；process restart recovery 會走 `mark_recovered()`。
+- **Retry API**：新增 `POST /api/tasks/{task_id}/retry`，unknown id 回 404，非 retryable state 回 409，成功後回傳新 queued task 並喚醒 worker。
+- **Task Center UX**：task card 顯示 structured failure evidence、Recovered badge、Retry button；active jobs 的 Cancel 與 Clear finished 行為維持不變，card 加上 `role="group"` 讓 E2E 與輔助技術有穩定名稱。
+
+### 10.2 驗證
+
+- Backend focused：`tests/test_task_store.py tests/test_task_worker.py tests/test_task_api.py tests/test_workspace_readiness.py::test_workspace_readiness_uses_app_task_store_and_filters_collection` → **24 passed**。
+- Frontend focused：`npm run test:e2e -- tests/smoke.spec.ts` → **4 passed**。
+- 後端全測：`PYTHONPATH=src .venv/bin/python -m pytest -q` → **488 passed, 3 skipped**。
+- 前端 build：`npm run build` 成功，Vite 產出 53 modules。
+- 前端全測：`npm run test:e2e` → **16 passed**。

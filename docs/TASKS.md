@@ -24,6 +24,7 @@
 | Enterprise Redesign Wave 2A | 5 | 5 ✅ |
 | Enterprise Redesign Wave 3A | 4 | 4 ✅ |
 | Enterprise Redesign Wave 4A | 5 | 5 ✅ |
+| Enterprise Redesign Wave 5A | 5 | 5 ✅ |
 
 > **2026-06-19 衝刺：PRD 全功能完成。** 所有先前 ⬜ 任務（3.2/3.3/3.6、4.4/4.5/4.8、
 > 5.1/5.2/5.3/5.5/5.6/5.7、6.1/6.2/6.3/6.4/6.5/6.7）已於本輪以三個並行 wave 完成並併入，
@@ -288,6 +289,22 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 ---
 
+## ✅ Enterprise Redesign Wave 5A（已完成，2026-06-28）
+
+建立 background job reliability foundation：保留現有 in-process worker 與 file-backed store，但補上明確 job status contract、transition metadata、structured failure evidence、recovery evidence、retry API 與 Task Center retry 操作。設計與計畫見 `docs/superpowers/specs/2026-06-28-enterprise-wave-5a-job-reliability-design.md`、`docs/superpowers/plans/2026-06-28-enterprise-wave-5a-job-reliability.md`。
+
+| # | 狀態 | Effort | 任務 | 內容 | 位置 |
+|---|------|--------|------|------|------|
+| E5A.1 | ✅ | Low | Job model and store contract | 定義 job status constants、active/terminal/retryable sets；`Task.from_dict()` 與 status update 驗證未知狀態；新增 transition/recovery/retry store helpers | `src/opendomainmcp/tasks/models.py`、`src/opendomainmcp/tasks/store.py`、`tests/test_task_store.py` |
+| E5A.2 | ✅ | Medium | Worker recovery and failure evidence | worker start 累計 attempts；exception 記錄 `error_type/error_message/error`；cancelled result 可讀；restart recovery 記錄 `recovery_count/recovered_at` | `src/opendomainmcp/tasks/worker.py`、`tests/test_task_worker.py` |
+| E5A.3 | ✅ | Low | Retry API | 新增 `POST /api/tasks/{task_id}/retry`；unknown id 404，非 retryable state 409，成功建立 queued retry task 並喚醒 worker | `src/opendomainmcp/api/task_routes.py`、`tests/test_task_api.py` |
+| E5A.4 | ✅ | Medium | Task Center retry UX | 顯示 structured failure evidence、Recovered badge、Retry button；保留 Cancel/Clear finished；task card 加 `role="group"` 供 E2E 與輔助技術定位 | `web/src/components/TaskCenter.tsx`、`web/src/api.ts`、`web/tests/smoke.spec.ts` |
+| E5A.5 | ✅ | Low | Wave 5A docs and verification | 紀錄 job reliability foundation 範圍與驗證結果，重新生成 docs HTML | `docs/DEVLOG.md`、`docs/TASKS.md`、`docs/*.html` |
+
+> **驗證**：backend focused **24 passed**；後端全測 **488 passed, 3 skipped**；前端 build 成功；Playwright E2E **16 passed**。
+
+---
+
 ## 相依性分析（Dependency Analysis）
 
 > 針對所有 ⬜ 未完成任務（30 項），分析彼此的前置相依，標出**可立即啟動**（無未完成前置）與**須等待**的任務，作為並行開發排程依據。
@@ -395,7 +412,7 @@ flowchart LR
 
 ---
 
-_最後更新：2026-06-28（新增 Enterprise Redesign Wave 4A：Validation Scenario Suite）_
+_最後更新：2026-06-28（新增 Enterprise Redesign Wave 5A：Job Reliability Foundation）_
 
 > **Phase 3 進展備註（2026-06-19）：** 子專案①（Entity Graph 基礎，4.1/4.2/4.3）已完成併入 main。設計與計畫見 `docs/superpowers/specs/2026-06-19-entity-graph-foundation-design.md` 與 `docs/superpowers/plans/2026-06-19-entity-graph-foundation.md`。
 > - 4.2 圖儲存採 **MariaDB**（全平台必需依賴），向量仍在 Chroma；圖依 collection 隔離。

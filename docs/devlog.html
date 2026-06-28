@@ -104,7 +104,7 @@
   <span class="badge">自動生成 · 由 docs/DEVLOG.md</span>
   <h1><span>📓</span>開發過程記錄</h1>
   <p class="lead">本輪「完成 PRD 所有功能」開發衝刺的詳細過程、並行排程與驗證結果。</p>
-  <p class="stamp">最後更新：2026-06-28 08:21　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
+  <p class="stamp">最後更新：2026-06-28 08:40　·　此頁由 <code>docs/build.py</code> 從 Markdown 生成，請勿直接手改 HTML。</p>
 </div></header>
 
 <main class="wrap">
@@ -483,6 +483,25 @@ Wave 1 實作計畫見 <code>docs/superpowers/plans/2026-06-27-enterprise-wave-1
 <li>Frontend focused：<code>npm run build</code> 成功；<code>npm run test:e2e -- tests/simulator.spec.ts tests/quality_lab.spec.ts tests/mcp_builder.spec.ts</code> → <strong>4 passed</strong>。</li>
 <li>後端全測：<code>PYTHONPATH=src .venv/bin/python -m pytest -q</code> → <strong>479 passed, 3 skipped</strong>。</li>
 <li>前端全測：<code>npm run build</code> 成功；<code>npm run test:e2e</code> → <strong>15 passed</strong>。</li>
+</ul>
+<hr />
+<h2 id="10-2026-06-28-enterprise-redesign-wave-5a">10. 2026-06-28 — Enterprise Redesign Wave 5A</h2>
+<p>Wave 5A 將既有 Task Center 與 in-process worker 硬化為可解釋、可復原、可重試的 job foundation。這一波不導入 Celery/Redis/RQ 等新 queue 依賴，而是先把 job contract、failure evidence 與 operator action 做穩。設計與計畫見 <code>docs/superpowers/specs/2026-06-28-enterprise-wave-5a-job-reliability-design.md</code>、<code>docs/superpowers/plans/2026-06-28-enterprise-wave-5a-job-reliability.md</code>。</p>
+<h3 id="101">10.1 範圍</h3>
+<ul>
+<li><strong>Job status contract</strong>：<code>Task</code> 新增穩定狀態常數、active/terminal/retryable status sets，並在 persisted <code>tasks.json</code> 載入與 status update 時 fail loud 驗證未知狀態。</li>
+<li><strong>Transition-aware TaskStore</strong>：新增 <code>transition()</code>、<code>mark_recovered()</code>、<code>retry()</code>；terminal transition 自動記錄 <code>finished_at</code>，recovery 記錄 <code>recovery_count/recovered_at/last_transition</code>，retry 會建立新的 queued task 並保留 <code>retry_of</code> reference。</li>
+<li><strong>Worker evidence</strong>：worker start 會累計 <code>attempts</code>；exception 會寫入 <code>error_type/error_message/error</code>；cancelled task 會留下可讀 result；process restart recovery 會走 <code>mark_recovered()</code>。</li>
+<li><strong>Retry API</strong>：新增 <code>POST /api/tasks/{task_id}/retry</code>，unknown id 回 404，非 retryable state 回 409，成功後回傳新 queued task 並喚醒 worker。</li>
+<li><strong>Task Center UX</strong>：task card 顯示 structured failure evidence、Recovered badge、Retry button；active jobs 的 Cancel 與 Clear finished 行為維持不變，card 加上 <code>role="group"</code> 讓 E2E 與輔助技術有穩定名稱。</li>
+</ul>
+<h3 id="102">10.2 驗證</h3>
+<ul>
+<li>Backend focused：<code>tests/test_task_store.py tests/test_task_worker.py tests/test_task_api.py tests/test_workspace_readiness.py::test_workspace_readiness_uses_app_task_store_and_filters_collection</code> → <strong>24 passed</strong>。</li>
+<li>Frontend focused：<code>npm run test:e2e -- tests/smoke.spec.ts</code> → <strong>4 passed</strong>。</li>
+<li>後端全測：<code>PYTHONPATH=src .venv/bin/python -m pytest -q</code> → <strong>488 passed, 3 skipped</strong>。</li>
+<li>前端 build：<code>npm run build</code> 成功，Vite 產出 53 modules。</li>
+<li>前端全測：<code>npm run test:e2e</code> → <strong>16 passed</strong>。</li>
 </ul>
 </main>
 

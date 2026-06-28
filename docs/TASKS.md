@@ -25,6 +25,7 @@
 | Enterprise Redesign Wave 3A | 4 | 4 ✅ |
 | Enterprise Redesign Wave 4A | 5 | 5 ✅ |
 | Enterprise Redesign Wave 5A | 5 | 5 ✅ |
+| Enterprise Redesign Wave 6A | 4 | 4 ✅ |
 
 > **2026-06-19 衝刺：PRD 全功能完成。** 所有先前 ⬜ 任務（3.2/3.3/3.6、4.4/4.5/4.8、
 > 5.1/5.2/5.3/5.5/5.6/5.7、6.1/6.2/6.3/6.4/6.5/6.7）已於本輪以三個並行 wave 完成並併入，
@@ -305,6 +306,21 @@ PRD 範圍內但 Phase 2 尚未補齊的項目。
 
 ---
 
+## ✅ Enterprise Redesign Wave 6A（已完成，2026-06-28）
+
+建立 publish policy evidence gate：把 MCP Publish 的 retrieval-policy 與 auth posture 納入 Quality Evidence，並讓 publish decision snapshot 留下可稽核的 policy 狀態。設計與計畫見 `docs/superpowers/specs/2026-06-28-enterprise-wave-6a-policy-gate-design.md`、`docs/superpowers/plans/2026-06-28-enterprise-wave-6a-policy-gate.md`。
+
+| # | 狀態 | Effort | 任務 | 內容 | 位置 |
+|---|------|--------|------|------|------|
+| E6A.1 | ✅ | Low | Policy quality gate | 新增 `Policy` gate，依 approved-only retrieval、search mode、rerank、auth/key scope posture 產生 readiness evidence | `src/opendomainmcp/quality/policy.py`、`src/opendomainmcp/quality/evidence.py`、`tests/test_quality_evidence.py` |
+| E6A.2 | ✅ | Low | Publish policy snapshot | 驗證 publish decision gate snapshot 會包含 Policy gate，沿用既有 decision store contract | `tests/test_mcp_endpoints.py` |
+| E6A.3 | ✅ | Low | MCP Publish policy refresh | Save policy 後重新抓 Quality Evidence；Quality Lab 與 MCP Publish mock/test data 納入 Policy gate | `web/src/pages/McpBuilder.tsx`、`web/tests/helpers/mockApi.ts`、`web/tests/quality_lab.spec.ts`、`web/tests/mcp_builder.spec.ts` |
+| E6A.4 | ✅ | Low | Wave 6A docs and verification | 紀錄 publish policy gate 範圍與驗證結果，重新生成 docs HTML | `docs/DEVLOG.md`、`docs/TASKS.md`、`docs/*.html` |
+
+> **驗證**：backend quality/publish focused **22 passed**；後端全測 **495 passed, 3 skipped**；前端 build 成功；Playwright E2E **17 passed**。
+
+---
+
 ## 相依性分析（Dependency Analysis）
 
 > 針對所有 ⬜ 未完成任務（30 項），分析彼此的前置相依，標出**可立即啟動**（無未完成前置）與**須等待**的任務，作為並行開發排程依據。
@@ -412,7 +428,7 @@ flowchart LR
 
 ---
 
-_最後更新：2026-06-28（新增 Enterprise Redesign Wave 5A：Job Reliability Foundation）_
+_最後更新：2026-06-28（新增 Enterprise Redesign Wave 6A：Publish Policy Gate）_
 
 > **Phase 3 進展備註（2026-06-19）：** 子專案①（Entity Graph 基礎，4.1/4.2/4.3）已完成併入 main。設計與計畫見 `docs/superpowers/specs/2026-06-19-entity-graph-foundation-design.md` 與 `docs/superpowers/plans/2026-06-19-entity-graph-foundation.md`。
 > - 4.2 圖儲存採 **MariaDB**（全平台必需依賴），向量仍在 Chroma；圖依 collection 隔離。

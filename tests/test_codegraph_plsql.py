@@ -30,7 +30,7 @@ def test_package_procedures_qualified_lowercase():
     assert set(names) == {"pkg_billing.validate_amount", "pkg_billing.compute_total"}
     v = names["pkg_billing.validate_amount"]
     assert v.kind == "procedure" and v.language == "plsql"
-    assert v.start_line == 3 and v.end_line >= 9
+    assert v.start_line == 4 and v.end_line >= 10
 
 
 def test_call_sites_within_bodies():

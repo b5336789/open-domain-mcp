@@ -34,9 +34,9 @@ def extract_plsql(source: str, file: str) -> RawSymbols:
     syms = RawSymbols()
     lines = source.splitlines()
     package = ""
-    # pass 1: find declaration lines
+    # pass 1: find declaration lines (1-indexed, per FunctionDef contract)
     decls: list[tuple[int, str]] = []  # (lineno, qualified_name)
-    for lineno, line in enumerate(lines):
+    for lineno, line in enumerate(lines, start=1):
         m = _PACKAGE_BODY.match(line)
         if m:
             package = m.group(1).lower()
@@ -51,13 +51,13 @@ def extract_plsql(source: str, file: str) -> RawSymbols:
                 decls.append((lineno, f"{package}.{m.group(1).lower()}"))
 
     # pass 2: body boundaries = next declaration (or package END / EOF)
-    end_line_total = len(lines) - 1
+    end_line_total = len(lines)
     for i, (start, qualified) in enumerate(decls):
         end = decls[i + 1][0] - 1 if i + 1 < len(decls) else end_line_total
         if package:
             for lineno in range(start, end + 1):
-                if _END_PACKAGE.match(lines[lineno]) and \
-                        _END_PACKAGE.match(lines[lineno]).group(1).lower() == package:
+                m_end = _END_PACKAGE.match(lines[lineno - 1])
+                if m_end and m_end.group(1).lower() == package:
                     end = lineno - 1
                     break
         name = qualified.rsplit(".", 1)[-1]
@@ -71,7 +71,7 @@ def extract_plsql(source: str, file: str) -> RawSymbols:
 def _emit_calls(qualified: str, lines: list[str], start: int, end: int,
                 file: str, syms: RawSymbols, self_name: str):
     for lineno in range(start + 1, end + 1):
-        for m in _CALL.finditer(lines[lineno]):
+        for m in _CALL.finditer(lines[lineno - 1]):
             callee = m.group(1).lower()
             head = callee.split(".")[0]
             if head in _KEYWORD_BLACKLIST or callee == self_name:

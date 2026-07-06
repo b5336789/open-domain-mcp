@@ -63,6 +63,8 @@ class IngestReport:
     errors: list = field(default_factory=list)    # [{"path", "error"}]
     filtered: list = field(default_factory=list)  # [{"path", "rule"}] excluded by filter rules
     pruned_sources: list = field(default_factory=list)  # [{"source", "reason"}] removed by sync
+    evidence_verified: int = 0    # count of individual evidence entries confirmed in source text
+    evidence_unverified: int = 0  # count of individual evidence entries not found in source text
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -355,6 +357,23 @@ class Pipeline:
             # it counts as reviewed; otherwise it is born approved (default).
             if getattr(self._settings, "review_mode", False) and chunk.knowledge:
                 chunk.knowledge.review_status = "pending"
+            # Verify evidence entries against the source text; penalize confidence
+            # when none are found. Accumulate counts with the same idiom as errors.
+            if chunk.knowledge and chunk.knowledge.evidence:
+                from ..extract.verify import apply_penalty, verify_evidence
+
+                verified, status = verify_evidence(
+                    chunk.knowledge.evidence, chunk.text, chunk.source,
+                    base_line=chunk.start_line or 1)
+                chunk.knowledge.evidence = verified
+                chunk.knowledge.evidence_status = status
+                chunk.knowledge.confidence = apply_penalty(
+                    chunk.knowledge.confidence, status)
+                for entry in verified:
+                    if entry.get("verified"):
+                        report.evidence_verified += 1
+                    else:
+                        report.evidence_unverified += 1
         except Exception as exc:  # extraction is best-effort; record and continue
             report.errors.append({"path": str(path), "error": f"extract: {exc!r}"})
 

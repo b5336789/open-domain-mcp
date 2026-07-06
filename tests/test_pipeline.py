@@ -266,3 +266,51 @@ def test_codegraph_extract_mode_excludes_code_from_batch_prepass(
     assert submitted
     assert all(it.kind != "code" for it in submitted)
     assert any("Pricing" in it.text for it in submitted)
+
+
+def test_evidence_verified_at_ingest(store, fake_graph, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+    from opendomainmcp.models import KnowledgeUnit
+
+    class EvidenceExtractor:
+        def extract(self, text, kind, language=None):
+            return KnowledgeUnit(
+                summary="S", knowledge_type="Code", confidence=0.8,
+                evidence=[{"claim": "real", "quote": text[:10]},
+                          {"claim": "fake", "quote": "zz_not_in_text_zz"}])
+
+    f = tmp_path / "billing.py"
+    f.write_text("def charge(amt):\n    return amt\n")
+    settings = Settings(chunk_size=200, chunk_overlap=20)
+    report = Pipeline(store, EvidenceExtractor(), settings,
+                      graph=fake_graph).ingest_path(f)
+
+    assert report.evidence_verified >= 1 and report.evidence_unverified >= 1
+    items = store.get_items(limit=10, where={"evidence_status": "partial"})
+    assert items, "partial evidence_status must be stored and filterable"
+    import json as _json
+    ev = _json.loads(items[0]["metadata"]["evidence"])
+    assert any(e["verified"] and e["start_line"] for e in ev)
+    assert any(not e["verified"] for e in ev)
+
+
+def test_unverified_evidence_penalizes_confidence(store, fake_graph, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.extract.verify import UNVERIFIED_PENALTY
+    from opendomainmcp.ingest.pipeline import Pipeline
+    from opendomainmcp.models import KnowledgeUnit
+
+    class FabricatingExtractor:
+        def extract(self, text, kind, language=None):
+            return KnowledgeUnit(summary="S", knowledge_type="Code",
+                                 confidence=0.8,
+                                 evidence=[{"claim": "x", "quote": "not there"}])
+
+    f = tmp_path / "a.py"
+    f.write_text("def f():\n    return 1\n")
+    Pipeline(store, FabricatingExtractor(), Settings(chunk_size=200,
+             chunk_overlap=20), graph=fake_graph).ingest_path(f)
+    items = store.get_items(limit=10, where={"evidence_status": "unverified"})
+    assert items and abs(float(items[0]["metadata"]["confidence"])
+                         - 0.8 * UNVERIFIED_PENALTY) < 1e-6

@@ -159,6 +159,28 @@ def test_synthesize_command_prints_report(monkeypatch, capsys):
     assert "Stored 1" in out and "Rejected 1" in out
 
 
+def test_cli_ingest_prints_evidence_counts(monkeypatch, capsys, tmp_path, store, fake_graph):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+    from opendomainmcp.models import KnowledgeUnit
+
+    class EvidenceExtractor:
+        def extract(self, text, kind, language=None):
+            return KnowledgeUnit(
+                summary="S", knowledge_type="Code", confidence=0.8,
+                evidence=[{"claim": "real", "quote": text[:10]},
+                          {"claim": "fake", "quote": "zz_not_in_text_zz"}])
+
+    (tmp_path / "billing.py").write_text("def charge(amt):\n    return amt\n")
+    settings = Settings(chunk_size=200, chunk_overlap=20)
+    p = Pipeline(store, EvidenceExtractor(), settings, graph=fake_graph)
+    ctx = Context(settings=settings, store=store, pipeline=p, graph=fake_graph)
+    monkeypatch.setattr(cli, "build_context", lambda **_: ctx)
+    assert cli.main(["ingest", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "Evidence:" in out and "verified" in out and "unverified" in out
+
+
 def test_ingest_cli_passes_filter_flags(monkeypatch, capsys, tmp_path, store, pipeline, fake_graph):
     (tmp_path / "billing.py").write_text("def charge():\n    return 1\n")
     (tmp_path / "test_billing.py").write_text("def test_c():\n    pass\n")

@@ -1,0 +1,78 @@
+"""Deterministic ingest filtering: which files are worth indexing.
+
+Test code, generated artifacts, lock files and vendored dependencies carry
+little business meaning; they waste extraction tokens and pollute retrieval.
+Rules are gitignore-flavoured globs plus a generated-file head sniff — all
+zero-token, and every filtered file is reported with the rule that dropped
+it (Fail Loud).
+
+Pattern semantics: a pattern ending in ``/`` matches when any directory
+segment of the root-relative path fnmatches it; any other pattern fnmatches
+the basename or the full relative posix path. Precedence of rule sources is
+handled by the caller (CLI > settings > built-in); within a filter, first
+matching pattern wins.
+"""
+
+from __future__ import annotations
+
+from fnmatch import fnmatch
+from pathlib import Path
+from typing import Optional, Sequence
+
+# Built-in globs for files that carry no business meaning.
+DEFAULT_EXCLUDES: tuple[str, ...] = (
+    # tests
+    "tests/", "__tests__/", "fixtures/", "__snapshots__/",
+    "test_*.py", "*_test.py", "conftest.py",
+    "*.test.ts", "*.test.js", "*.spec.ts", "*.spec.js",
+    # generated
+    "*.min.js", "*.min.css", "*.map",
+    "*_pb2.py", "*.pb.go", "*.generated.*",
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock",
+    "uv.lock", "Cargo.lock", "Pipfile.lock", "composer.lock", "Gemfile.lock",
+    # vendored
+    "vendor/", "third_party/", "migrations/",
+)
+
+GENERATED_RULE = "generated-marker"
+
+
+def _parse_exclude_spec(spec: str) -> list[str]:
+    """Split a comma/newline-separated glob list, dropping empties."""
+    parts: list[str] = []
+    for line in spec.splitlines():
+        parts.extend(p.strip() for p in line.split(","))
+    return [p for p in parts if p]
+
+
+def _relative_to(path: Path, root: Optional[Path]) -> Path:
+    if root is not None:
+        try:
+            return path.relative_to(root)
+        except ValueError:
+            pass
+    return Path(path.name)
+
+
+class IngestFilter:
+    """Decides whether a file should be ingested. One instance per run."""
+
+    def __init__(self, extra_excludes: Sequence[str] = (),
+                 use_defaults: bool = True):
+        base = DEFAULT_EXCLUDES if use_defaults else ()
+        self._patterns: tuple[str, ...] = tuple(base) + tuple(extra_excludes)
+
+    def exclusion_reason(self, path: Path,
+                         root: Optional[Path] = None) -> Optional[str]:
+        """The rule that excludes ``path``, or ``None`` if it should be ingested."""
+        rel = _relative_to(path, root)
+        name = rel.name
+        dir_segments = rel.parts[:-1]
+        for pattern in self._patterns:
+            if pattern.endswith("/"):
+                seg = pattern.rstrip("/")
+                if any(fnmatch(part, seg) for part in dir_segments):
+                    return pattern
+            elif fnmatch(name, pattern) or fnmatch(rel.as_posix(), pattern):
+                return pattern
+        return None

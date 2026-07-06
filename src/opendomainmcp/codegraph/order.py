@@ -25,7 +25,11 @@ def bottom_up_levels(graph: CodeGraph) -> list[list[str]]:
             if scc_of[src] != scc_of[dst]:
                 cadj[scc_of[src]].add(scc_of[dst])
 
-    # level = 1 + max(level of callee sccs); leaves = 0 (memoized DFS)
+    # level = 1 + max(level of callee sccs); leaves = 0 (memoized DFS).
+    # Tarjan emits SCCs in reverse topological order, so j < i for every
+    # j in cadj[i]: driven by the ascending for-loop below, _level(j) is
+    # always memoized before _level(i) runs — actual recursion depth is <= 1,
+    # safe at any chain length. Do not call _level out of order.
     level: dict[int, int] = {}
 
     def _level(i: int) -> int:

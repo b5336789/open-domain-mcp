@@ -66,3 +66,21 @@ def test_apply_penalty():
     assert apply_penalty(0.8, "partial") == 0.8
     assert apply_penalty(0.8, "verified") == 0.8
     assert apply_penalty(0.8, "") == 0.8
+
+
+def test_base_line_none_verified_without_lines():
+    # Text chunks have no start_line; quotes that are found should be verified=True
+    # but start_line/end_line must remain None (no fabricated line numbers).
+    out, status = verify_evidence(_ev("if amt < 0:"), TEXT, "billing.py", base_line=None)
+    assert status == "verified"
+    e = out[0]
+    assert e["verified"] is True
+    assert e["start_line"] is None and e["end_line"] is None
+    assert e["source"] == "billing.py"
+
+
+def test_base_line_none_unlocated_quote_is_unverified():
+    out, status = verify_evidence(_ev("this does not exist"), TEXT, "b.py", base_line=None)
+    assert status == "unverified"
+    assert out[0]["verified"] is False
+    assert out[0]["start_line"] is None and out[0]["end_line"] is None

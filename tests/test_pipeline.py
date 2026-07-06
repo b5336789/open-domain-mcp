@@ -341,3 +341,54 @@ def test_evidence_counts_exact_under_concurrent_extraction(
     assert report.chunks_indexed >= 4  # genuinely multi-chunk, parallel path
     assert report.evidence_verified == report.chunks_indexed
     assert report.evidence_unverified == report.chunks_indexed
+
+
+def test_text_chunk_evidence_has_no_fabricated_line_numbers(store, fake_graph, tmp_path):
+    """Text chunks have start_line=None; verified quotes must not fabricate line
+    numbers — start_line/end_line must stay None for those chunks."""
+    import json as _json
+
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+    from opendomainmcp.models import KnowledgeUnit
+
+    # Build a long enough file to split into multiple chunks with chunk_size=200.
+    # The extractor emits a quote from the LAST chunk's text.
+    paragraphs = [
+        "Alpha section: the billing engine processes invoices for all accounts.\n",
+        "Beta section: the pricing engine computes rates based on usage tiers.\n",
+        "Gamma section: the reconciliation engine audits every transaction daily.\n",
+        "Delta section: the notification engine sends alerts to stakeholders.\n",
+        "Epsilon section: the reporting engine aggregates data for dashboards.\n",
+    ]
+    content = "\n".join(p * 3 for p in paragraphs)
+    f = tmp_path / "docs.md"
+    f.write_text(content)
+
+    class LateChunkExtractor:
+        def extract(self, text, kind, language=None):
+            # Use a substring of the chunk being extracted as the quote.
+            quote = text.strip()[:30] if text.strip() else "missing"
+            return KnowledgeUnit(
+                summary="doc chunk", knowledge_type="Feature", confidence=0.9,
+                evidence=[{"claim": "from chunk", "quote": quote}])
+
+    settings = Settings(chunk_size=200, chunk_overlap=0)
+    report = Pipeline(store, LateChunkExtractor(), settings,
+                      graph=fake_graph).ingest_path(f)
+
+    assert report.chunks_indexed >= 2, "file must split into multiple chunks"
+    items = store.get_items(limit=50)
+    for item in items:
+        if item["metadata"].get("kind") != "text":
+            continue
+        raw_ev = item["metadata"].get("evidence")
+        if not raw_ev:
+            continue
+        ev = _json.loads(raw_ev)
+        for e in ev:
+            if e.get("verified"):
+                # Text chunks have no start_line → lines must be None
+                assert e["start_line"] is None, (
+                    f"fabricated start_line {e['start_line']} on text chunk")
+                assert e["end_line"] is None

@@ -71,3 +71,32 @@ def test_fake_store_roundtrips_entity_evidence(fake_graph):
                                        evidence=ev)])
     got = fake_graph.get_entity("x")
     assert got["evidence"] == json.loads(ev)
+
+
+def test_neighbors_payload_carries_edge_evidence(fake_graph):
+    import json
+
+    ev = json.dumps([{"claim": "auth calls db", "quote": "db.query()", "source": "auth.py",
+                      "start_line": 5, "end_line": 5, "verified": True}])
+    fake_graph.upsert_entities([
+        Entity("auth", "Auth", "Service", "c1"),
+        Entity("db", "DB", "Resource", "c1"),
+    ])
+    fake_graph.upsert_edges([Edge("auth", "db", "depends_on", "c1", evidence=ev)])
+
+    nb = fake_graph.neighbors("auth")
+    assert len(nb["neighbors"]) == 1
+    neighbor = nb["neighbors"][0]
+    assert "edge_evidence" in neighbor
+    assert neighbor["edge_evidence"] == json.loads(ev)
+
+
+def test_neighbors_payload_edge_evidence_empty_when_none(fake_graph):
+    fake_graph.upsert_entities([
+        Entity("x", "X", "Concept", "c1"),
+        Entity("y", "Y", "Concept", "c1"),
+    ])
+    fake_graph.upsert_edges([Edge("x", "y", "uses", "c1")])  # no evidence
+    nb = fake_graph.neighbors("x")
+    neighbor = nb["neighbors"][0]
+    assert neighbor["edge_evidence"] == []

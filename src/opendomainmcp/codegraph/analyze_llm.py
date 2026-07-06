@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from ..extract.knowledge import parse_llm_json
+from ..extract.knowledge import _parse_evidence, parse_llm_json
 
 _FUNC_SYSTEM = (
     "You analyze one function from a business application, with context from "
@@ -42,39 +42,6 @@ class FunctionSummary:
     confidence: float = 0.0
     evidence: list[dict] = field(default_factory=list)
 
-
-def _normalize_evidence(value) -> list[dict]:
-    """Normalize evidence to list of {"claim", "quote"} dicts with tolerance rules.
-
-    - non-list → []
-    - strings → {"claim": "", "quote": s}
-    - dicts → extract claim/quote keys
-    - drop blank-quote entries
-    - skip other types
-    """
-    if not isinstance(value, list):
-        return []
-
-    result = []
-    for item in value:
-        if isinstance(item, str):
-            # String becomes {"claim": "", "quote": s}
-            entry = {"claim": "", "quote": item.strip()}
-        elif isinstance(item, dict):
-            # Dict: extract claim/quote keys
-            entry = {
-                "claim": str(item.get("claim", "")).strip(),
-                "quote": str(item.get("quote", "")).strip(),
-            }
-        else:
-            # Skip other types
-            continue
-
-        # Drop blank-quote entries
-        if entry.get("quote"):
-            result.append(entry)
-
-    return result
 
 
 def _default_complete(settings) -> Callable[[str, str], str]:
@@ -133,7 +100,7 @@ class ChainAnalyzer:
             summary=str(data.get("summary", "")).strip(),
             rules=[str(r).strip() for r in data.get("rules", []) if str(r).strip()],
             confidence=float(data.get("confidence", 0.0) or 0.0),
-            evidence=_normalize_evidence(data.get("evidence", [])),
+            evidence=_parse_evidence(data.get("evidence", [])),
         )
 
     def analyze_chain(self, chain, summaries: dict[str, FunctionSummary]) -> dict:

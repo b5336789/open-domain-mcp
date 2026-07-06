@@ -259,7 +259,7 @@ function EvidencePanel({ entries }: { entries: EvidenceEntry[] }) {
               key={i}
               className="rounded-md border border-slate-100 p-2 dark:border-slate-800"
             >
-              {!entry.verified && (
+              {entry.verified === false && (
                 <div className="mb-1">
                   <Badge tone="red">unverified</Badge>
                 </div>
@@ -270,7 +270,9 @@ function EvidencePanel({ entries }: { entries: EvidenceEntry[] }) {
               <div className="mt-0.5 font-mono text-xs text-slate-400">
                 {entry.start_line != null && entry.end_line != null
                   ? `${entry.source ?? ""}:${entry.start_line}-${entry.end_line}`
-                  : "unverified"}
+                  : entry.verified === false
+                    ? "unverified"
+                    : entry.source ?? ""}
               </div>
             </div>
           ))}

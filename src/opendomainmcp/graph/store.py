@@ -288,8 +288,8 @@ class MariaGraphStore:
                 next_frontier = []
                 for norm in frontier:
                     for direction, col, other in (("out", "src", "dst"), ("in", "dst", "src")):
-                        sql = (f"SELECT {other} AS other, relation_type FROM edges "
-                               f"WHERE collection=%s AND {col}=%s")
+                        sql = (f"SELECT {other} AS other, relation_type, evidence_json "
+                               f"FROM edges WHERE collection=%s AND {col}=%s")
                         params = [self._collection, norm]
                         if relation_type:
                             sql += " AND relation_type=%s"
@@ -302,9 +302,12 @@ class MariaGraphStore:
                             next_frontier.append(r["other"])
                             ent = self._get_entity_with_cur(cur, r["other"])
                             if ent:
+                                edge_evidence = _parse_evidence_json(
+                                    r.get("evidence_json") or "")
                                 collected.append({"entity": ent,
                                                   "relation_type": r["relation_type"],
-                                                  "direction": direction})
+                                                  "direction": direction,
+                                                  "edge_evidence": edge_evidence})
                 frontier = next_frontier
         return {"entity": root, "neighbors": collected}
 

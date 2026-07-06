@@ -237,8 +237,13 @@ class FakeGraphStore:
                     nxt.append(other)
                     ent = self.get_entity(other)
                     if ent:
+                        try:
+                            edge_evidence = json.loads(e.evidence) if e.evidence else []
+                        except (TypeError, ValueError):
+                            edge_evidence = []
                         collected.append({"entity": ent, "relation_type": e.relation_type,
-                                          "direction": direction})
+                                          "direction": direction,
+                                          "edge_evidence": edge_evidence})
             frontier = nxt
         return {"entity": root, "neighbors": collected}
 

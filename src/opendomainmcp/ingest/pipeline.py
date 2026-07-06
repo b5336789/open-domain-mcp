@@ -366,17 +366,11 @@ class Pipeline:
             # Verify evidence entries against the source text; penalize confidence
             # when none are found. Accumulate counts with the same idiom as errors.
             if chunk.knowledge and chunk.knowledge.evidence:
-                from ..extract.verify import apply_penalty, verify_evidence
+                from ..extract.verify import verify_knowledge_evidence
 
-                verified, status = verify_evidence(
-                    chunk.knowledge.evidence, chunk.text, chunk.source,
-                    base_line=chunk.start_line or 1)
-                chunk.knowledge.evidence = verified
-                chunk.knowledge.evidence_status = status
-                chunk.knowledge.confidence = apply_penalty(
-                    chunk.knowledge.confidence, status)
-                v = sum(1 for e in verified if e.get("verified"))
-                u = len(verified) - v
+                v, u = verify_knowledge_evidence(
+                    chunk.knowledge, chunk.text, chunk.source,
+                    chunk.start_line)
                 with self._evidence_lock:
                     report.evidence_verified += v
                     report.evidence_unverified += u

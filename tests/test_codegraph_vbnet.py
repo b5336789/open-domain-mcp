@@ -65,6 +65,21 @@ def test_imports_and_module_without_namespace():
     assert [f.qualified_name for f in syms.functions] == ["Util.Ping"]
 
 
+def test_overloads_modifier_registers_function():
+    """Procedures with unlisted modifiers like Overloads must not be hidden
+    (4A final-review fix 6)."""
+    source = (
+        "Module Billing\n"
+        "  Public Overloads Sub Foo()\n"
+        "  End Sub\n"
+        "End Module\n"
+    )
+    syms = extract_vbnet(source, "Billing.vb")
+    by_name = {f.qualified_name: f for f in syms.functions}
+    assert "Billing.Foo" in by_name, f"Foo not registered; got {list(by_name)}"
+    assert by_name["Billing.Foo"].exported
+
+
 def test_unterminated_sub_recovers_on_next_declaration():
     # Malformed but real in legacy corpora: Alpha lacks End Sub. The parser
     # must implicitly close Alpha when Beta's declaration appears, register

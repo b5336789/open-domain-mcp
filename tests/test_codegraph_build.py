@@ -69,3 +69,24 @@ def test_persist_writes_entities_edges_and_provenance(tmp_path, fake_graph):
 
 def test_get_function_missing_returns_none(fake_graph):
     assert fake_graph.get_function("nope.nothing") is None
+
+
+def test_synthetic_chunk_id_bounded(fake_graph, tmp_path):
+    """_synthetic_chunk_id must produce an id < 128 chars for any name length
+    (4A final-review fix 3)."""
+    from opendomainmcp.codegraph.build import _synthetic_chunk_id, persist_codegraph
+    from opendomainmcp.codegraph.models import CodeGraph, FunctionDef, ResolvedEdge
+
+    long_name = "com.very.deep.package.structure." + ("X" * 170) + ".doThing"
+    cid = _synthetic_chunk_id(long_name)
+    assert cid.startswith("cg:"), f"expected 'cg:' prefix, got {cid!r}"
+    assert len(cid) < 128, f"chunk_id too long: {len(cid)} chars"
+
+    # Also verify the id is emitted correctly during persist
+    fn = FunctionDef(qualified_name=long_name, file="X.java",
+                     start_line=1, end_line=2, language="java")
+    graph = CodeGraph()
+    graph.functions[long_name] = fn
+    graph.edges = []
+    stats = persist_codegraph(graph, fake_graph)
+    assert stats["functions"] == 1

@@ -26,7 +26,8 @@ _CLASS = re.compile(r"^\s*(?:Public\s+|Private\s+|Friend\s+|Partial\s+)*(?:Class
                     re.IGNORECASE)
 _END_CLASS = re.compile(r"^\s*End\s+(?:Class|Module)", re.IGNORECASE)
 _PROC = re.compile(
-    r"^\s*(?P<mods>(?:Public|Private|Friend|Protected|Shared|Overrides|Async|\s)+)?"
+    r"^\s*(?P<mods>(?:Public|Private|Friend|Protected|Shared|Overrides|"
+    r"Overloads|Overridable|NotOverridable|MustOverride|Shadows|Iterator|Async|\s)+)?"
     r"(?P<kind>Sub|Function)\s+(?P<name>\w+)\s*(?P<params>\([^)]*\))?",
     re.IGNORECASE)
 _END_PROC = re.compile(r"^\s*End\s+(?:Sub|Function)", re.IGNORECASE)

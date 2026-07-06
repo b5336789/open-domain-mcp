@@ -3,8 +3,8 @@ Uses synthetic RawSymbols — independent of the language extractors."""
 
 from opendomainmcp.codegraph.models import CallSite, FunctionDef, RawSymbols
 from opendomainmcp.codegraph.resolve import (
-    CONF_DB_KNOWN, CONF_EXTERNAL, CONF_HTTP, CONF_IMPORT, CONF_SAME_SCOPE,
-    CONF_UNIQUE, resolve,
+    CONF_DB_KNOWN, CONF_EXTERNAL, CONF_HTTP, CONF_IMPORT, CONF_SAME_PACKAGE,
+    CONF_SAME_SCOPE, CONF_UNIQUE, resolve,
 )
 
 
@@ -84,6 +84,48 @@ def test_http_call_matches_route_template():
     g = resolve([js, java])
     e = next(e for e in g.edges if e.relation == "http_call")
     assert e.dst == "a.B.getOrders" and e.confidence == CONF_HTTP
+
+
+def test_same_package_rule2_pinning():
+    """Rule 2: same-package candidate wins over cross-package when basename is
+    ambiguous (4A final-review fix 7). Subpackage does NOT count as same package."""
+    # caller: com.acme package; callee basename: writeaudit
+    # same-package candidate: com.acme.Audit.writeAudit  -> rule 2 fires
+    # cross-package candidate: com.other.Audit.writeAudit -> must not win
+    caller_syms = RawSymbols(
+        functions=[_fd("com.acme.OrderService.placeOrder")],
+        calls=[CallSite(caller="com.acme.OrderService.placeOrder",
+                        callee_text="writeAudit", file="F", line=5)])
+    same_pkg = RawSymbols(functions=[_fd("com.acme.Audit.writeAudit")])
+    other_pkg = RawSymbols(functions=[_fd("com.other.Audit.writeAudit")])
+    g = resolve([caller_syms, same_pkg, other_pkg])
+    edges = {(e.src, e.dst): e for e in g.edges}
+    edge = edges.get(("com.acme.OrderService.placeOrder", "com.acme.Audit.writeAudit"))
+    assert edge is not None, "expected edge to com.acme.Audit.writeAudit"
+    assert edge.confidence == CONF_SAME_PACKAGE
+    assert not edge.external
+    # Cross-package candidate must not appear as a resolved edge
+    assert ("com.acme.OrderService.placeOrder",
+            "com.other.Audit.writeAudit") not in edges
+
+
+def test_same_package_rule2_subpackage_falls_to_external():
+    """A def in a *subpackage* (com.acme.sub) does not satisfy rule 2 for
+    caller in com.acme — it must fall through to external (4A final-review fix 7)."""
+    caller_syms = RawSymbols(
+        functions=[_fd("com.acme.OrderService.placeOrder")],
+        calls=[CallSite(caller="com.acme.OrderService.placeOrder",
+                        callee_text="writeAudit", file="F", line=5)])
+    subpkg = RawSymbols(functions=[_fd("com.acme.sub.X.writeAudit")])
+    other_pkg = RawSymbols(functions=[_fd("com.other.Audit.writeAudit")])
+    g = resolve([caller_syms, subpkg, other_pkg])
+    edges = {(e.src, e.dst): e for e in g.edges}
+    # basename is ambiguous (two defs, neither in same package) -> external
+    resolved_dst = list(edges.values())[0].dst
+    assert resolved_dst not in ("com.acme.sub.X.writeAudit",
+                                "com.other.Audit.writeAudit"), (
+        f"rule 2 incorrectly resolved to {resolved_dst}")
+    assert list(edges.values())[0].external
 
 
 def test_unmatched_http_call_is_external_and_self_calls_dropped():

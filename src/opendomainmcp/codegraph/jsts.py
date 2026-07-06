@@ -72,6 +72,20 @@ def _register(node, src, file, syms, language: str, name: str,
     return qualified
 
 
+def _walk_into_body(body, src: bytes, file: str, syms: RawSymbols,
+                    language: str, scope: str | None):
+    """Walk a function body that may be an expression (not a statement block).
+
+    Arrow functions with a bare expression body (``=> axios.post(...)``) have a
+    body node whose type IS the expression (e.g. ``call_expression``).
+    ``_walk`` only iterates *children*, so it would skip the body node itself.
+    This helper runs ``_call`` on the body when it is a call_expression, then
+    delegates child traversal to ``_walk`` for any nested calls inside args."""
+    if body.type == "call_expression" and scope is not None:
+        _call(body, src, file, syms, scope)
+    _walk(body, src, file, syms, language, scope, False)
+
+
 def _walk(node, src: bytes, file: str, syms: RawSymbols, language: str,
           enclosing: str | None, exported: bool):
     for child in node.children:
@@ -103,7 +117,7 @@ def _walk(node, src: bytes, file: str, syms: RawSymbols, language: str,
                                       _text(name_node, src), exported)
                     body = value.child_by_field_name("body")
                     if body is not None:
-                        _walk(body, src, file, syms, language, scope, False)
+                        _walk_into_body(body, src, file, syms, language, scope)
                 else:
                     _walk(decl, src, file, syms, language, enclosing, False)
             continue

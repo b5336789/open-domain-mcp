@@ -58,6 +58,32 @@ def test_imports_collected():
     assert "com.acme.repo.OrderRepo" in syms.imports
 
 
+def test_comment_with_sql_keyword_produces_no_db_calls():
+    """A comment containing SQL keywords must NOT generate db_call CallSites
+    (4A final-review fix 2a)."""
+    source = """
+public class Scheduler {
+    public void runNightly() {
+        // execute nightly batch then call vendor api
+        doWork();
+    }
+}
+"""
+    syms = extract_java(source, "Scheduler.java")
+    db = [c for c in syms.calls if c.kind == "db_call"]
+    assert db == [], f"phantom db_calls from comment: {db}"
+
+
+def test_prepare_call_in_string_still_produces_db_call():
+    """prepareCall with a stored-proc string must still yield a db_call
+    (4A final-review fix 2b — regression guard)."""
+    syms = extract_java(BILLING, "Billing.java")
+    db = [c for c in syms.calls if c.kind == "db_call"]
+    assert db, "expected at least one db_call from prepareCall fixture"
+    assert db[0].detail == "pkg_billing.validate_amount"
+    assert db[0].caller.endswith(".validate")
+
+
 def test_no_package_and_plain_method():
     syms = extract_java(
         "public class Util { static int add(int a, int b) { return a + b; } }",

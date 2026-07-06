@@ -52,6 +52,19 @@ def test_imports_and_typescript_language():
     assert [f.qualified_name for f in syms.functions] == ["a.ts:f"]
 
 
+def test_expression_bodied_arrow_http_call():
+    """Arrow function with a bare call_expression body must emit the call site
+    attributed to the arrow's own scope (4A final-review fix 1)."""
+    source = 'export const charge = (order) => axios.post("/api/charge", order);'
+    syms = extract_jsts(source, "c.js", "javascript")
+    by_name = {f.qualified_name: f for f in syms.functions}
+    assert "c.js:charge" in by_name, "FunctionDef for charge not registered"
+    http = [c for c in syms.calls if c.kind == "http_call"]
+    assert len(http) == 1, f"expected 1 http_call, got {http}"
+    assert http[0].detail == "POST /api/charge"
+    assert http[0].caller == "c.js:charge"
+
+
 def test_tsx_language_threaded_to_function_defs():
     syms = extract_jsts(
         "export function App(): JSX.Element { return render(); }",

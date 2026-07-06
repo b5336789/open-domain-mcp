@@ -136,6 +136,14 @@ def _cmd_codegraph(ctx, args) -> int:
         "truncated_chains": sum(1 for c in chains if c.truncated),
     }
     if args.persist:
+        from .graph.store import NullGraphStore
+        if isinstance(ctx.graph, NullGraphStore):
+            print(
+                "graph store not configured — set ODM_GRAPH_DB_* "
+                "(or ODM_GRAPH_STORE_BACKEND=mariadb)",
+                file=sys.stderr,
+            )
+            return 1
         stats["persisted"] = persist_codegraph(graph, ctx.graph)
     if args.json:
         print(_json.dumps(stats, indent=2))

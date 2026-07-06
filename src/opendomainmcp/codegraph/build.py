@@ -27,6 +27,13 @@ from .vbnet import extract_vbnet
 
 logger = logging.getLogger(__name__)
 
+
+def _synthetic_chunk_id(qualified_name: str) -> str:
+    """Fixed-length synthetic chunk id (4A; real chunk ids arrive in 4B).
+    Hash keeps it under the store's VARCHAR(128) regardless of name length."""
+    import hashlib
+    return "cg:" + hashlib.sha256(qualified_name.encode("utf-8")).hexdigest()[:32]
+
 # Codegraph-only language additions; the ingest loader mapping is unchanged
 # until plan 4B wires VB.NET/PL-SQL into loading/splitting.
 _EXTRA_EXTS = {".vb": "vbnet", ".sql": "plsql", ".pks": "plsql",
@@ -53,7 +60,7 @@ def build_codegraph(root: str | Path, settings) -> CodeGraph:
     ingest_filter = IngestFilter.from_settings(settings)
     per_file: list[RawSymbols] = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
         for name in sorted(filenames):
             path = Path(dirpath) / name
             lang = _language_of(path)
@@ -77,7 +84,7 @@ def persist_codegraph(graph: CodeGraph, store) -> dict:
         entities.append(Entity(
             normalized_name=normalize_name(fn.qualified_name),
             display_name=fn.qualified_name, type=fn.kind,
-            chunk_id=f"cg:{fn.qualified_name}",  # synthetic until 4B
+            chunk_id=_synthetic_chunk_id(fn.qualified_name),  # synthetic until 4B
         ))
         functions.append({
             "qualified_name": fn.qualified_name, "file": fn.file,
@@ -89,11 +96,11 @@ def persist_codegraph(graph: CodeGraph, store) -> dict:
         if edge.external:
             entities.append(Entity(
                 normalized_name=normalize_name(edge.dst), display_name=edge.dst,
-                type="external", chunk_id=f"cg:{edge.src}",
+                type="external", chunk_id=_synthetic_chunk_id(edge.src),
                 confidence=edge.confidence))
         edges.append(Edge(
             src=normalize_name(edge.src), dst=normalize_name(edge.dst),
-            relation_type=edge.relation, chunk_id=f"cg:{edge.src}",
+            relation_type=edge.relation, chunk_id=_synthetic_chunk_id(edge.src),
             confidence=edge.confidence))
     store.upsert_entities(entities)
     store.upsert_edges(edges)

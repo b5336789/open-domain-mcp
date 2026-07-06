@@ -54,6 +54,19 @@ def _annotation_route(node, src: bytes) -> tuple[str, str] | None:
     return (method, _first_string_literal(node, src))
 
 
+def _string_texts(node, src: bytes) -> list[str]:
+    """Recursively collect the text of every string_literal node under *node*.
+
+    Used to scope db-call scanning to actual string values so that comments
+    like ``// execute nightly batch`` do not produce phantom db_call edges."""
+    texts = []
+    if node.type == "string_literal":
+        texts.append(_text(node, src).strip('"'))
+    for child in node.children:
+        texts.extend(_string_texts(child, src))
+    return texts
+
+
 def _collect_calls(node, src: bytes, caller: str, file: str, out: list[CallSite]):
     if node.type == "method_invocation":
         obj = node.child_by_field_name("object")
@@ -137,7 +150,8 @@ def _method(node, src: bytes, file: str, syms: RawSymbols,
     body = node.child_by_field_name("body")
     if body is not None:
         _collect_calls(body, src, qualified, file, syms.calls)
-        for proc in scan_db_calls(_text(body, src)):
-            syms.calls.append(CallSite(
-                caller=qualified, callee_text=proc, file=file,
-                line=body.start_point[0] + 1, kind="db_call", detail=proc))
+        for s_text in _string_texts(body, src):
+            for proc in scan_db_calls(s_text):
+                syms.calls.append(CallSite(
+                    caller=qualified, callee_text=proc, file=file,
+                    line=body.start_point[0] + 1, kind="db_call", detail=proc))

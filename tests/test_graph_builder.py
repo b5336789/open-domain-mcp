@@ -58,3 +58,26 @@ def test_build_graph_skips_relation_with_blank_endpoint():
 def test_build_graph_empty_knowledge_yields_nothing():
     entities, edges = build_graph(KnowledgeUnit(), chunk_id="c1")
     assert entities == [] and edges == []
+
+
+def test_build_graph_threads_matching_evidence():
+    import json
+
+    from opendomainmcp.graph.builder import build_graph
+    from opendomainmcp.models import KnowledgeUnit
+
+    k = KnowledgeUnit(
+        summary="S", confidence=0.9,
+        entities=[{"name": "BillingService", "type": "Service"}],
+        typed_relations=[{"src": "BillingService", "dst": "OrderRepo",
+                          "type": "uses"}],
+        evidence=[{"claim": "BillingService validates amounts",
+                   "quote": "q", "source": "A.java", "start_line": 3,
+                   "end_line": 3, "verified": True},
+                  {"claim": "unrelated", "quote": "x", "source": "A.java",
+                   "start_line": 9, "end_line": 9, "verified": False}])
+    entities, edges = build_graph(k, "c1")
+    billing = next(e for e in entities if e.display_name == "BillingService")
+    ev = json.loads(billing.evidence)
+    assert len(ev) == 1 and ev[0]["start_line"] == 3   # verified + name-matched only
+    assert edges and json.loads(edges[0].evidence)[0]["verified"]

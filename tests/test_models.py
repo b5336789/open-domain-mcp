@@ -72,3 +72,21 @@ def test_classification_fields_default_empty_and_backward_compatible():
     assert k.audience == []
     assert k.confidence == 0.0
     assert k.review_status == "approved"
+
+
+def test_search_result_to_dict_lifts_evidence():
+    import json
+
+    from opendomainmcp.models import SearchResult
+
+    ev = [{"claim": "c", "quote": "q", "source": "a.py",
+           "start_line": 2, "end_line": 2, "verified": True}]
+    r = SearchResult(id="i", text="t", score=0.5,
+                     metadata={"evidence": json.dumps(ev), "kind": "code"})
+    d = r.to_dict()
+    assert d["evidence"] == ev
+    # metadata still carries the raw JSON string (unchanged)
+    assert isinstance(d["metadata"]["evidence"], str)
+
+    r2 = SearchResult(id="i", text="t", score=0.5, metadata={"kind": "code"})
+    assert "evidence" not in r2.to_dict()

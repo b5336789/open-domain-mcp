@@ -93,6 +93,10 @@ def run_extract(ctx, store, task, is_cancelled) -> None:
                       start_line=meta.get("start_line"), end_line=meta.get("end_line"))
         try:
             chunk.knowledge = extractor.extract(chunk.text, chunk.kind, chunk.language)
+            if chunk.knowledge and chunk.knowledge.evidence:
+                from ..extract.verify import verify_knowledge_evidence
+                verify_knowledge_evidence(chunk.knowledge, chunk.text,
+                                          chunk.source, chunk.start_line)
             ctx.store.update_metadata(item_id, chunk.metadata())
         except Exception as exc:  # noqa: BLE001 - Fail Loud into the report
             failures.append({"name": item_id, "status": "error"})

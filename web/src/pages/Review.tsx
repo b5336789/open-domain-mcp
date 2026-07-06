@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Article, AUDIENCES, Item, KNOWLEDGE_TYPES } from "../api";
+import { api, Article, AUDIENCES, EvidenceEntry, Item, KNOWLEDGE_TYPES } from "../api";
 import {
   Badge,
   Button,
@@ -24,6 +24,14 @@ const STATUS_TONE: Record<Status, "amber" | "green" | "red"> = {
   pending: "amber",
   approved: "green",
   rejected: "red",
+};
+
+type EvidenceStatus = "verified" | "partial" | "unverified";
+
+const EVIDENCE_TONE: Record<EvidenceStatus, "green" | "amber" | "red"> = {
+  verified: "green",
+  partial: "amber",
+  unverified: "red",
 };
 
 export default function Review() {
@@ -137,6 +145,18 @@ export default function Review() {
                           conf {Number(it.metadata.confidence).toFixed(2)}
                         </span>
                       )}
+                      {it.metadata.evidence_status &&
+                        it.metadata.evidence_status in EVIDENCE_TONE && (
+                          <Badge
+                            tone={
+                              EVIDENCE_TONE[
+                                it.metadata.evidence_status as EvidenceStatus
+                              ]
+                            }
+                          >
+                            {it.metadata.evidence_status}
+                          </Badge>
+                        )}
                       <span className="truncate font-mono text-xs text-slate-500 dark:text-slate-400">
                         {it.metadata.source}
                       </span>
@@ -149,6 +169,9 @@ export default function Review() {
                     <div className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
                       {it.text.slice(0, 160)}
                     </div>
+                    {it.evidence && it.evidence.length > 0 && (
+                      <EvidencePanel entries={it.evidence} />
+                    )}
                   </div>
                   <div className="flex shrink-0 gap-1.5">
                     {status !== "approved" && (
@@ -213,6 +236,47 @@ export default function Review() {
             else toast.show("Added to approved knowledge", "green");
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function EvidencePanel({ entries }: { entries: EvidenceEntry[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+      >
+        {open ? "▾" : "▸"} Evidence ({entries.length})
+      </button>
+      {open && (
+        <div className="mt-1 space-y-2">
+          {entries.map((entry, i) => (
+            <div
+              key={i}
+              className="rounded-md border border-slate-100 p-2 dark:border-slate-800"
+            >
+              {entry.verified === false && (
+                <div className="mb-1">
+                  <Badge tone="red">unverified</Badge>
+                </div>
+              )}
+              <code className="block whitespace-pre-wrap break-all font-mono text-xs text-slate-700 dark:text-slate-300">
+                {entry.quote}
+              </code>
+              <div className="mt-0.5 font-mono text-xs text-slate-400">
+                {entry.start_line != null && entry.end_line != null
+                  ? `${entry.source ?? ""}:${entry.start_line}-${entry.end_line}`
+                  : entry.verified === false
+                    ? "unverified"
+                    : entry.source ?? ""}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -6,7 +6,9 @@ and no model download.
 """
 
 import hashlib
+import json
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -147,21 +149,32 @@ class FakeGraphStore:
         for e in entities:
             cur = slot["entities"].get(e.normalized_name)
             conf = max(e.confidence, cur["confidence"]) if cur else e.confidence
+            # Keep existing evidence when new value is empty (mirrors Maria IF() logic).
+            existing_ev = cur.get("evidence_json", "") if cur else ""
+            evidence_json = e.evidence if e.evidence else existing_ev
             slot["entities"][e.normalized_name] = {
                 "name": e.display_name, "normalized_name": e.normalized_name,
-                "type": e.type, "confidence": conf}
+                "type": e.type, "confidence": conf, "evidence_json": evidence_json}
             slot["entity_chunks"].setdefault(e.normalized_name, set()).add(e.chunk_id)
 
     def upsert_edges(self, edges):
         slot = self._slot()
-        # Dedupe by (src, dst, relation_type, chunk_id), keeping max confidence —
-        # mirrors MariaDB's ON DUPLICATE KEY UPDATE confidence=GREATEST(...).
+        # Dedupe by (src, dst, relation_type, chunk_id) — mirrors MariaDB's
+        # ON DUPLICATE KEY UPDATE: confidence=GREATEST(...), and evidence kept
+        # when the new value is empty (the IF() expression in the real store).
         index = {(e.src, e.dst, e.relation_type, e.chunk_id): e for e in slot["edges"]}
         for e in edges:
             key = (e.src, e.dst, e.relation_type, e.chunk_id)
             existing = index.get(key)
-            if existing is None or e.confidence > existing.confidence:
+            if existing is None:
                 index[key] = e
+                continue
+            winner = e if e.confidence > existing.confidence else existing
+            index[key] = replace(
+                winner,
+                confidence=max(e.confidence, existing.confidence),
+                evidence=e.evidence if e.evidence else existing.evidence,
+            )
         slot["edges"] = list(index.values())
 
     def delete_for_chunks(self, chunk_ids):
@@ -187,8 +200,14 @@ class FakeGraphStore:
         row = slot["entities"].get(norm)
         if row is None:
             return None
-        return {**row, "aliases": [],
-                "chunk_ids": sorted(slot["entity_chunks"].get(norm, set()))}
+        raw_ev = row.get("evidence_json", "")
+        try:
+            evidence = json.loads(raw_ev) if raw_ev else []
+        except (TypeError, ValueError):
+            evidence = []
+        return {**{k: v for k, v in row.items() if k != "evidence_json"},
+                "aliases": [], "chunk_ids": sorted(slot["entity_chunks"].get(norm, set())),
+                "evidence": evidence}
 
     def neighbors(self, name, relation_type=None, depth=1):
         from opendomainmcp.graph.normalize import normalize_name
@@ -218,8 +237,13 @@ class FakeGraphStore:
                     nxt.append(other)
                     ent = self.get_entity(other)
                     if ent:
+                        try:
+                            edge_evidence = json.loads(e.evidence) if e.evidence else []
+                        except (TypeError, ValueError):
+                            edge_evidence = []
                         collected.append({"entity": ent, "relation_type": e.relation_type,
-                                          "direction": direction})
+                                          "direction": direction,
+                                          "edge_evidence": edge_evidence})
             frontier = nxt
         return {"entity": root, "neighbors": collected}
 
@@ -288,7 +312,13 @@ class FakeGraphStore:
                 continue
             if q and q.lower().strip() not in norm:
                 continue
-            rows.append({"name": row["name"], "normalized_name": norm, "type": row["type"]})
+            raw_ev = row.get("evidence_json", "")
+            try:
+                evidence = json.loads(raw_ev) if raw_ev else []
+            except (TypeError, ValueError):
+                evidence = []
+            rows.append({"name": row["name"], "normalized_name": norm,
+                         "type": row["type"], "evidence": evidence})
         return rows[:max(1, min(500, limit))]
 
     def delete_codegraph(self) -> None:

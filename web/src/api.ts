@@ -22,10 +22,20 @@ export interface SearchFilters {
   source_contains?: string | null;
 }
 
+export interface EvidenceEntry {
+  claim: string;
+  quote: string;
+  source: string | null;
+  start_line: number | null;
+  end_line: number | null;
+  verified: boolean;
+}
+
 export interface Item {
   id: string;
   text: string;
   metadata: Record<string, string>;
+  evidence?: EvidenceEntry[];
 }
 
 export interface Citation {
@@ -135,6 +145,7 @@ export interface GraphEntity {
   confidence?: number;
   aliases?: string[];
   chunk_ids?: string[];
+  evidence?: EvidenceEntry[];
 }
 
 export interface GraphNeighbor {

@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -63,6 +64,8 @@ class IngestReport:
     errors: list = field(default_factory=list)    # [{"path", "error"}]
     filtered: list = field(default_factory=list)  # [{"path", "rule"}] excluded by filter rules
     pruned_sources: list = field(default_factory=list)  # [{"source", "reason"}] removed by sync
+    evidence_verified: int = 0    # count of individual evidence entries confirmed in source text
+    evidence_unverified: int = 0  # count of individual evidence entries not found in source text
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -80,6 +83,11 @@ class Pipeline:
             settings.chunk_size, settings.chunk_overlap
         )
         self._graph = graph or NullGraphStore()
+        # Guards the evidence counters on IngestReport: int += is a
+        # LOAD/ADD/STORE sequence, not GIL-atomic, so concurrent _extract_one
+        # calls could lose increments. (list.append is a single atomic op, so
+        # report.errors needs no lock.)
+        self._evidence_lock = threading.Lock()
 
     # -- public API -----------------------------------------------------
     def ingest_path(
@@ -355,6 +363,17 @@ class Pipeline:
             # it counts as reviewed; otherwise it is born approved (default).
             if getattr(self._settings, "review_mode", False) and chunk.knowledge:
                 chunk.knowledge.review_status = "pending"
+            # Verify evidence entries against the source text; penalize confidence
+            # when none are found. Accumulate counts with the same idiom as errors.
+            if chunk.knowledge and chunk.knowledge.evidence:
+                from ..extract.verify import verify_knowledge_evidence
+
+                v, u = verify_knowledge_evidence(
+                    chunk.knowledge, chunk.text, chunk.source,
+                    chunk.start_line)
+                with self._evidence_lock:
+                    report.evidence_verified += v
+                    report.evidence_unverified += u
         except Exception as exc:  # extraction is best-effort; record and continue
             report.errors.append({"path": str(path), "error": f"extract: {exc!r}"})
 

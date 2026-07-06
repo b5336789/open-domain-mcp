@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   api,
+  EvidenceEntry,
   EntityRef,
   GraphNeighbor,
   GraphNeighbors,
@@ -279,6 +280,9 @@ function EntityDetail({
             </span>
           )}
         </div>
+        {detail.entity.evidence && detail.entity.evidence.length > 0 && (
+          <EntityEvidenceList entries={detail.entity.evidence} />
+        )}
       </Card>
 
       {detail.neighbors.length === 0 ? (
@@ -297,6 +301,38 @@ function EntityDetail({
           <NeighborColumn title="Incoming" arrow="←" neighbors={incoming} />
         </div>
       )}
+    </div>
+  );
+}
+
+function EntityEvidenceList({ entries }: { entries: EvidenceEntry[] }) {
+  return (
+    <div className="space-y-2 pt-1">
+      <div className="text-xs uppercase tracking-wide text-slate-400">
+        Evidence ({entries.length})
+      </div>
+      {entries.map((entry, i) => (
+        <div
+          key={i}
+          className="rounded-md border border-slate-100 p-2 dark:border-slate-800"
+        >
+          {entry.verified === false && (
+            <div className="mb-1">
+              <Badge tone="red">unverified</Badge>
+            </div>
+          )}
+          <code className="block whitespace-pre-wrap break-all font-mono text-xs text-slate-700 dark:text-slate-300">
+            {entry.quote}
+          </code>
+          <div className="mt-0.5 font-mono text-xs text-slate-400">
+            {entry.start_line != null && entry.end_line != null
+              ? `${entry.source ?? ""}:${entry.start_line}-${entry.end_line}`
+              : entry.verified === false
+                ? "unverified"
+                : entry.source ?? ""}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

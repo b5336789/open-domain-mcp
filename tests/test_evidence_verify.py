@@ -1,0 +1,86 @@
+"""Deterministic quote-locating verifier (enhancement #2)."""
+
+from opendomainmcp.extract.verify import UNVERIFIED_PENALTY, apply_penalty, verify_evidence
+
+TEXT = "def charge(amt):\n    if amt < 0:\n        raise ValueError('neg')\n    return amt\n"
+
+
+def _ev(quote, claim="amount must not be negative"):
+    return [{"claim": claim, "quote": quote}]
+
+
+def test_exact_match_computes_absolute_lines():
+    out, status = verify_evidence(_ev("if amt < 0:"), TEXT, "billing.py", base_line=10)
+    assert status == "verified"
+    e = out[0]
+    assert e["verified"] and e["source"] == "billing.py"
+    assert e["start_line"] == 11 and e["end_line"] == 11
+    assert e["claim"] == "amount must not be negative"
+
+
+def test_whitespace_drift_still_verifies():
+    # local models often collapse/expand whitespace when copying
+    out, status = verify_evidence(_ev("if amt < 0:  raise ValueError('neg')"),
+                                  TEXT, "billing.py", base_line=1)
+    assert status == "verified"
+    assert out[0]["start_line"] == 2 and out[0]["end_line"] == 3
+
+
+def test_fabricated_quote_is_unverified_not_dropped():
+    out, status = verify_evidence(_ev("if amount.is_negative():"), TEXT, "b.py")
+    assert status == "unverified"
+    assert out[0]["verified"] is False
+    assert out[0]["start_line"] is None and out[0]["end_line"] is None
+    assert len(out) == 1
+
+
+def test_mixed_evidence_is_partial_and_order_preserved():
+    ev = _ev("return amt") + _ev("nothing like this")
+    out, status = verify_evidence(ev, TEXT, "b.py")
+    assert status == "partial"
+    assert out[0]["verified"] and not out[1]["verified"]
+
+
+def test_empty_evidence_and_blank_quote():
+    assert verify_evidence([], TEXT, "b.py") == ([], "")
+    out, status = verify_evidence(_ev("   "), TEXT, "b.py")
+    assert status == "unverified" and not out[0]["verified"]
+
+
+def test_symbols_only_quote_skips_stage2_and_is_unverified():
+    # no word characters and no exact match -> stage 2 must not run
+    out, status = verify_evidence(_ev("###"), TEXT, "b.py")
+    assert status == "unverified"
+    assert out[0]["verified"] is False
+
+
+def test_symbols_only_quote_exact_match_verifies_via_stage1():
+    text = "x = 1\n# ---\ny = 2\n"
+    out, status = verify_evidence(_ev("# ---"), text, "b.py", base_line=1)
+    assert status == "verified"
+    assert out[0]["start_line"] == 2 and out[0]["end_line"] == 2
+
+
+def test_apply_penalty():
+    assert apply_penalty(0.8, "unverified") == 0.8 * UNVERIFIED_PENALTY
+    assert apply_penalty(0.8, "partial") == 0.8
+    assert apply_penalty(0.8, "verified") == 0.8
+    assert apply_penalty(0.8, "") == 0.8
+
+
+def test_base_line_none_verified_without_lines():
+    # Text chunks have no start_line; quotes that are found should be verified=True
+    # but start_line/end_line must remain None (no fabricated line numbers).
+    out, status = verify_evidence(_ev("if amt < 0:"), TEXT, "billing.py", base_line=None)
+    assert status == "verified"
+    e = out[0]
+    assert e["verified"] is True
+    assert e["start_line"] is None and e["end_line"] is None
+    assert e["source"] == "billing.py"
+
+
+def test_base_line_none_unlocated_quote_is_unverified():
+    out, status = verify_evidence(_ev("this does not exist"), TEXT, "b.py", base_line=None)
+    assert status == "unverified"
+    assert out[0]["verified"] is False
+    assert out[0]["start_line"] is None and out[0]["end_line"] is None

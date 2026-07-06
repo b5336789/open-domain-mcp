@@ -8,7 +8,7 @@ so the logic is unit-testable offline; the default backend uses the Anthropic SD
 
 from __future__ import annotations
 
-from ..models import SearchResult
+from ..models import SearchResult, parse_evidence_field
 
 _SYSTEM = (
     "You answer questions strictly from the provided numbered sources. Cite the "
@@ -57,6 +57,14 @@ def _apply_relevance_floor(results: list[SearchResult], settings) -> list[Search
     return results
 
 
+def _first_verified_quote(meta: dict) -> str | None:
+    """Return the quote from the first verified evidence entry, or None."""
+    for entry in parse_evidence_field(meta):
+        if entry.get("verified") and entry.get("quote"):
+            return entry["quote"]
+    return None
+
+
 def _citations(results: list[SearchResult]) -> list[dict]:
     cites = []
     for i, r in enumerate(results, 1):
@@ -65,26 +73,49 @@ def _citations(results: list[SearchResult]) -> list[dict]:
             source = _source_label(r)   # title / topic / id
             symbol = None
             type_ = "article"
+            cite: dict = {
+                "n": i, "id": r.id, "source": source,
+                "symbol": symbol, "score": r.score, "type": type_,
+            }
         elif kind == "graph":
             source = _source_label(r)
             symbol = None
             type_ = "graph"
+            cite = {
+                "n": i, "id": r.id, "source": source,
+                "symbol": symbol, "score": r.score, "type": type_,
+            }
         elif kind == "chain":
             source = _source_label(r)
             symbol = None
             type_ = "chain"
+            cite = {
+                "n": i, "id": r.id, "source": source,
+                "symbol": symbol, "score": r.score, "type": type_,
+            }
+            quote = _first_verified_quote(r.metadata)
+            if quote is not None:
+                cite["quote"] = quote
         else:
             source = r.metadata.get("source", "?")  # bare path — CLI appends ::symbol itself
             symbol = r.metadata.get("symbol")
             type_ = "chunk"
-        cites.append({
-            "n": i,
-            "id": r.id,
-            "source": source,
-            "symbol": symbol,
-            "score": r.score,
-            "type": type_,
-        })
+            cite = {
+                "n": i, "id": r.id, "source": source,
+                "symbol": symbol, "score": r.score, "type": type_,
+            }
+            # Line positions from metadata (when present).
+            sl = r.metadata.get("start_line")
+            el = r.metadata.get("end_line")
+            if sl is not None:
+                cite["start_line"] = sl
+            if el is not None:
+                cite["end_line"] = el
+            # Quote from first verified evidence entry (when present).
+            quote = _first_verified_quote(r.metadata)
+            if quote is not None:
+                cite["quote"] = quote
+        cites.append(cite)
     return cites
 
 

@@ -87,3 +87,76 @@ def test_parse_llm_json_no_braces_raises_extraction_error():
 
     with pytest.raises(ExtractionError):
         parse_llm_json("no braces here")
+
+
+def test_summarize_function_parses_evidence():
+    def fake(system, user):
+        assert '"evidence"' in system
+        return json.dumps({"summary": "Validates.", "rules": ["amt >= 0"],
+                           "confidence": 0.9,
+                           "evidence": [{"claim": "amt >= 0",
+                                         "quote": "if (amt < 0) throw"}]})
+
+    fs = ChainAnalyzer(Settings(), complete=fake).summarize_function(
+        _fd("a.B.validate"), "if (amt < 0) throw", {}, {})
+    assert fs.evidence == [{"claim": "amt >= 0", "quote": "if (amt < 0) throw"}]
+
+
+def test_summarize_function_evidence_defaults_empty():
+    def fake(system, user):
+        return json.dumps({"summary": "S", "rules": [], "confidence": 0.5})
+
+    fs = ChainAnalyzer(Settings(), complete=fake).summarize_function(
+        _fd("x.Y.z"), "code", {}, {})
+    assert fs.evidence == []
+
+
+def test_normalize_evidence_non_list_returns_empty():
+    from opendomainmcp.extract.knowledge import _parse_evidence
+
+    assert _parse_evidence(None) == []
+    assert _parse_evidence("a string") == []
+    assert _parse_evidence({"claim": "c", "quote": "q"}) == []
+    assert _parse_evidence(42) == []
+
+
+def test_normalize_evidence_bare_string_becomes_quote():
+    from opendomainmcp.extract.knowledge import _parse_evidence
+
+    assert _parse_evidence(["if (x) throw"]) == [
+        {"claim": "", "quote": "if (x) throw"}]
+
+
+def test_normalize_evidence_whitespace_only_string_dropped():
+    from opendomainmcp.extract.knowledge import _parse_evidence
+
+    assert _parse_evidence(["   ", "\t\n"]) == []
+
+
+def test_normalize_evidence_skips_non_dict_non_str_items():
+    # verbatim quotes: dict quotes are not stripped (character-for-character)
+    from opendomainmcp.extract.knowledge import _parse_evidence
+
+    assert _parse_evidence([42, None, ["nested"],
+                            {"claim": "c", "quote": "q"}]) == [
+        {"claim": "c", "quote": "q"}]
+
+
+def test_normalize_evidence_dict_with_blank_quote_dropped():
+    from opendomainmcp.extract.knowledge import _parse_evidence
+
+    assert _parse_evidence([{"claim": "c", "quote": ""},
+                            {"claim": "c", "quote": "   "},
+                            {"claim": "c"}]) == []
+
+
+def test_parse_evidence_null_values_regression():
+    """JSON null claim/quote must not produce the string 'None' (regression:
+    _normalize_evidence used str() directly on None → "None")."""
+    from opendomainmcp.extract.knowledge import _parse_evidence
+
+    # null quote → entry dropped entirely
+    assert _parse_evidence([{"claim": None, "quote": None}]) == []
+    # null claim → claim becomes "", quote kept verbatim
+    result = _parse_evidence([{"claim": None, "quote": "q"}])
+    assert result == [{"claim": "", "quote": "q"}]

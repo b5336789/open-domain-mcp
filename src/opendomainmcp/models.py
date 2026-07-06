@@ -8,6 +8,7 @@ coupling them together.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
@@ -66,6 +67,10 @@ class KnowledgeUnit:
     # Ordered procedure extracted from Workflow/Runbook chunks (see graph.workflow).
     # {"name", "prerequisites": [str], "steps": [{"order", "text", "precondition"}]}.
     workflow: dict = field(default_factory=dict)
+    # Evidence trail: {"claim", "quote", "source", "start_line", "end_line", "verified"}.
+    evidence: list[dict] = field(default_factory=list)
+    # Status of evidence (e.g., "verified", "partial", "unverified").
+    evidence_status: str = ""
 
     def is_empty(self) -> bool:
         return not (
@@ -148,6 +153,11 @@ class Chunk:
             meta["tags"] = ", ".join(k.tags)
             meta["references"] = " | ".join(k.references)
             meta["review_status"] = k.review_status
+            # Evidence serialization (JSON-encoded for complex list structure).
+            if k.evidence:
+                meta["evidence"] = json.dumps(k.evidence, ensure_ascii=False)
+            if k.evidence_status:
+                meta["evidence_status"] = k.evidence_status
         # Drop None and empty strings so Chroma metadata stays compact and old
         # filters keep matching (a missing key is treated as "not set").
         return {key: v for key, v in meta.items() if v is not None and v != ""}
@@ -222,6 +232,10 @@ class ChainItem:
     sources: list[str] = field(default_factory=list)       # "file:start-end"
     member_chunk_ids: list[str] = field(default_factory=list)
     truncated: bool = False
+    # Evidence trail: {"claim", "quote", "source", "start_line", "end_line", "verified"}.
+    evidence: list[dict] = field(default_factory=list)
+    # Status of evidence (e.g., "verified", "partial", "unverified").
+    evidence_status: str = ""
 
     @staticmethod
     def id_for_entry(entry: str) -> str:
@@ -253,6 +267,11 @@ class ChainItem:
             "member_chunk_ids": ", ".join(self.member_chunk_ids),
             "truncated": self.truncated,
         }
+        # Evidence serialization (JSON-encoded for complex list structure).
+        if self.evidence:
+            meta["evidence"] = json.dumps(self.evidence, ensure_ascii=False)
+        if self.evidence_status:
+            meta["evidence_status"] = self.evidence_status
         return {k: v for k, v in meta.items() if v is not None and v != ""}
 
 
@@ -264,4 +283,20 @@ class SearchResult:
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        ev = parse_evidence_field(self.metadata)
+        if ev:
+            d["evidence"] = ev
+        return d
+
+
+def parse_evidence_field(meta: dict) -> list[dict]:
+    """Parse the JSON-string 'evidence' metadata field; [] on absence/corruption."""
+    raw = meta.get("evidence")
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    return data if isinstance(data, list) else []

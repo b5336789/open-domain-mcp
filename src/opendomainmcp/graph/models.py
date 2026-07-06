@@ -12,6 +12,7 @@ class Entity:
     type: str
     chunk_id: str
     confidence: float = 1.0
+    evidence: str = ""  # JSON-string of verified evidence entries; "" when none
 
 
 @dataclass
@@ -21,6 +22,7 @@ class Edge:
     relation_type: str
     chunk_id: str
     confidence: float = 1.0
+    evidence: str = ""  # JSON-string of verified evidence entries; "" when none
 
 
 @dataclass

@@ -63,6 +63,47 @@ def test_run_extract_reextracts_without_reembedding(store, fake_graph, tmp_path,
     assert item["metadata"]["summary"] == "new summary"
 
 
+def test_run_extract_verifies_evidence(store, fake_graph, tmp_path, monkeypatch):
+    """run_extract must call verify_knowledge_evidence so stored metadata has
+    verified flags, evidence_status, and penalized confidence when all evidence
+    is fabricated."""
+    import json as _json
+
+    text = "def process_payment(amount):\n    if amount <= 0:\n        raise ValueError\n"
+    store.upsert([Chunk(text=text, source="pay.py", kind="code",
+                        start_line=1, end_line=3,
+                        knowledge=KnowledgeUnit(summary="old", concepts=["payment"],
+                                               knowledge_type="Code", confidence=1.0))])
+    ctx = Context(settings=Settings(data_dir=tmp_path), store=store,
+                  pipeline=None, graph=fake_graph)
+
+    class _Ext:
+        def extract(self, text, kind, language=None):
+            return KnowledgeUnit(
+                summary="payment processing",
+                concepts=["payment"],
+                knowledge_type="Code",
+                confidence=1.0,
+                evidence=[
+                    {"claim": "raises on non-positive", "quote": "if amount <= 0:"},
+                    {"claim": "magic method", "quote": "this_does_not_exist_in_text"},
+                ],
+            )
+    monkeypatch.setattr("opendomainmcp.tasks.runners.get_extractor", lambda s: _Ext())
+
+    ts = TaskStore(tmp_path)
+    task = ts.create("extract", "Re-extract", "c", {"source": "pay.py"})
+    run_extract(ctx, ts, task, _never_cancel)
+
+    item = next(i for i in store.get_items(limit=10) if i["metadata"]["source"] == "pay.py")
+    meta = item["metadata"]
+    assert meta.get("evidence_status") == "partial"
+    ev = _json.loads(meta["evidence"])
+    assert len(ev) == 2
+    assert any(e["verified"] is True for e in ev)
+    assert any(e["verified"] is False for e in ev)
+
+
 def test_run_analyze_chains_registered_and_result(tmp_path, monkeypatch, store, fake_graph):
     from opendomainmcp.config import Settings
     from opendomainmcp.context import Context

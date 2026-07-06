@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from ..extract.knowledge import parse_llm_json
+from ..extract.knowledge import _parse_evidence, parse_llm_json
 
 _FUNC_SYSTEM = (
     "You analyze one function from a business application, with context from "
@@ -18,7 +18,8 @@ _FUNC_SYSTEM = (
     '  "summary": 1-2 sentences on what the function does in business terms,\n'
     '  "rules": a list of short business rules/constraints enforced here '
     "(may be empty),\n"
-    '  "confidence": a number 0..1.\n'
+    '  "confidence": a number 0..1,\n'
+    '  "evidence": a list of {"claim", "quote"} objects — "quote" is an EXACT contiguous snippet copied character-for-character from the function source above that supports the "claim" (may be empty).\n'
     "No prose outside the JSON."
 )
 
@@ -39,6 +40,8 @@ class FunctionSummary:
     summary: str
     rules: list[str] = field(default_factory=list)
     confidence: float = 0.0
+    evidence: list[dict] = field(default_factory=list)
+
 
 
 def _default_complete(settings) -> Callable[[str, str], str]:
@@ -97,6 +100,7 @@ class ChainAnalyzer:
             summary=str(data.get("summary", "")).strip(),
             rules=[str(r).strip() for r in data.get("rules", []) if str(r).strip()],
             confidence=float(data.get("confidence", 0.0) or 0.0),
+            evidence=_parse_evidence(data.get("evidence", [])),
         )
 
     def analyze_chain(self, chain, summaries: dict[str, FunctionSummary]) -> dict:

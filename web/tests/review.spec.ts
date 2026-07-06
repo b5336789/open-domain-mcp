@@ -1,6 +1,29 @@
 import { expect, test } from "@playwright/test";
 import { installApiMocks } from "./helpers/mockApi";
 
+const ITEMS_WITH_EVIDENCE = [
+  {
+    id: "item-ev-1",
+    text: "Deployments require release manager approval.",
+    metadata: {
+      knowledge_type: "Workflow",
+      source: "docs/deploy.md",
+      confidence: "0.92",
+      evidence_status: "verified",
+    },
+    evidence: [
+      {
+        claim: "Deployments require approval",
+        quote: "All deployments must be approved by a release manager.",
+        source: "docs/deploy.md",
+        start_line: 10,
+        end_line: 12,
+        verified: true,
+      },
+    ],
+  },
+];
+
 const ARTICLES = [
   {
     id: "article-1",
@@ -34,6 +57,33 @@ const TASK_RESPONSE = {
   error: null,
   result: null,
 };
+
+test.describe("evidence panels", () => {
+  test("shows evidence_status badge and collapsible evidence entries", async ({ page }) => {
+    await installApiMocks(page, {
+      "GET /api/articles": ARTICLES,
+      "GET /api/items": ITEMS_WITH_EVIDENCE,
+    });
+
+    await page.goto("/#/review");
+
+    await expect(page.getByRole("heading", { name: "Knowledge Review" })).toBeVisible();
+
+    // evidence_status badge should be visible
+    await expect(page.getByText("verified").first()).toBeVisible();
+
+    // evidence panel toggle should be present and collapsed by default
+    const toggle = page.getByRole("button", { name: /Evidence \(1\)/ });
+    await expect(toggle).toBeVisible();
+
+    // expand the panel
+    await toggle.click();
+    await expect(
+      page.getByText("All deployments must be approved by a release manager."),
+    ).toBeVisible();
+    await expect(page.getByText("docs/deploy.md:10-12")).toBeVisible();
+  });
+});
 
 test.describe("knowledge review", () => {
   test.beforeEach(async ({ page }) => {

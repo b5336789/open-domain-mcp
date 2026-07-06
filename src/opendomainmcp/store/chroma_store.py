@@ -12,7 +12,7 @@ import time
 from typing import Optional
 
 from ..embedding.base import Embedder
-from ..models import Chunk, SearchResult
+from ..models import Chunk, SearchResult, parse_evidence_field
 from ..retrieval import LexicalIndex, rrf_fuse
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 # Scalar metadata fields that support exact-match Chroma filtering. ``audience``
 # is intentionally excluded: it is stored as a joined string (a chunk may serve
 # several audiences), so it is post-filtered in the view layer instead.
-_FILTER_FIELDS = ("kind", "language", "symbol", "node_type", "knowledge_type", "review_status")
+_FILTER_FIELDS = ("kind", "language", "symbol", "node_type", "knowledge_type", "review_status",
+                  "evidence_status")
 
 # Valid review states; back-filling to anything else is rejected (Fail Loud).
 VALID_REVIEW_STATUSES = ("approved", "pending", "rejected")
@@ -187,9 +188,12 @@ class ChromaStore:
         )
         items = []
         for i, _id in enumerate(res["ids"]):
-            items.append(
-                {"id": _id, "text": res["documents"][i], "metadata": res["metadatas"][i] or {}}
-            )
+            meta = res["metadatas"][i] or {}
+            item: dict = {"id": _id, "text": res["documents"][i], "metadata": meta}
+            ev = parse_evidence_field(meta)
+            if ev:
+                item["evidence"] = ev
+            items.append(item)
         return items
 
     def get_item(self, item_id: str) -> Optional[dict]:

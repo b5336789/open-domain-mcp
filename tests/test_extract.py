@@ -119,3 +119,26 @@ def test_parse_tolerates_control_characters_in_strings():
     k = _parse(raw)
     assert "line one" in k.summary and "line two" in k.summary
     assert k.concepts == ["a\tb"]
+
+
+def test_parse_extracts_evidence_pairs():
+    raw = ('{"summary": "S", "concepts": ["billing"], "knowledge_type": "Code",'
+           ' "evidence": [{"claim": "no negative amounts",'
+           ' "quote": "if (amt < 0) throw"}]}')
+    k = _parse(raw)
+    assert k.evidence == [{"claim": "no negative amounts",
+                           "quote": "if (amt < 0) throw"}]
+    assert k.evidence_status == ""
+
+
+def test_parse_evidence_tolerates_junk():
+    raw = ('{"summary": "S", "evidence": ["bare quote string",'
+           ' {"claim": "c", "quote": "  "}, {"claim": "no quote"}, 42]}')
+    k = _parse(raw)
+    assert k.evidence == [{"claim": "", "quote": "bare quote string"}]
+
+
+def test_system_prompt_mentions_evidence():
+    from opendomainmcp.extract.knowledge import _SYSTEM
+
+    assert '"evidence"' in _SYSTEM and "character-for-character" in _SYSTEM

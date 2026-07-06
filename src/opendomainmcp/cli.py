@@ -26,6 +26,8 @@ def _cmd_ingest(ctx, args) -> int:
         print(f"Filtered {len(report.filtered)} file(s) by exclude rules.")
     if report.skipped:
         print(f"Skipped {len(report.skipped)} file(s).")
+    if report.evidence_verified or report.evidence_unverified:
+        print(f"Evidence: {report.evidence_verified} verified / {report.evidence_unverified} unverified.")
     if report.errors:
         print(f"Errors: {len(report.errors)}", file=sys.stderr)
         for err in report.errors:

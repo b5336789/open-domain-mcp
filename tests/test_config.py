@@ -41,3 +41,10 @@ def test_extract_batch_defaults_off_and_is_editable():
     s = Settings()
     assert s.extract_batch is False
     assert "extract_batch" in EDITABLE_FIELDS
+
+
+def test_codegraph_context_chars_registered_and_env_only():
+    from opendomainmcp.config import EDITABLE_FIELDS, Settings
+    assert Settings().codegraph_context_chars == 16000
+    assert Settings(codegraph_context_chars=8000).codegraph_context_chars == 8000
+    assert "codegraph_context_chars" not in EDITABLE_FIELDS

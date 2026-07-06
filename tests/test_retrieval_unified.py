@@ -96,3 +96,35 @@ def test_prefer_rules_suppresses_member_chunks(store):
                                                 retrieve_include_articles=False,
                                                 retrieve_include_chains=False))
     assert member.id in [h.id for h in hits_off]
+
+
+def test_prefer_rules_suppression_does_not_underfill_top_k(store):
+    """Suppression must not shrink the result list below top_k when enough other
+    candidates match: search_unified over-fetches, suppresses, then slices."""
+    from opendomainmcp.config import Settings
+    from opendomainmcp.models import Chunk, RuleItem
+    from opendomainmcp.retrieval import search_unified
+
+    # Token geometry (FakeEmbedder bag-of-words): member matches the query
+    # exactly (rank 1), the rule ranks 2nd, the six filler chunks trail. Without
+    # over-fetching, the top-3 fetch is {member, rule, filler} and suppression
+    # under-fills the result to 2.
+    member = Chunk(text="negative amount rule negative amount rule",
+                   source="Billing.java", kind="code", language="java")
+    others = [
+        Chunk(text=f"note about negative amount rule number {i} plus unrelated filler words",
+              source=f"notes{i}.md", kind="text", start_line=1, end_line=1)
+        for i in range(6)
+    ]
+    store.upsert([member] + others)
+    rule = RuleItem(statement="negative amount rule",
+                    member_chunk_ids=[member.id],
+                    sources=["Billing.java:1-1"])
+    store.upsert([rule])
+
+    hits = search_unified(store, "negative amount rule", top_k=3,
+                          settings=Settings(retrieve_prefer_rules=True,
+                                            retrieve_include_articles=False,
+                                            retrieve_include_chains=False))
+    assert len(hits) == 3                       # not under-filled by suppression
+    assert member.id not in [h.id for h in hits]

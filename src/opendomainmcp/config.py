@@ -185,12 +185,16 @@ class Settings(BaseSettings):
     # matching workflow steps) in the ask context. Off or NullGraphStore == today.
     retrieve_include_graph: bool = False
 
+    # Max call-chain depth for codegraph chain assembly (spec 4A). Env-only.
+    codegraph_max_chain_depth: int = 12
+
+    # Char budget for direct-callee source context during chain analysis
+    # (spec 4B). Env-only.
+    codegraph_context_chars: int = 16000
+
     # Minimum cosine similarity between two rule units before they are considered
     # corroborating the same rule during consensus (spec 5). Env-only.
     consensus_similarity_threshold: float = 0.80
-
-    # Max call-chain depth for codegraph chain assembly (spec 4A). Env-only.
-    codegraph_max_chain_depth: int = 12
 
     # When on, code chunks skip per-chunk LLM extraction at ingest — the
     # codegraph chain-analysis pass (codegraph --analyze / analyze_chains task)

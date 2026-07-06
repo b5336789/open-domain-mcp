@@ -47,6 +47,7 @@ _SYSTEM = (
     '  "typed_relations": a list of {"src", "dst", "type"} directed relations '
     "between entity names, each type one of "
     + ", ".join(RELATION_TYPES) + " (may be empty),\n"
+    '  "evidence": a list of {"claim", "quote"} objects — for each important concept, relation, or constraint, "quote" is an EXACT contiguous snippet copied character-for-character from the snippet above that supports the "claim" (may be empty),\n'
     '  "workflow": if this snippet is a runbook, workflow, or step-by-step '
     'procedure, an object {"name": a short title, "prerequisites": [conditions '
     'that must hold before starting], "steps": [{"order": 1-based integer, '
@@ -137,6 +138,24 @@ def _str_list(values) -> list[str]:
     if not isinstance(values, list):
         return []
     return [str(v).strip() for v in values if str(v).strip()]
+
+
+def _parse_evidence(value) -> list[dict]:
+    """Normalize LLM evidence to [{"claim", "quote"}]; quoteless entries drop."""
+    if not isinstance(value, list):
+        return []
+    out = []
+    for item in value:
+        if isinstance(item, str):
+            claim, quote = "", item
+        elif isinstance(item, dict):
+            claim = str(item.get("claim", "") or "").strip()
+            quote = str(item.get("quote", "") or "")
+        else:
+            continue
+        if quote.strip():
+            out.append({"claim": claim, "quote": quote})
+    return out
 
 
 class ExtractionError(Exception):
@@ -252,6 +271,7 @@ def _parse(raw: str) -> KnowledgeUnit:
         entities=_parse_entities(data.get("entities", [])),
         typed_relations=_parse_relations(data.get("typed_relations", [])),
         workflow=_parse_workflow(data.get("workflow", {})),
+        evidence=_parse_evidence(data.get("evidence")),
     )
 
 

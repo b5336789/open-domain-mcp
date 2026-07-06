@@ -157,3 +157,26 @@ def test_synthesize_command_prints_report(monkeypatch, capsys):
     assert rc == 0
     assert captured["limit"] == 5 and captured["dry_run"] is False
     assert "Stored 1" in out and "Rejected 1" in out
+
+
+def test_ingest_cli_passes_filter_flags(monkeypatch, capsys, tmp_path, store, pipeline, fake_graph):
+    (tmp_path / "billing.py").write_text("def charge():\n    return 1\n")
+    (tmp_path / "test_billing.py").write_text("def test_c():\n    pass\n")
+
+    ctx = Context(settings=pipeline._settings, store=store, pipeline=pipeline, graph=fake_graph)
+    monkeypatch.setattr(cli, "build_context", lambda **_: ctx)
+
+    parser = cli.build_parser()
+    args = parser.parse_args(["ingest", str(tmp_path), "--exclude", "*.md"])
+    assert args.exclude == ["*.md"]
+    assert args.no_default_excludes is False
+    rc = cli.main(["ingest", str(tmp_path), "--exclude", "*.md"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Filtered 1 file(s)" in out  # test_billing.py
+
+    args2 = parser.parse_args(["ingest", str(tmp_path), "--no-default-excludes"])
+    assert args2.no_default_excludes is True
+    rc = cli.main(["ingest", str(tmp_path), "--no-default-excludes"])
+    assert rc == 0
+    assert "Filtered" not in capsys.readouterr().out

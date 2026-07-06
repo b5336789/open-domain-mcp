@@ -3,7 +3,8 @@ Uses synthetic RawSymbols — independent of the language extractors."""
 
 from opendomainmcp.codegraph.models import CallSite, FunctionDef, RawSymbols
 from opendomainmcp.codegraph.resolve import (
-    CONF_DB_KNOWN, CONF_EXTERNAL, CONF_HTTP, CONF_SAME_SCOPE, CONF_UNIQUE, resolve,
+    CONF_DB_KNOWN, CONF_EXTERNAL, CONF_HTTP, CONF_IMPORT, CONF_SAME_SCOPE,
+    CONF_UNIQUE, resolve,
 )
 
 
@@ -41,6 +42,21 @@ def test_unresolved_becomes_low_confidence_external():
     e = g.edges[0]
     assert e.external and e.confidence == CONF_EXTERNAL
     assert e.dst == "mystery.thing"
+
+
+def test_import_based_resolution():
+    caller = RawSymbols(
+        functions=[_fd("com.acme.OrderService.placeOrder", file="OrderService.java")],
+        calls=[CallSite(caller="com.acme.OrderService.placeOrder",
+                        callee_text="OrderRepo.save",
+                        file="OrderService.java", line=7)],
+        imports=["com.acme.repo.OrderRepo"])
+    repo = RawSymbols(functions=[_fd("com.acme.repo.OrderRepo.save",
+                                     file="OrderRepo.java")])
+    g = resolve([caller, repo])
+    e = g.edges[0]
+    assert e.dst == "com.acme.repo.OrderRepo.save"
+    assert e.confidence == CONF_IMPORT and not e.external
 
 
 def test_db_call_links_to_plsql_procedure():

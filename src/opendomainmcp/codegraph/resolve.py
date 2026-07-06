@@ -28,6 +28,8 @@ def resolve(per_file: list[RawSymbols]) -> CodeGraph:
             graph.functions[fn.qualified_name] = fn
         for fn in syms.functions:
             imports_by_file.setdefault(fn.file, syms.imports)
+        for call in syms.calls:
+            imports_by_file.setdefault(call.file, syms.imports)
 
     by_basename: dict[str, list[str]] = {}
     for qname in graph.functions:
@@ -78,15 +80,18 @@ def _resolve_call(call: CallSite, graph: CodeGraph,
     sibling = f"{caller_prefix}{sep}{callee}" if caller_prefix else callee
     if sibling in graph.functions:
         return _edge(call, sibling, CONF_SAME_SCOPE)
+    # Deliberate trade-off: an instance call like repo.save() may resolve to a
+    # same-class `save` (false positive accepted for recall on member calls).
     sib_base = f"{caller_prefix}{sep}{base}" if caller_prefix else base
     if sib_base in graph.functions:
         return _edge(call, sib_base, CONF_SAME_SCOPE)
 
-    # 2. same package (java/plsql): parent of the caller prefix
+    # 2. same package (java/plsql): candidate's package (qname minus method
+    # and class) must equal the caller's package — subpackages don't count.
     if "." in caller_prefix:
         pkg = caller_prefix.rsplit(".", 1)[0]
         for candidate in by_basename.get(base, []):
-            if candidate.startswith(pkg + "."):
+            if _prefix_of(_prefix_of(candidate)) == pkg:
                 return _edge(call, candidate, CONF_SAME_PACKAGE)
 
     # 3. import-based: callee head matches an import's last segment
@@ -110,10 +115,6 @@ def _resolve_call(call: CallSite, graph: CodeGraph,
 def _resolve_db(call: CallSite, plsql_by_name: dict[str, str]) -> ResolvedEdge:
     proc = call.detail.lower()
     target = plsql_by_name.get(proc)
-    if target is None and "." not in proc:
-        # standalone procedure referenced without a package prefix
-        matches = [q for k, q in plsql_by_name.items() if k == proc]
-        target = matches[0] if matches else None
     if target is not None:
         return _edge(call, target, CONF_DB_KNOWN, relation="executes_sql")
     return _edge(call, proc, CONF_DB_UNKNOWN, relation="executes_sql", external=True)

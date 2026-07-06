@@ -50,3 +50,13 @@ def test_imports_and_typescript_language():
                         "a.ts", "typescript")
     assert "mod" in syms.imports
     assert [f.qualified_name for f in syms.functions] == ["a.ts:f"]
+
+
+def test_tsx_language_threaded_to_function_defs():
+    syms = extract_jsts(
+        "export function App(): JSX.Element { return render(); }",
+        "App.tsx", "tsx")
+    assert [f.qualified_name for f in syms.functions] == ["App.tsx:App"]
+    assert syms.functions[0].language == "tsx"
+    plain = {(c.caller, c.callee_text) for c in syms.calls if c.kind == "call"}
+    assert ("App.tsx:App", "render") in plain

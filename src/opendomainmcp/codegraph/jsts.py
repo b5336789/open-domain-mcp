@@ -48,7 +48,8 @@ def extract_jsts(source: str, file: str, language: str) -> RawSymbols:
     src = source.encode("utf-8")
     tree = _get_parser(language).parse(src)
     syms = RawSymbols()
-    _walk(tree.root_node, src, file, syms, enclosing=None, exported=False)
+    _walk(tree.root_node, src, file, syms, language,
+          enclosing=None, exported=False)
     return syms
 
 
@@ -59,18 +60,19 @@ def _func_name(node, src: bytes) -> str | None:
     return None
 
 
-def _register(node, src, file, syms, name: str, exported: bool) -> str:
+def _register(node, src, file, syms, language: str, name: str,
+              exported: bool) -> str:
     qualified = f"{file}:{name}"
     syms.functions.append(FunctionDef(
         qualified_name=qualified, file=file,
         start_line=node.start_point[0] + 1, end_line=node.end_point[0] + 1,
-        language="javascript" if file.endswith((".js", ".jsx", ".mjs")) else "typescript",
+        language=language,
         signature=name, exported=exported,
     ))
     return qualified
 
 
-def _walk(node, src: bytes, file: str, syms: RawSymbols,
+def _walk(node, src: bytes, file: str, syms: RawSymbols, language: str,
           enclosing: str | None, exported: bool):
     for child in node.children:
         t = child.type
@@ -78,16 +80,18 @@ def _walk(node, src: bytes, file: str, syms: RawSymbols,
             source_node = child.child_by_field_name("source")
             if source_node is not None:
                 syms.imports.append(_text(source_node, src).strip("'\""))
+            continue
         elif t == "export_statement":
-            _walk(child, src, file, syms, enclosing, exported=True)
+            _walk(child, src, file, syms, language, enclosing, exported=True)
             continue
         elif t in ("function_declaration", "generator_function_declaration",
                    "method_definition"):
             name = _func_name(child, src)
-            scope = _register(child, src, file, syms, name, exported) if name else enclosing
+            scope = _register(child, src, file, syms, language, name,
+                              exported) if name else enclosing
             body = child.child_by_field_name("body")
             if body is not None:
-                _walk(body, src, file, syms, scope, False)
+                _walk(body, src, file, syms, language, scope, False)
             continue
         elif t in ("lexical_declaration", "variable_declaration"):
             for decl in [c for c in child.children if c.type == "variable_declarator"]:
@@ -95,17 +99,18 @@ def _walk(node, src: bytes, file: str, syms: RawSymbols,
                 name_node = decl.child_by_field_name("name")
                 if value is not None and value.type in ("arrow_function", "function_expression") \
                         and name_node is not None:
-                    scope = _register(value, src, file, syms,
+                    scope = _register(value, src, file, syms, language,
                                       _text(name_node, src), exported)
                     body = value.child_by_field_name("body")
                     if body is not None:
-                        _walk(body, src, file, syms, scope, False)
+                        _walk(body, src, file, syms, language, scope, False)
                 else:
-                    _walk(decl, src, file, syms, enclosing, False)
+                    _walk(decl, src, file, syms, language, enclosing, False)
             continue
+        # enclosing is None => module-scope call, intentionally unattributed.
         elif t == "call_expression" and enclosing is not None:
             _call(child, src, file, syms, enclosing)
-        _walk(child, src, file, syms, enclosing, False)
+        _walk(child, src, file, syms, language, enclosing, False)
 
 
 def _call(node, src: bytes, file: str, syms: RawSymbols, caller: str):

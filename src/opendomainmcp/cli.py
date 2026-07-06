@@ -11,14 +11,19 @@ from .store.chroma_store import VALID_REVIEW_STATUSES
 
 def _cmd_ingest(ctx, args) -> int:
     def progress(event):
-        if event["stage"] in ("load", "skip", "error", "done"):
+        if event["stage"] in ("load", "skip", "filter", "error", "done"):
             detail = f" - {event['detail']}" if event["detail"] else ""
-            print(f"[{event['stage']:>5}] {event['path']}{detail}", file=sys.stderr)
+            print(f"[{event['stage']:>6}] {event['path']}{detail}", file=sys.stderr)
 
-    report = ctx.pipeline.ingest_path(args.path, progress=progress, sync=args.sync)
+    report = ctx.pipeline.ingest_path(
+        args.path, progress=progress, sync=args.sync,
+        exclude=args.exclude, use_default_excludes=not args.no_default_excludes,
+    )
     print(f"Indexed {report.files_indexed} files / {report.chunks_indexed} chunks.")
     if report.chunks_pruned:
         print(f"Pruned {report.chunks_pruned} stale chunk(s).")
+    if report.filtered:
+        print(f"Filtered {len(report.filtered)} file(s) by exclude rules.")
     if report.skipped:
         print(f"Skipped {len(report.skipped)} file(s).")
     if report.errors:
@@ -159,6 +164,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_ingest.add_argument(
         "--sync", action="store_true",
         help="Remove stored chunks for files deleted under the directory",
+    )
+    p_ingest.add_argument(
+        "--exclude", action="append", default=[], metavar="GLOB",
+        help="Extra exclude pattern for this run (repeatable; layered over "
+             "built-in defaults and ODM_INGEST_EXCLUDE)",
+    )
+    p_ingest.add_argument(
+        "--no-default-excludes", action="store_true",
+        help="Disable the built-in exclude list and generated-marker sniff",
     )
     p_ingest.set_defaults(func=_cmd_ingest)
 

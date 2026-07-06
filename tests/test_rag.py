@@ -84,7 +84,8 @@ class _ScoredStore:
 
 
 def _floor_settings(min_score):
-    return Settings(retrieve_include_articles=False, retrieve_min_score=min_score)
+    return Settings(retrieve_include_articles=False, retrieve_include_chains=False,
+                    retrieve_min_score=min_score)
 
 
 def test_relevance_floor_refuses_when_best_below_threshold():

@@ -205,3 +205,64 @@ def test_sync_prunes_chunks_of_newly_excluded_files(pipeline, store, tmp_path):
     prune_events = [e for e in events if e["stage"] == "prune"]
     assert any(e["detail"] == "excluded" for e in prune_events)
     assert {"source": str(f), "reason": "excluded"} in report.pruned_sources
+
+
+def test_plsql_file_ingests_via_line_fallback(pipeline, store, tmp_path):
+    f = tmp_path / "pkg_billing.pkb"
+    f.write_text("CREATE OR REPLACE PACKAGE BODY pkg_billing AS\n"
+                 "  PROCEDURE validate_amount(p IN NUMBER) IS\n"
+                 "  BEGIN\n    NULL;\n  END validate_amount;\nEND pkg_billing;\n")
+    report = pipeline.ingest_path(f)
+    assert report.files_indexed == 1
+    items = store.get_items(limit=10, where={"language": "plsql"})
+    assert items and all(i["metadata"]["kind"] == "code" for i in items)
+
+
+def test_codegraph_extract_mode_skips_code_chunks(store, fake_extractor,
+                                                  fake_graph, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+
+    (tmp_path / "billing.py").write_text("def charge():\n    return 1\n")
+    (tmp_path / "notes.md").write_text("# Pricing\nRules for pricing.\n")
+    settings = Settings(chunk_size=200, chunk_overlap=20, codegraph_extract=True)
+    Pipeline(store, fake_extractor, settings, graph=fake_graph).ingest_path(tmp_path)
+
+    code = store.get_items(limit=50, where={"kind": "code"})
+    text = store.get_items(limit=50, where={"kind": "text"})
+    assert code and all(not i["metadata"].get("summary") for i in code)
+    assert text and any(i["metadata"].get("summary") for i in text)
+
+
+def test_codegraph_extract_mode_excludes_code_from_batch_prepass(
+        store, fake_graph, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+
+    (tmp_path / "billing.py").write_text("def charge():\n    return 1\n")
+    (tmp_path / "notes.md").write_text("# Pricing\nRules for pricing.\n")
+    settings = Settings(chunk_size=200, chunk_overlap=20,
+                        codegraph_extract=True, extract_batch=True,
+                        llm_backend="anthropic")
+
+    class BoomExtractor:  # text chunks hit the batch cache, never live extract
+        def extract(self, *a, **k):
+            raise AssertionError("live extract called; cache miss in batch mode")
+
+    pipe = Pipeline(store, BoomExtractor(), settings, graph=fake_graph)
+
+    submitted = []
+
+    class FakeBatch:
+        def extract_many(self, items, progress=None):
+            submitted.extend(items)
+            return {}
+
+    pipe._build_batch_extractor = lambda: FakeBatch()
+
+    pipe.ingest_path(tmp_path)
+    # Code chunks must not reach the (paid) batch API — _extract_all discards
+    # their results anyway. Only the markdown content is submitted.
+    assert submitted
+    assert all(it.kind != "code" for it in submitted)
+    assert any("Pricing" in it.text for it in submitted)

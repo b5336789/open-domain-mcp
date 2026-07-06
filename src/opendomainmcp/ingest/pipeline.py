@@ -326,6 +326,15 @@ class Pipeline:
 
         Order is irrelevant (results are written onto the chunk objects); per-chunk
         failures are recorded and never abort the run (Fail Loud)."""
+        if getattr(self._settings, "codegraph_extract", False):
+            # Code chunks are analyzed with call-chain context by the codegraph
+            # analyze pass; only non-code content extracts per-chunk here.
+            # Note: skipped code chunks carry no review_status until the analyze
+            # pass backfills their knowledge — relevant when review_mode /
+            # retrieve_approved_only are on (unreviewed chunks are filtered out).
+            chunks = [c for c in chunks if c.kind != "code"]
+            if not chunks:
+                return
         workers = max(1, int(getattr(self._settings, "extract_concurrency", 1)))
         if workers == 1 or len(chunks) <= 1:
             for chunk in chunks:
@@ -384,6 +393,9 @@ class Pipeline:
             for c in chunks:
                 if c.knowledge and c.knowledge.knowledge_type:
                     continue  # pre-classified; not LLM-extracted
+                if getattr(self._settings, "codegraph_extract", False) \
+                        and c.kind == "code":
+                    continue  # _extract_all will skip these; don't batch-extract them
                 h = _text_hash(c.text)
                 if h not in items:
                     items[h] = BatchItem(text_hash=h, text=c.text,

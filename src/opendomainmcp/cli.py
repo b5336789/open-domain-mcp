@@ -123,6 +123,27 @@ def _cmd_codegraph(ctx, args) -> int:
     from .codegraph.build import build_codegraph, persist_codegraph
     from .codegraph.chains import assemble_chains
 
+    if args.analyze:
+        from .codegraph.analyze import analyze_corpus
+        from .graph.store import NullGraphStore
+
+        if isinstance(ctx.graph, NullGraphStore):
+            print("warning: graph store not configured — chain analysis will "
+                  "skip graph persistence", file=sys.stderr)
+
+        def progress(event):
+            print(f"[{event['stage']:>9}] {event.get('detail', '')}",
+                  file=sys.stderr)
+
+        result = analyze_corpus(args.path, ctx.store, ctx.settings, ctx.graph,
+                                progress=progress)
+        if args.json:
+            print(_json.dumps(result, indent=2))
+        else:
+            for key, value in result.items():
+                print(f"{key}: {value}")
+        return 0
+
     graph = build_codegraph(args.path, ctx.settings)
     chains = assemble_chains(graph,
                              max_depth=ctx.settings.codegraph_max_chain_depth)
@@ -265,6 +286,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_cg.add_argument("path", help="Directory of source code to analyze")
     p_cg.add_argument("--persist", action="store_true",
                       help="Write the graph to the configured graph store")
+    p_cg.add_argument("--analyze", action="store_true",
+                      help="Run the LLM chain-analysis pass (backfills chunk "
+                           "summaries and stores chain items)")
     p_cg.add_argument("--json", action="store_true", help="Emit stats as JSON")
     p_cg.set_defaults(func=_cmd_codegraph)
     return parser

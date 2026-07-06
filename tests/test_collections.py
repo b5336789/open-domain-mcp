@@ -38,6 +38,18 @@ def test_list_collections_hides_articles_siblings(fake_embedder):
     assert f"{base}__articles" not in names
 
 
+def test_list_collections_hides_chains_siblings(fake_embedder):
+    client = chromadb.EphemeralClient()
+    base = f"kb_{uuid.uuid4().hex}"
+    s = _store(client, base, fake_embedder)
+    # The chain-analysis feature stores ChainItems in a `<base>__chains` sibling;
+    # it is an internal implementation detail and must not appear as a selectable KB.
+    s.create_collection(f"{base}__chains")
+    names = {c["name"] for c in s.list_collections()}
+    assert base in names
+    assert f"{base}__chains" not in names
+
+
 def test_create_and_drop_collection(fake_embedder):
     client = chromadb.EphemeralClient()
     s = _store(client, f"base_{uuid.uuid4().hex}", fake_embedder)

@@ -167,3 +167,12 @@ def test_job_status_unknown_is_404(client):
 def test_cancel_unknown_job_is_404(client):
     tc, _, _ = client
     assert tc.delete("/api/ingest/jobs/does-not-exist").status_code == 404
+
+
+def test_extractor_signature_includes_codegraph_mode():
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.checkpoint import extractor_signature
+
+    on = extractor_signature(Settings(codegraph_extract=True))
+    off = extractor_signature(Settings(codegraph_extract=False))
+    assert on != off

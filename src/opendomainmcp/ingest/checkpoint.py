@@ -32,6 +32,7 @@ def extractor_signature(settings) -> str:
         str(bool(settings.extract_knowledge)),
         settings.resolved_extract_provider(),
         settings.extraction_model,
+        str(bool(getattr(settings, "codegraph_extract", False))),
     ])
 
 

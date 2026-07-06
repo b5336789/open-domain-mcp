@@ -6,13 +6,15 @@ existing entities/edges tables (types: function/procedure/endpoint/external;
 relations: calls/executes_sql/http_call) plus a code_functions provenance
 table (file + line range per function). Chunk ids here are synthetic
 ("cg:<qualified_name>") — plan 4B replaces them with real chunk ids when the
-pipeline integration lands."""
+pipeline integration lands. Languages (including VB.NET and PL/SQL) come from
+the ingest loader mapping."""
 
 from __future__ import annotations
 
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 from ..graph.models import Edge, Entity
 from ..graph.normalize import normalize_name
@@ -34,10 +36,6 @@ def _synthetic_chunk_id(qualified_name: str) -> str:
     import hashlib
     return "cg:" + hashlib.sha256(qualified_name.encode("utf-8")).hexdigest()[:32]
 
-# Codegraph-only language additions; the ingest loader mapping is unchanged
-# until plan 4B wires VB.NET/PL-SQL into loading/splitting.
-_EXTRA_EXTS = {".vb": "vbnet", ".sql": "plsql", ".pks": "plsql",
-               ".pkb": "plsql", ".pls": "plsql"}
 
 EXTRACTORS = {
     "java": lambda src, file: extract_java(src, file),
@@ -50,8 +48,7 @@ EXTRACTORS = {
 
 
 def _language_of(path: Path) -> str | None:
-    ext = path.suffix.lower()
-    lang = _EXTRA_EXTS.get(ext) or LANGUAGE_BY_EXT.get(ext)
+    lang = LANGUAGE_BY_EXT.get(path.suffix.lower())
     return lang if lang in EXTRACTORS else None
 
 
@@ -78,14 +75,27 @@ def build_codegraph(root: str | Path, settings) -> CodeGraph:
     return resolve(per_file)
 
 
-def persist_codegraph(graph: CodeGraph, store) -> dict:
+def persist_codegraph(
+    graph: CodeGraph,
+    store,
+    chunk_ids_by_function: Optional[dict[str, list[str]]] = None,
+) -> dict:
+    """Persist the code graph into the graph store.
+
+    When ``chunk_ids_by_function`` is supplied (plan 4B, post chain-analysis),
+    each function emits one Entity per real chunk id and edges use the first
+    real id; otherwise falls back to the synthetic ``cg:`` id.
+    """
     entities, edges, functions = [], [], []
+    cid_map = chunk_ids_by_function or {}
     for fn in graph.functions.values():
-        entities.append(Entity(
-            normalized_name=normalize_name(fn.qualified_name),
-            display_name=fn.qualified_name, type=fn.kind,
-            chunk_id=_synthetic_chunk_id(fn.qualified_name),  # synthetic until 4B
-        ))
+        ids = cid_map.get(fn.qualified_name) or [_synthetic_chunk_id(fn.qualified_name)]
+        for cid in ids:
+            entities.append(Entity(
+                normalized_name=normalize_name(fn.qualified_name),
+                display_name=fn.qualified_name, type=fn.kind,
+                chunk_id=cid,
+            ))
         functions.append({
             "qualified_name": fn.qualified_name, "file": fn.file,
             "start_line": fn.start_line, "end_line": fn.end_line,
@@ -93,14 +103,17 @@ def persist_codegraph(graph: CodeGraph, store) -> dict:
             "kind": fn.kind,
         })
     for edge in graph.edges:
+        # Use first real chunk id (or synthetic) for the source function's edges
+        src_ids = cid_map.get(edge.src) or [_synthetic_chunk_id(edge.src)]
+        src_cid = src_ids[0]
         if edge.external:
             entities.append(Entity(
                 normalized_name=normalize_name(edge.dst), display_name=edge.dst,
-                type="external", chunk_id=_synthetic_chunk_id(edge.src),
+                type="external", chunk_id=src_cid,
                 confidence=edge.confidence))
         edges.append(Edge(
             src=normalize_name(edge.src), dst=normalize_name(edge.dst),
-            relation_type=edge.relation, chunk_id=_synthetic_chunk_id(edge.src),
+            relation_type=edge.relation, chunk_id=src_cid,
             confidence=edge.confidence))
     store.upsert_entities(entities)
     store.upsert_edges(edges)

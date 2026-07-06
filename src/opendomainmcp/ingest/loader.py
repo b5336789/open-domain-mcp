@@ -39,6 +39,11 @@ LANGUAGE_BY_EXT = {
     ".sh": "bash",
     ".bash": "bash",
     ".lua": "lua",
+    ".vb": "vbnet",
+    ".sql": "plsql",
+    ".pks": "plsql",
+    ".pkb": "plsql",
+    ".pls": "plsql",
 }
 
 # Plain-text document extensions read verbatim.

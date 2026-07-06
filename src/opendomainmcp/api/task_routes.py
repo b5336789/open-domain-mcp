@@ -22,6 +22,8 @@ def _title(type: str, params: dict) -> str:
         return "Synthesize articles"
     if type == "extract":
         return f"Re-extract {params.get('source', '')}"
+    if type == "analyze_chains":
+        return f"Analyze chains {params.get('path', '')}"
     return type
 
 

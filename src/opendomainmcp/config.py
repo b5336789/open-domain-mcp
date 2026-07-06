@@ -47,9 +47,11 @@ EDITABLE_FIELDS = (
     "review_mode",
     "retrieve_approved_only",
     "retrieve_include_articles",
+    "retrieve_include_chains",
     "retrieve_min_score",
     "retrieve_include_graph",
     "ingest_exclude",
+    "codegraph_extract",
 )
 
 
@@ -160,6 +162,10 @@ class Settings(BaseSettings):
     # retrieval, fused with chunks. Off or no-articles == today's behavior.
     retrieve_include_articles: bool = True
 
+    # Include chain-analysis items (the <base>__chains collection) in ask/search
+    # retrieval, fused with chunks. No chains ingested == today's behavior.
+    retrieve_include_chains: bool = True
+
     # Relevance floor for the 'ask' RAG path: if the best retrieved chunk's
     # similarity score is below this, refuse ("no content matched") instead of
     # answering from weak/irrelevant sources. 0.0 == disabled (today's behavior).
@@ -173,6 +179,12 @@ class Settings(BaseSettings):
 
     # Max call-chain depth for codegraph chain assembly (spec 4A). Env-only.
     codegraph_max_chain_depth: int = 12
+
+    # When on, code chunks skip per-chunk LLM extraction at ingest — the
+    # codegraph chain-analysis pass (codegraph --analyze / analyze_chains task)
+    # backfills their summaries with call-chain context instead. Documents are
+    # unaffected. Off == today's behavior.
+    codegraph_extract: bool = False
 
     # Resilience for external API calls (Anthropic): per-request timeout in
     # seconds and the number of automatic retries on transient errors.

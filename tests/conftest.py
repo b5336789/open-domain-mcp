@@ -6,7 +6,9 @@ and no model download.
 """
 
 import hashlib
+import json
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -157,14 +159,22 @@ class FakeGraphStore:
 
     def upsert_edges(self, edges):
         slot = self._slot()
-        # Dedupe by (src, dst, relation_type, chunk_id), keeping max confidence —
-        # mirrors MariaDB's ON DUPLICATE KEY UPDATE confidence=GREATEST(...).
+        # Dedupe by (src, dst, relation_type, chunk_id) — mirrors MariaDB's
+        # ON DUPLICATE KEY UPDATE: confidence=GREATEST(...), and evidence kept
+        # when the new value is empty (the IF() expression in the real store).
         index = {(e.src, e.dst, e.relation_type, e.chunk_id): e for e in slot["edges"]}
         for e in edges:
             key = (e.src, e.dst, e.relation_type, e.chunk_id)
             existing = index.get(key)
-            if existing is None or e.confidence > existing.confidence:
+            if existing is None:
                 index[key] = e
+                continue
+            winner = e if e.confidence > existing.confidence else existing
+            index[key] = replace(
+                winner,
+                confidence=max(e.confidence, existing.confidence),
+                evidence=e.evidence if e.evidence else existing.evidence,
+            )
         slot["edges"] = list(index.values())
 
     def delete_for_chunks(self, chunk_ids):
@@ -184,7 +194,6 @@ class FakeGraphStore:
         self._backing.pop(name, None)
 
     def get_entity(self, name):
-        import json
         from opendomainmcp.graph.normalize import normalize_name
         norm = normalize_name(name)
         slot = self._slot()
@@ -291,7 +300,6 @@ class FakeGraphStore:
         return self._slot().get("code_functions", {}).get(qualified_name)
 
     def list_entities(self, type=None, q=None, limit=50):
-        import json
         slot = self._slot()
         rows = []
         for norm, row in sorted(slot["entities"].items()):

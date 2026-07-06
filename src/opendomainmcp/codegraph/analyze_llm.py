@@ -18,7 +18,8 @@ _FUNC_SYSTEM = (
     '  "summary": 1-2 sentences on what the function does in business terms,\n'
     '  "rules": a list of short business rules/constraints enforced here '
     "(may be empty),\n"
-    '  "confidence": a number 0..1.\n'
+    '  "confidence": a number 0..1,\n'
+    '  "evidence": a list of {"claim", "quote"} objects — "quote" is an EXACT contiguous snippet copied character-for-character from the function source above that supports the "claim" (may be empty).\n'
     "No prose outside the JSON."
 )
 
@@ -39,6 +40,41 @@ class FunctionSummary:
     summary: str
     rules: list[str] = field(default_factory=list)
     confidence: float = 0.0
+    evidence: list[dict] = field(default_factory=list)
+
+
+def _normalize_evidence(value) -> list[dict]:
+    """Normalize evidence to list of {"claim", "quote"} dicts with tolerance rules.
+
+    - non-list → []
+    - strings → {"claim": "", "quote": s}
+    - dicts → extract claim/quote keys
+    - drop blank-quote entries
+    - skip other types
+    """
+    if not isinstance(value, list):
+        return []
+
+    result = []
+    for item in value:
+        if isinstance(item, str):
+            # String becomes {"claim": "", "quote": s}
+            entry = {"claim": "", "quote": item}
+        elif isinstance(item, dict):
+            # Dict: extract claim/quote keys
+            entry = {
+                "claim": str(item.get("claim", "")).strip(),
+                "quote": str(item.get("quote", "")).strip(),
+            }
+        else:
+            # Skip other types
+            continue
+
+        # Drop blank-quote entries
+        if entry.get("quote"):
+            result.append(entry)
+
+    return result
 
 
 def _default_complete(settings) -> Callable[[str, str], str]:
@@ -97,6 +133,7 @@ class ChainAnalyzer:
             summary=str(data.get("summary", "")).strip(),
             rules=[str(r).strip() for r in data.get("rules", []) if str(r).strip()],
             confidence=float(data.get("confidence", 0.0) or 0.0),
+            evidence=_normalize_evidence(data.get("evidence", [])),
         )
 
     def analyze_chain(self, chain, summaries: dict[str, FunctionSummary]) -> dict:

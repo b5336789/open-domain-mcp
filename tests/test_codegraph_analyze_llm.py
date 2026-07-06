@@ -87,3 +87,25 @@ def test_parse_llm_json_no_braces_raises_extraction_error():
 
     with pytest.raises(ExtractionError):
         parse_llm_json("no braces here")
+
+
+def test_summarize_function_parses_evidence():
+    def fake(system, user):
+        assert '"evidence"' in system
+        return json.dumps({"summary": "Validates.", "rules": ["amt >= 0"],
+                           "confidence": 0.9,
+                           "evidence": [{"claim": "amt >= 0",
+                                         "quote": "if (amt < 0) throw"}]})
+
+    fs = ChainAnalyzer(Settings(), complete=fake).summarize_function(
+        _fd("a.B.validate"), "if (amt < 0) throw", {}, {})
+    assert fs.evidence == [{"claim": "amt >= 0", "quote": "if (amt < 0) throw"}]
+
+
+def test_summarize_function_evidence_defaults_empty():
+    def fake(system, user):
+        return json.dumps({"summary": "S", "rules": [], "confidence": 0.5})
+
+    fs = ChainAnalyzer(Settings(), complete=fake).summarize_function(
+        _fd("x.Y.z"), "code", {}, {})
+    assert fs.evidence == []

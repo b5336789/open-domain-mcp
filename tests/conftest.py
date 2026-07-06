@@ -291,6 +291,23 @@ class FakeGraphStore:
             rows.append({"name": row["name"], "normalized_name": norm, "type": row["type"]})
         return rows[:max(1, min(500, limit))]
 
+    def delete_codegraph(self) -> None:
+        """Mirror Maria semantics: remove cg:* edge/entity_chunks rows and
+        all code_functions. Entities themselves are left in place (harmless;
+        re-upserted on next persist)."""
+        slot = self._slot()
+        # Remove edges whose chunk_id starts with "cg:"
+        slot["edges"] = [e for e in slot["edges"] if not e.chunk_id.startswith("cg:")]
+        # Remove cg: entries from entity_chunks (leave empty sets; entity rows stay)
+        for norm in list(slot["entity_chunks"]):
+            slot["entity_chunks"][norm] = {
+                c for c in slot["entity_chunks"][norm] if not c.startswith("cg:")
+            }
+            if not slot["entity_chunks"][norm]:
+                del slot["entity_chunks"][norm]
+        # Clear all code_functions for this collection
+        slot["code_functions"] = {}
+
 
 @pytest.fixture
 def fake_graph():

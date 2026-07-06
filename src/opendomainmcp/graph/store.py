@@ -58,6 +58,9 @@ class NullGraphStore:
     def get_function(self, qualified_name: str) -> Optional[dict]:
         return None
 
+    def delete_codegraph(self) -> None:
+        pass
+
 
 _SCHEMA = (
     """
@@ -372,3 +375,18 @@ class MariaGraphStore:
                 (self._collection, qualified_name))
             row = cur.fetchone()
             return dict(row) if row else None
+
+    def delete_codegraph(self) -> None:
+        """Remove codegraph rows: synthetic cg:* links and all function provenance."""
+        with self._connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM edges WHERE collection=%s AND chunk_id LIKE 'cg:%%'",
+                    (self._collection,))
+                cur.execute(
+                    "DELETE FROM entity_chunks WHERE collection=%s AND chunk_id LIKE 'cg:%%'",
+                    (self._collection,))
+                cur.execute(
+                    "DELETE FROM code_functions WHERE collection=%s",
+                    (self._collection,))
+            conn.commit()

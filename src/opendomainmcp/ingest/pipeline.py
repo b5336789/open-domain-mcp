@@ -421,7 +421,8 @@ class Pipeline:
                 removed = self._store.delete_ids(ids)
                 self._graph.delete_for_chunks(ids)
                 report.chunks_pruned += removed
-                self._emit(progress, "prune", source, detail="file removed")
+                reason = "excluded" if Path(source).exists() else "file removed"
+                self._emit(progress, "prune", source, detail=reason)
 
     @staticmethod
     def _emit(progress: Optional[Progress], stage: str, path: str, detail: str = ""):

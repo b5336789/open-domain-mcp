@@ -188,3 +188,19 @@ def test_list_files_applies_filter(pipeline, tmp_path):
     _make_mixed_corpus(tmp_path)
     files = pipeline.list_files(tmp_path)
     assert [Path(f).name for f in files] == ["billing.py"]
+
+
+def test_sync_prunes_chunks_of_newly_excluded_files(pipeline, store, tmp_path):
+    f = tmp_path / "was_business.py"
+    f.write_text("def rule():\n    return 1\n")
+    pipeline.ingest_path(tmp_path)
+    assert store.get_ids_for_source(str(f))
+
+    # The file becomes excluded (per-run rule) — sync must prune its chunks.
+    events = []
+    report = pipeline.ingest_path(tmp_path, sync=True, exclude=["was_business.py"],
+                                  progress=events.append)
+    assert report.chunks_pruned > 0
+    assert not store.get_ids_for_source(str(f))
+    prune_events = [e for e in events if e["stage"] == "prune"]
+    assert any(e["detail"] == "excluded" for e in prune_events)

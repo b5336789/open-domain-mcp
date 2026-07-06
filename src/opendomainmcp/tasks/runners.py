@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..codegraph.analyze import analyze_corpus
 from ..codegraph.build import build_codegraph
 from ..codegraph.chains import assemble_chains
 from ..extract.knowledge import get_extractor
@@ -102,8 +103,6 @@ def run_extract(ctx, store, task, is_cancelled) -> None:
 
 
 def run_analyze_chains(ctx, store, task, is_cancelled) -> None:
-    from ..codegraph.analyze import analyze_corpus
-
     path = task.params["path"]
     graph = build_codegraph(path, ctx.settings)
     chains = assemble_chains(graph, ctx.settings.codegraph_max_chain_depth)

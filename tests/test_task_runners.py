@@ -84,7 +84,7 @@ def test_run_analyze_chains_registered_and_result(tmp_path, monkeypatch, store, 
                      extractor=None):
         return fake_result
 
-    monkeypatch.setattr("opendomainmcp.codegraph.analyze.analyze_corpus",
+    monkeypatch.setattr("opendomainmcp.tasks.runners.analyze_corpus",
                         fake_analyze)
 
     # Stub build_codegraph and assemble_chains so no real Java parsing is needed

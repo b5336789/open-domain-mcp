@@ -61,3 +61,11 @@ def test_corrupt_cache_tolerated(tmp_path):
     p.write_text("{broken", encoding="utf-8")
     adj, _ = _adj(tmp_path, [{"verdict": "same", "reason": ""}])
     assert adj.judge("x", [], "y", []) == "same"
+
+
+def test_non_dict_cache_tolerated(tmp_path):
+    p = tmp_path / "verdicts.json"
+    p.write_text("[]", encoding="utf-8")  # valid JSON, wrong shape
+    adj, calls = _adj(tmp_path, [{"verdict": "same", "reason": ""}])
+    assert adj.judge("x", [], "y", []) == "same"
+    assert calls["n"] == 1 and adj.cache_hits == 0  # cache started empty

@@ -37,6 +37,11 @@ _SYSTEM = (
 )
 
 
+def _truncate(s: str, limit: int = 300) -> str:
+    """Truncate a quote to ~limit chars for the LLM prompt."""
+    return s[:limit] if len(s) > limit else s
+
+
 class RuleAdjudicator:
     """LLM-based rule pair adjudicator with verdict cache."""
 
@@ -73,6 +78,10 @@ class RuleAdjudicator:
             data = json.loads(self.cache_path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 self._cache = data
+            else:
+                logger.warning(f"Verdict cache {self.cache_path} contains "
+                               f"{type(data).__name__}, not a dict; "
+                               f"starting with empty cache")
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Corrupt or unreadable cache {self.cache_path}: {e}; "
                           f"starting with empty cache")
@@ -113,11 +122,8 @@ class RuleAdjudicator:
             return self._cache[key]
 
         # Call LLM with truncated quotes (~300 chars each)
-        def truncate(s: str, limit: int = 300) -> str:
-            return s[:limit] if len(s) > limit else s
-
-        quotes_a_text = "\n".join(f"- {truncate(q)}" for q in quotes_a)
-        quotes_b_text = "\n".join(f"- {truncate(q)}" for q in quotes_b)
+        quotes_a_text = "\n".join(f"- {_truncate(q)}" for q in quotes_a)
+        quotes_b_text = "\n".join(f"- {_truncate(q)}" for q in quotes_b)
 
         user_msg = (
             f"Claim A: {claim_a}\n"

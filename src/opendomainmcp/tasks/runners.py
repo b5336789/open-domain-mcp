@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..codegraph.build import build_codegraph
+from ..codegraph.chains import assemble_chains
 from ..extract.knowledge import get_extractor
 from ..ingest.checkpoint import Checkpoint, extractor_signature
 from ..models import Chunk
@@ -99,8 +101,32 @@ def run_extract(ctx, store, task, is_cancelled) -> None:
                  result={"reextracted": done - len(failures), "errors": len(failures)})
 
 
+def run_analyze_chains(ctx, store, task, is_cancelled) -> None:
+    from ..codegraph.analyze import analyze_corpus
+
+    path = task.params["path"]
+    graph = build_codegraph(path, ctx.settings)
+    chains = assemble_chains(graph, ctx.settings.codegraph_max_chain_depth)
+    store.set_children_names(task.id, [c.entry for c in chains])
+    if is_cancelled():
+        return
+    try:
+        result = analyze_corpus(path, ctx.store, ctx.settings, ctx.graph)
+    except Exception as exc:  # noqa: BLE001 - Fail Loud into the report
+        store.update(task.id, failures=[{"name": str(path), "status": "error"}])
+        raise
+    failures = [{"name": e.get("function") or e.get("chain") or "?",
+                 "status": "error"} for e in result.get("errors", [])]
+    store.update(task.id, done=len(chains), failures=failures, result=result)
+
+
 class _Cancelled(Exception):
     pass
 
 
-RUNNERS = {"ingest": run_ingest, "synthesize": run_synthesize, "extract": run_extract}
+RUNNERS = {
+    "ingest": run_ingest,
+    "synthesize": run_synthesize,
+    "extract": run_extract,
+    "analyze_chains": run_analyze_chains,
+}

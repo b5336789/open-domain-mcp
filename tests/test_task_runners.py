@@ -61,3 +61,54 @@ def test_run_extract_reextracts_without_reembedding(store, fake_graph, tmp_path,
     assert t.done == 1 and t.total == 1
     item = next(i for i in store.get_items(limit=10) if i["metadata"]["source"] == "m.py")
     assert item["metadata"]["summary"] == "new summary"
+
+
+def test_run_analyze_chains_registered_and_result(tmp_path, monkeypatch, store, fake_graph):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.context import Context
+    from opendomainmcp.tasks.runners import RUNNERS
+    from opendomainmcp.tasks.store import TaskStore
+
+    assert "analyze_chains" in RUNNERS
+
+    fake_result = {
+        "functions_analyzed": 3,
+        "chains_stored": 2,
+        "chunks_backfilled": 1,
+        "fallback_extracted": 0,
+        "coverage": 1.0,
+        "errors": [],
+    }
+
+    def fake_analyze(root, st, settings, graph, progress=None, analyzer=None,
+                     extractor=None):
+        return fake_result
+
+    monkeypatch.setattr("opendomainmcp.codegraph.analyze.analyze_corpus",
+                        fake_analyze)
+
+    # Stub build_codegraph and assemble_chains so no real Java parsing is needed
+    class _FakeGraph:
+        functions = {}
+        edges = []
+
+    class _FakeChain:
+        entry = "A.run"
+        truncated = False
+
+    monkeypatch.setattr("opendomainmcp.tasks.runners.build_codegraph",
+                        lambda path, settings: _FakeGraph())
+    monkeypatch.setattr("opendomainmcp.tasks.runners.assemble_chains",
+                        lambda graph, max_depth: [_FakeChain()])
+
+    ctx = Context(settings=Settings(data_dir=tmp_path), store=store,
+                  pipeline=None, graph=fake_graph)
+    ts = TaskStore(tmp_path)
+    task = ts.create("analyze_chains", "Analyze chains", "c", {"path": str(tmp_path)})
+
+    RUNNERS["analyze_chains"](ctx, ts, task, _never_cancel)
+
+    t = ts.get(task.id)
+    assert t.result == fake_result
+    children = ts.read_children(task.id, 0, 10)
+    assert any(c["name"] == "A.run" for c in children["children"])

@@ -239,3 +239,31 @@ def test_codegraph_cli_stats(tmp_path, capsys, monkeypatch, fake_graph):
     assert rc == 0
     out = capsys.readouterr().out
     assert "functions" in out and "entry" in out.lower()
+
+
+def test_codegraph_analyze_cli(tmp_path, capsys, monkeypatch, store, fake_graph):
+    (tmp_path / "A.java").write_text(
+        "public class A { public void run() { help(); } void help() {} }")
+
+    called = {}
+
+    def fake_analyze(root, st, settings, graph, progress=None, analyzer=None,
+                     extractor=None):
+        called["root"] = str(root)
+        return {"functions_analyzed": 2, "chains_stored": 1,
+                "chunks_backfilled": 0, "fallback_extracted": 0,
+                "coverage": 0.0, "errors": []}
+
+    monkeypatch.setattr("opendomainmcp.codegraph.analyze.analyze_corpus",
+                        fake_analyze)
+
+    import types
+    from opendomainmcp.config import Settings
+
+    fake_ctx = types.SimpleNamespace(settings=Settings(), graph=fake_graph, store=store)
+
+    import opendomainmcp.cli as cli
+    monkeypatch.setattr(cli, "build_context", lambda **_: fake_ctx)
+    rc = cli.main(["codegraph", str(tmp_path), "--analyze"])
+    assert rc == 0 and called["root"] == str(tmp_path)
+    assert "chains_stored" in capsys.readouterr().out

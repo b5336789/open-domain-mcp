@@ -27,6 +27,8 @@ def _source_label(r) -> str:
         return meta.get("title") or meta.get("topic") or r.id
     if meta.get("kind") == "graph":
         return meta.get("title") or "Knowledge graph"
+    if meta.get("kind") == "chain":
+        return meta.get("title") or meta.get("entry") or r.id
     loc = meta.get("source", "?")
     if meta.get("symbol"):
         loc += f"::{meta['symbol']}"
@@ -67,6 +69,10 @@ def _citations(results: list[SearchResult]) -> list[dict]:
             source = _source_label(r)
             symbol = None
             type_ = "graph"
+        elif kind == "chain":
+            source = _source_label(r)
+            symbol = None
+            type_ = "chain"
         else:
             source = r.metadata.get("source", "?")  # bare path — CLI appends ::symbol itself
             symbol = r.metadata.get("symbol")

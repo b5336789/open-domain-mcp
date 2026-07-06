@@ -202,7 +202,13 @@ def _loads_lenient(candidate: str) -> dict:
         raise
 
 
-def _parse(raw: str) -> KnowledgeUnit:
+def parse_llm_json(raw: str) -> dict:
+    """Extract and parse the JSON object from an LLM reply.
+
+    Handles markdown code fences and lenient/repaired JSON — the shared
+    tolerance layer for every LLM-JSON call site (extraction, chain analysis).
+    Raises ExtractionError if no JSON object is found; raises JSONDecodeError
+    (Fail Loud) if parsing cannot be repaired."""
     text = raw.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -216,10 +222,14 @@ def _parse(raw: str) -> KnowledgeUnit:
     # everything from the first ``{`` and let the repair pass close it.
     end = text.rfind("}")
     candidate = text[start: end + 1] if end > start else text[start:]
+    return _loads_lenient(candidate)
+
+
+def _parse(raw: str) -> KnowledgeUnit:
     # strict=False tolerates literal control characters (newlines/tabs) inside
     # string values, which some models — local OpenAI-compatible ones especially
-    # — emit instead of escaping them; _loads_lenient adds malformation repair.
-    data = _loads_lenient(candidate)
+    # — emit instead of escaping them; parse_llm_json/_loads_lenient adds repair.
+    data = parse_llm_json(raw)
     # Audience may come back as a single string or a list; normalise to a list
     # and drop anything outside the allowed vocabulary (Fail Loud is too harsh
     # here — the model occasionally invents terms; we keep the valid ones).

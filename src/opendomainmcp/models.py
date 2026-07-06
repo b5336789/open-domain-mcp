@@ -208,6 +208,55 @@ class Article:
 
 
 @dataclass
+class ChainItem:
+    """End-to-end call-chain knowledge synthesized by chain analysis (4B).
+
+    Duck-types the store contract (id/text/embedding_text/metadata) like
+    Article; lives in the ``<collection>__chains`` sibling collection."""
+
+    entry: str
+    title: str
+    body: str
+    rules: list[str] = field(default_factory=list)
+    members: list[str] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)       # "file:start-end"
+    member_chunk_ids: list[str] = field(default_factory=list)
+    truncated: bool = False
+
+    @staticmethod
+    def id_for_entry(entry: str) -> str:
+        """Stable id for an entry point. Single source of the id formula."""
+        return hashlib.sha256(entry.encode("utf-8")).hexdigest()
+
+    @property
+    def id(self) -> str:
+        return ChainItem.id_for_entry(self.entry)
+
+    @property
+    def text(self) -> str:
+        rules = "".join(f"\n- {r}" for r in self.rules)
+        return f"{self.body}{rules}" if rules else self.body
+
+    def embedding_text(self) -> str:
+        """Title + body + rules + member names for semantic retrieval."""
+        return f"{self.title}\n{self.text}\nFunctions: {', '.join(self.members)}"
+
+    def metadata(self) -> dict:
+        """Flat, JSON/Chroma-friendly metadata (no list or dict values)."""
+        meta = {
+            "kind": "chain",
+            "title": self.title,
+            "entry": self.entry,
+            "members": ", ".join(self.members),
+            "sources": " | ".join(self.sources),
+            "rules": " | ".join(self.rules),
+            "member_chunk_ids": ", ".join(self.member_chunk_ids),
+            "truncated": self.truncated,
+        }
+        return {k: v for k, v in meta.items() if v is not None and v != ""}
+
+
+@dataclass
 class SearchResult:
     id: str
     text: str

@@ -47,6 +47,7 @@ EDITABLE_FIELDS = (
     "review_mode",
     "retrieve_approved_only",
     "retrieve_include_articles",
+    "retrieve_include_chains",
     "retrieve_min_score",
     "retrieve_include_graph",
     "ingest_exclude",
@@ -159,6 +160,10 @@ class Settings(BaseSettings):
     # Include synthesized articles (the <base>__articles collection) in ask/search
     # retrieval, fused with chunks. Off or no-articles == today's behavior.
     retrieve_include_articles: bool = True
+
+    # Include chain-analysis items (the <base>__chains collection) in ask/search
+    # retrieval, fused with chunks. No chains ingested == today's behavior.
+    retrieve_include_chains: bool = True
 
     # Relevance floor for the 'ask' RAG path: if the best retrieved chunk's
     # similarity score is below this, refuse ("no content matched") instead of

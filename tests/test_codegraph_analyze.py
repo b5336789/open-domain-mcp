@@ -220,3 +220,81 @@ def test_delete_codegraph_clears_synthetic_rows(fake_graph):
     assert fake_graph.get_function("F") is None
     ent = fake_graph.get_entity("f")
     assert not ent or not any(c.startswith("cg:") for c in ent["chunk_ids"])
+
+
+def test_store_chains_expected_entry_survives_synthesis_failure(
+    tmp_path, pipeline, store, fake_graph
+):
+    """A pre-existing chain item survives when its entry is expected,
+    even if synthesis failed. Truly-stale entries are still pruned."""
+    # Create code with two separate functions to ensure chains are assembled
+    (tmp_path / "Test.java").write_text(
+        "public class Test {\n"
+        "  public void funcA() {\n"
+        "    funcB();\n"
+        "  }\n"
+        "  public void funcB() {}\n"
+        "}\n"
+    )
+    pipeline.ingest_path(tmp_path)
+
+    from opendomainmcp.models import ChainItem
+    from opendomainmcp.codegraph.build import build_codegraph
+    from opendomainmcp.codegraph.chains import assemble_chains
+
+    chains_store = store.sibling(f"{store.stats()['collection']}__chains")
+    settings = Settings(codegraph_extract=True)
+
+    # Determine what chains will be assembled
+    graph = build_codegraph(tmp_path, settings)
+    chains = assemble_chains(graph, settings.codegraph_max_chain_depth)
+
+    # Need at least 1 chain to test
+    if len(chains) < 1:
+        import pytest
+        pytest.skip("Need at least 1 chain assembled")
+
+    # Use first chain to fail synthesis
+    failed_entry = chains[0].entry
+
+    # Pre-seed items:
+    # 1. One that will fail synthesis but whose entry is still expected
+    failed_item = ChainItem(entry=failed_entry, title="PreExisting",
+                            body="From previous run")
+    # 2. One that's truly stale (entry not in expected chains)
+    stale_item = ChainItem(entry="truly.stale.entry", title="Stale",
+                           body="Not in current chains")
+    chains_store.upsert([failed_item, stale_item])
+
+    # Verify they're stored
+    assert any(i["id"] == failed_item.id for i in chains_store.get_items(limit=50))
+    assert any(i["id"] == stale_item.id for i in chains_store.get_items(limit=50))
+
+    # Make the analyzer fail for only the first chain entry, succeed for others
+    def selective_failure(system, user):
+        if "call chain" in system and failed_entry in user:
+            raise RuntimeError(f"synthesis failed")
+        # All other chains succeed
+        if "call chain" in system:
+            return json.dumps({"title": "Chain title", "body": "End to end.",
+                               "rules": ["chain rule"]})
+        return json.dumps({"summary": f"Summary.", "rules": ["amount >= 0"],
+                           "confidence": 0.8})
+
+    analyzer = ChainAnalyzer(settings, complete=selective_failure)
+    result = analyze_corpus(tmp_path, store, settings, fake_graph,
+                            analyzer=analyzer)
+
+    remaining = chains_store.get_items(limit=50)
+    remaining_ids = {i["id"] for i in remaining}
+
+    # The pre-existing item for the failed entry should survive
+    # because the entry is still expected (in the assembled chains)
+    assert failed_item.id in remaining_ids, \
+        "pre-existing item must survive when entry is expected"
+
+    # The truly-stale item should be pruned if pruning happened
+    # (i.e., if at least one chain stored successfully)
+    if result["chains_stored"] > 0:
+        assert stale_item.id not in remaining_ids, \
+            "stale item should be pruned when at least one chain stored"

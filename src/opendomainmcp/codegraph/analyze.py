@@ -266,11 +266,15 @@ def _store_chains(
     __chains collection. Returns the number of chains stored."""
     chains_store = store.sibling(f"{store.stats()['collection']}__chains")
     stored = 0
-    current_ids: set[str] = set()
+    stored_ids: set[str] = set()
+
+    # Compute EXPECTED ids from all assembled chains, regardless of synthesis
+    # success/failure. This allows pre-existing items to survive if their
+    # entries are still expected (synthesis may retry on next run), while
+    # truly-stale entries (not in current chains) are still pruned.
+    expected_ids = {ChainItem.id_for_entry(c.entry) for c in chains}
+
     for chain in chains:
-        # Only process chains with at least one summarized member
-        if not any(m in summaries for m in chain.members):
-            continue
         try:
             chain_data = analyzer.analyze_chain(chain, summaries)
         except Exception as exc:  # noqa: BLE001 - Fail Loud
@@ -296,15 +300,18 @@ def _store_chains(
             truncated=chain.truncated,
         )
         chains_store.upsert([item])
-        current_ids.add(item.id)
+        stored_ids.add(item.id)
         stored += 1
 
     # Prune stale items from previous runs. Only prune when at least one chain
     # was stored (i.e. we had successful summaries) — consistent with the
     # graph-persist guard so a total-failure run never wipes prior good data.
-    if current_ids:
+    # Prune against EXPECTED ids (all processable chains), not STORED ids, so a
+    # failed synthesis doesn't cause pre-existing items to be removed — their
+    # entries are still expected and may succeed on the next run.
+    if stored_ids:
         existing = chains_store.get_items(limit=10_000)
-        stale = [i["id"] for i in existing if i["id"] not in current_ids]
+        stale = [i["id"] for i in existing if i["id"] not in expected_ids]
         if stale:
             chains_store.delete_ids(stale)
 

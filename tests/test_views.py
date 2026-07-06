@@ -64,6 +64,29 @@ def test_view_tool_developer_returns_code(store):
     assert res and all(r["metadata"].get("kind") == "code" for r in res)
 
 
+def test_view_tool_result_lifts_evidence(store):
+    import json
+
+    ev = [{"claim": "feature X is safe", "quote": "safe to use", "source": "a.md",
+           "start_line": 1, "end_line": 1, "verified": True}]
+    store.upsert([
+        Chunk(text="users can export reports to PDF with evidence", source="a.md",
+              kind="text",
+              knowledge=KnowledgeUnit(
+                  summary="export feature", knowledge_type="Feature",
+                  audience=["product_manager"],
+                  evidence=ev,
+              )),
+    ])
+    ctx = _ctx(store)
+    tool = next(t for t in VIEWS["product"].tools if t.name == "get_feature")
+    res = run_view_tool(ctx, tool, "export PDF evidence", top_k=5)
+    assert res
+    result_with_ev = next((r for r in res if "evidence" in r), None)
+    assert result_with_ev is not None, "no result had lifted evidence"
+    assert result_with_ev["evidence"] == ev
+
+
 def test_approved_only_policy_excludes_unreviewed(store):
     store.upsert([
         Chunk(text="approved feature text", source="a.md", kind="text",

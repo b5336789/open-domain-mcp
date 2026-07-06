@@ -283,7 +283,11 @@ class SearchResult:
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        ev = parse_evidence_field(self.metadata)
+        if ev:
+            d["evidence"] = ev
+        return d
 
 
 def parse_evidence_field(meta: dict) -> list[dict]:

@@ -256,6 +256,69 @@ def test_graph_source_absent_when_flag_off():
     assert all(c["type"] != "graph" for c in result["citations"])
 
 
+def test_citations_include_lines_and_quote():
+    import json
+
+    from opendomainmcp.models import SearchResult
+    from opendomainmcp.query.rag import _citations
+
+    ev = [{"claim": "c", "quote": "if (amt < 0) throw", "source": "A.java",
+           "start_line": 12, "end_line": 12, "verified": True}]
+    r = SearchResult(id="i", text="t", score=0.9,
+                     metadata={"kind": "code", "source": "A.java",
+                               "start_line": 10, "end_line": 20,
+                               "evidence": json.dumps(ev)})
+    cite = _citations([r])[0]
+    assert cite["start_line"] == 10 and cite["end_line"] == 20
+    assert cite["quote"] == "if (amt < 0) throw"
+
+
+def test_citations_chain_lifts_quote():
+    import json
+
+    from opendomainmcp.models import SearchResult
+    from opendomainmcp.query.rag import _citations
+
+    ev = [{"claim": "x", "quote": "chain quote text", "source": "S.java",
+           "start_line": 1, "end_line": 5, "verified": True}]
+    r = SearchResult(id="c", text="chain body", score=0.8,
+                     metadata={"kind": "chain", "title": "My Chain",
+                               "entry": "main", "evidence": json.dumps(ev)})
+    cite = _citations([r])[0]
+    assert cite["quote"] == "chain quote text"
+
+
+def test_citations_no_lines_when_absent():
+    from opendomainmcp.models import SearchResult
+    from opendomainmcp.query.rag import _citations
+
+    r = SearchResult(id="x", text="t", score=0.8,
+                     metadata={"kind": "code", "source": "f.py"})
+    cite = _citations([r])[0]
+    assert "start_line" not in cite
+    assert "end_line" not in cite
+    assert "quote" not in cite
+
+
+def test_citations_no_quote_when_no_verified_evidence():
+    import json
+
+    from opendomainmcp.models import SearchResult
+    from opendomainmcp.query.rag import _citations
+
+    ev = [{"claim": "c", "quote": "some text", "source": "f.py",
+           "start_line": 1, "end_line": 1, "verified": False}]
+    r = SearchResult(id="x", text="t", score=0.8,
+                     metadata={"kind": "code", "source": "f.py",
+                               "start_line": 1, "end_line": 5,
+                               "evidence": json.dumps(ev)})
+    cite = _citations([r])[0]
+    # lines come from metadata, not evidence
+    assert cite["start_line"] == 1 and cite["end_line"] == 5
+    # quote absent because no verified entry
+    assert "quote" not in cite
+
+
 def test_graph_not_consulted_when_floor_refuses():
     from opendomainmcp.models import SearchResult
     from tests.test_graph_context import FakeGraph

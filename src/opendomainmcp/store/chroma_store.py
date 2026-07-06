@@ -12,7 +12,7 @@ import time
 from typing import Optional
 
 from ..embedding.base import Embedder
-from ..models import Chunk, SearchResult
+from ..models import Chunk, SearchResult, parse_evidence_field
 from ..retrieval import LexicalIndex, rrf_fuse
 
 logger = logging.getLogger(__name__)
@@ -188,9 +188,12 @@ class ChromaStore:
         )
         items = []
         for i, _id in enumerate(res["ids"]):
-            items.append(
-                {"id": _id, "text": res["documents"][i], "metadata": res["metadatas"][i] or {}}
-            )
+            meta = res["metadatas"][i] or {}
+            item: dict = {"id": _id, "text": res["documents"][i], "metadata": meta}
+            ev = parse_evidence_field(meta)
+            if ev:
+                item["evidence"] = ev
+            items.append(item)
         return items
 
     def get_item(self, item_id: str) -> Optional[dict]:

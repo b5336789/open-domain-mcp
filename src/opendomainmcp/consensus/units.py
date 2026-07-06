@@ -53,6 +53,10 @@ def collect_rule_units(store, page_size: int = 200) -> list[RuleUnit]:
 
         for item in items:
             meta = item.get("metadata", {})
+            # Canonical rules are consensus OUTPUTS, not inputs: re-collecting
+            # them would self-amplify candidates on every re-run.
+            if meta.get("kind") == "rule":
+                continue
             evidence = parse_evidence_field(meta)
             if not evidence:
                 continue

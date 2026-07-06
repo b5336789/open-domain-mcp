@@ -71,14 +71,15 @@ def test_cache_hits_is_per_run_delta_with_reused_adjudicator(store, fake_graph,
     r1 = run_consensus(store, Settings(), graph=fake_graph, adjudicator=adj)
     assert r1["cache_hits"] == 0  # cold cache: every pair hit the LLM
 
-    # Run 2 re-collects units including the stored rule's own evidence, so a
-    # couple of the new pairs are cache misses; run 3 is fully warm — every
-    # candidate pair must be a hit.  A cumulative counter would report
-    # run2_hits + run3_hits here and overshoot the pair count.
+    # Stored rules are excluded from unit collection, so candidates stay
+    # stable across re-runs and runs 2/3 are fully warm — every candidate
+    # pair is a hit.  A cumulative counter would report run2_hits + run3_hits
+    # in run 3 and overshoot the pair count.
     r2 = run_consensus(store, Settings(), graph=fake_graph, adjudicator=adj)
-    assert r2["cache_hits"] >= 1
+    assert r2["candidates"] == r1["candidates"]  # no self-amplification
+    assert r2["cache_hits"] == r2["candidates"] >= 1
     r3 = run_consensus(store, Settings(), graph=fake_graph, adjudicator=adj)
-    assert r3["candidates"] >= 1
+    assert r3["candidates"] == r1["candidates"]
     assert r3["cache_hits"] == r3["candidates"]
 
 

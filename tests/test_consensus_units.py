@@ -60,3 +60,21 @@ def test_collect_units_skips_claimless_and_paginates(store):
     units = collect_rule_units(store, page_size=3)   # forces pagination
     assert len(units) == 7
     assert all(u.layer == "db" for u in units)
+
+
+def test_collect_units_excludes_canonical_rules(store):
+    # A prior consensus pass stored a RuleItem (kind="rule", evidence-bearing)
+    # in the main collection.  Rules are consensus OUTPUTS: re-collecting them
+    # as inputs would self-amplify candidates on every re-run.
+    k = KnowledgeUnit(summary="S", confidence=0.9, evidence=[EV],
+                      evidence_status="verified")
+    store.upsert([Chunk(text="if (amt < 0) throw", source="Billing.java",
+                        kind="code", language="java", knowledge=k)])
+    store.upsert([RuleItem(statement="amount must not be negative",
+                           trust="high", corroborations=2,
+                           member_chunk_ids=["c1", "c2"],
+                           evidence=[EV], evidence_status="verified")])
+
+    units = collect_rule_units(store)
+    assert len(units) == 1
+    assert units[0].origin == "chunk" and units[0].source == "Billing.java"

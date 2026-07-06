@@ -80,3 +80,10 @@ def test_parse_llm_json_public_helper():
 
     assert parse_llm_json('```json\n{"a": 1}\n```') == {"a": 1}
     assert parse_llm_json('{"a": 1}') == {"a": 1}
+
+
+def test_parse_llm_json_no_braces_raises_extraction_error():
+    from opendomainmcp.extract.knowledge import ExtractionError, parse_llm_json
+
+    with pytest.raises(ExtractionError):
+        parse_llm_json("no braces here")

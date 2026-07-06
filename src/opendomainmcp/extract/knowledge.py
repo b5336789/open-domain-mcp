@@ -222,13 +222,14 @@ def parse_llm_json(raw: str) -> dict:
     # everything from the first ``{`` and let the repair pass close it.
     end = text.rfind("}")
     candidate = text[start: end + 1] if end > start else text[start:]
+    # _loads_lenient parses with strict=False (tolerating literal control
+    # characters inside string values, which some models — local
+    # OpenAI-compatible ones especially — emit instead of escaping them) and
+    # adds malformation repair on top.
     return _loads_lenient(candidate)
 
 
 def _parse(raw: str) -> KnowledgeUnit:
-    # strict=False tolerates literal control characters (newlines/tabs) inside
-    # string values, which some models — local OpenAI-compatible ones especially
-    # — emit instead of escaping them; parse_llm_json/_loads_lenient adds repair.
     data = parse_llm_json(raw)
     # Audience may come back as a single string or a list; normalise to a list
     # and drop anything outside the allowed vocabulary (Fail Loud is too harsh

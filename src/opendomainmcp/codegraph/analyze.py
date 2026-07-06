@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable, Optional
 
+from ..extract.verify import apply_penalty, verify_evidence
 from ..models import Chunk, ChainItem, KnowledgeUnit
 from .build import build_codegraph, persist_codegraph
 from .chains import assemble_chains
@@ -137,6 +138,13 @@ def _summarize_levels(
                 qname = futures[future]
                 try:
                     _, fs = future.result()
+                    fn = graph.functions[qname]
+                    src = fn_sources.get(qname, "")
+                    verified_entries, ev_status = verify_evidence(
+                        fs.evidence, src, fn.file, base_line=fn.start_line,
+                    )
+                    fs.evidence = verified_entries
+                    fs.confidence = apply_penalty(fs.confidence, ev_status)
                     summaries[qname] = fs
                 except Exception as exc:  # noqa: BLE001 - Fail Loud into errors list
                     errors.append({"function": qname, "error": repr(exc)})
@@ -221,12 +229,25 @@ def _backfill(
                          len(fss), chunk_id)
         summary_parts: list[str] = []
         concepts: list[str] = []
+        combined_evidence: list[dict] = []
         for fs in fss:
             if fs.summary and fs.summary not in summary_parts:
                 summary_parts.append(fs.summary)
             for rule in fs.rules:
                 if rule not in concepts:
                     concepts.append(rule)
+            combined_evidence.extend(fs.evidence)
+        # Derive evidence_status from combined entries.
+        if not combined_evidence:
+            ev_status = ""
+        else:
+            n_verified = sum(1 for e in combined_evidence if e.get("verified"))
+            if n_verified == len(combined_evidence):
+                ev_status = "verified"
+            elif n_verified == 0:
+                ev_status = "unverified"
+            else:
+                ev_status = "partial"
         meta = item.get("metadata", {})
         chunk = Chunk(
             text=item.get("text", ""),
@@ -243,6 +264,8 @@ def _backfill(
             concepts=concepts[:8],
             confidence=max((fs.confidence for fs in fss), default=0.0),
             review_status=review_status,
+            evidence=combined_evidence,
+            evidence_status=ev_status,
         )
         store.upsert([chunk])
 
@@ -283,11 +306,27 @@ def _store_chains(
 
         sources: list[str] = []
         member_chunk_ids: list[str] = []
+        member_evidence: list[dict] = []
         for member in chain.members:
             fn = graph.functions.get(member)
             if fn:
                 sources.append(f"{fn.file}:{fn.start_line}-{fn.end_line}")
             member_chunk_ids.extend(chunk_ids_by_function.get(member, []))
+            fs = summaries.get(member)
+            if fs:
+                member_evidence.extend(fs.evidence)
+
+        # Derive evidence_status for the chain from combined member evidence.
+        if not member_evidence:
+            chain_ev_status = ""
+        else:
+            n_verified = sum(1 for e in member_evidence if e.get("verified"))
+            if n_verified == len(member_evidence):
+                chain_ev_status = "verified"
+            elif n_verified == 0:
+                chain_ev_status = "unverified"
+            else:
+                chain_ev_status = "partial"
 
         item = ChainItem(
             entry=chain.entry,
@@ -298,6 +337,8 @@ def _store_chains(
             sources=sources,
             member_chunk_ids=member_chunk_ids,
             truncated=chain.truncated,
+            evidence=member_evidence,
+            evidence_status=chain_ev_status,
         )
         chains_store.upsert([item])
         stored_ids.add(item.id)
@@ -428,6 +469,16 @@ def analyze_corpus(
     )
     functions_analyzed = len(summaries)
 
+    # Count evidence entries across all function summaries.
+    evidence_verified = 0
+    evidence_unverified = 0
+    for fs in summaries.values():
+        for entry in fs.evidence:
+            if entry.get("verified"):
+                evidence_verified += 1
+            else:
+                evidence_unverified += 1
+
     # Stage 4 ---------------------------------------------------------------
     _emit("backfill", functions_analyzed=functions_analyzed)
     chunk_ids_by_function, file_to_source = _backfill(root, graph, summaries, store, settings)
@@ -472,4 +523,5 @@ def analyze_corpus(
         "coverage": coverage,
         "errors": errors,
         "graph_persist_skipped": graph_persist_skipped,
+        "evidence": {"verified": evidence_verified, "unverified": evidence_unverified},
     }

@@ -298,3 +298,43 @@ def test_store_chains_expected_entry_survives_synthesis_failure(
     if result["chains_stored"] > 0:
         assert stale_item.id not in remaining_ids, \
             "stale item should be pruned when at least one chain stored"
+
+
+def _fake_complete_with_evidence(system, user):
+    if "call chain" in system:
+        return json.dumps({"title": "Chain title", "body": "End to end.",
+                           "rules": ["chain rule"]})
+    # quote copied from the JAVA fixture's validate body — real; plus one fake
+    return json.dumps({"summary": "Summary.", "rules": ["amount >= 0"],
+                       "confidence": 0.8,
+                       "evidence": [{"claim": "amount >= 0",
+                                     "quote": "prepareCall"},
+                                    {"claim": "bogus", "quote": "zz_nope_zz"}]})
+
+
+def test_analyze_verifies_and_threads_evidence(tmp_path, pipeline, store,
+                                               fake_graph):
+    _setup(tmp_path, pipeline)
+    settings = Settings(codegraph_extract=True)
+    result = analyze_corpus(tmp_path, store, settings, fake_graph,
+                            analyzer=ChainAnalyzer(
+                                settings, complete=_fake_complete_with_evidence))
+    assert result["evidence"]["verified"] >= 1
+    assert result["evidence"]["unverified"] >= 1
+
+    # backfilled chunk carries verified + unverified entries with real lines
+    import json as _json
+    items = [i for i in store.get_items(limit=50, where={"language": "java"})
+             if i["metadata"].get("evidence")]
+    assert items
+    ev = _json.loads(items[0]["metadata"]["evidence"])
+    good = [e for e in ev if e["verified"]]
+    assert good and all(e["start_line"] for e in good)
+    assert items[0]["metadata"]["evidence_status"] == "partial"
+
+    # chain item derives member evidence deterministically
+    chains = store.sibling(f"{store.stats()['collection']}__chains")
+    got = chains.get_items(limit=10)
+    assert got and got[0]["metadata"].get("evidence_status") == "partial"
+    cev = _json.loads(got[0]["metadata"]["evidence"])
+    assert any(e["verified"] for e in cev)

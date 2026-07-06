@@ -62,21 +62,20 @@ class CodeGraph:
 # Stored-procedure references inside code strings. Two shapes cover the
 # enterprise corpus: JDBC call escapes and exec/call/begin statements in
 # ADO.NET / dynamic SQL strings.
-_JDBC_CALL = re.compile(r"\{\s*\??=?\s*call\s+([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*)",
-                        re.IGNORECASE)
-_SQL_EXEC = re.compile(r"\b(?:exec(?:ute)?|call|begin)\s+([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*)",
-                       re.IGNORECASE)
+_DB_CALL = re.compile(
+    r"\{\s*\??=?\s*call\s+(?P<jdbc>[A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*)"
+    r"|\b(?:exec(?:ute)?|call|begin)\s+(?P<stmt>[A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*)",
+    re.IGNORECASE)
 _SQL_KEYWORDS = {"transaction", "tran", "immediate"}  # "begin transaction" etc.
 
 
 def scan_db_calls(text: str) -> list[str]:
-    """Stored-procedure names referenced in ``text``, lowercased, deduped."""
+    """Stored-procedure names referenced in ``text``, lowercased, deduped,
+    in document order."""
     found: list[str] = []
-    for rx in (_JDBC_CALL, _SQL_EXEC):
-        for m in rx.finditer(text):
-            name = m.group(1).lower()
-            if name in _SQL_KEYWORDS:
-                continue
-            if name not in found:
-                found.append(name)
+    for m in _DB_CALL.finditer(text):
+        name = (m.group("jdbc") or m.group("stmt")).lower()
+        if name in _SQL_KEYWORDS or name in found:
+            continue
+        found.append(name)
     return found

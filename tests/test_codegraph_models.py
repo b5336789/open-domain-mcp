@@ -45,3 +45,8 @@ def test_scan_db_calls_dedup_and_no_false_positives():
     plain = "select id from orders";
     '''
     assert scan_db_calls(src) == ["p.x"]
+
+
+def test_scan_db_calls_document_order_across_forms():
+    src = 'cmd.CommandText = "exec proc_a"\ncs = conn.prepareCall("{call PROC_B}");'
+    assert scan_db_calls(src) == ["proc_a", "proc_b"]

@@ -326,6 +326,12 @@ class Pipeline:
 
         Order is irrelevant (results are written onto the chunk objects); per-chunk
         failures are recorded and never abort the run (Fail Loud)."""
+        if getattr(self._settings, "codegraph_extract", False):
+            # Code chunks are analyzed with call-chain context by the codegraph
+            # analyze pass; only non-code content extracts per-chunk here.
+            chunks = [c for c in chunks if c.kind != "code"]
+            if not chunks:
+                return
         workers = max(1, int(getattr(self._settings, "extract_concurrency", 1)))
         if workers == 1 or len(chunks) <= 1:
             for chunk in chunks:

@@ -216,3 +216,19 @@ def test_plsql_file_ingests_via_line_fallback(pipeline, store, tmp_path):
     assert report.files_indexed == 1
     items = store.get_items(limit=10, where={"language": "plsql"})
     assert items and all(i["metadata"]["kind"] == "code" for i in items)
+
+
+def test_codegraph_extract_mode_skips_code_chunks(store, fake_extractor,
+                                                  fake_graph, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+
+    (tmp_path / "billing.py").write_text("def charge():\n    return 1\n")
+    (tmp_path / "notes.md").write_text("# Pricing\nRules for pricing.\n")
+    settings = Settings(chunk_size=200, chunk_overlap=20, codegraph_extract=True)
+    Pipeline(store, fake_extractor, settings, graph=fake_graph).ingest_path(tmp_path)
+
+    code = store.get_items(limit=50, where={"kind": "code"})
+    text = store.get_items(limit=50, where={"kind": "text"})
+    assert code and all(not i["metadata"].get("summary") for i in code)
+    assert text and any(i["metadata"].get("summary") for i in text)

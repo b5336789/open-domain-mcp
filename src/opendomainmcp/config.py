@@ -51,6 +51,7 @@ EDITABLE_FIELDS = (
     "retrieve_min_score",
     "retrieve_include_graph",
     "ingest_exclude",
+    "codegraph_extract",
 )
 
 
@@ -178,6 +179,12 @@ class Settings(BaseSettings):
 
     # Max call-chain depth for codegraph chain assembly (spec 4A). Env-only.
     codegraph_max_chain_depth: int = 12
+
+    # When on, code chunks skip per-chunk LLM extraction at ingest — the
+    # codegraph chain-analysis pass (codegraph --analyze / analyze_chains task)
+    # backfills their summaries with call-chain context instead. Documents are
+    # unaffected. Off == today's behavior.
+    codegraph_extract: bool = False
 
     # Resilience for external API calls (Anthropic): per-request timeout in
     # seconds and the number of automatic retries on transient errors.

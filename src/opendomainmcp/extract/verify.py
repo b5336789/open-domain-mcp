@@ -35,7 +35,7 @@ def verify_evidence(evidence: list[dict], text: str, source: str,
                     "end_line": start + matched.count("\n"),
                     "verified": True})
         verified_count += 1
-    if verified_count == len(out):
+    if verified_count > 0 and verified_count == len(out):
         status = "verified"
     elif verified_count:
         status = "partial"
@@ -51,10 +51,15 @@ def _locate(quote: str, text: str) -> tuple[int, str] | None:
     idx = text.find(quote)
     if idx != -1:
         return idx, quote
+    # stage 2 needs at least one word character to anchor the regex
+    if not re.search(r"\w", quote):
+        return None
     # whitespace-normalized: any whitespace run in the quote matches any
     # whitespace run (incl. newlines) in the text
     parts = [re.escape(p) for p in quote.split()]
     if not parts:
+        return None
+    if len(parts) > 30:  # worst-case backtracking guard
         return None
     m = re.search(r"\s+".join(parts), text)
     if m:

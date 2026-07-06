@@ -47,6 +47,20 @@ def test_empty_evidence_and_blank_quote():
     assert status == "unverified" and not out[0]["verified"]
 
 
+def test_symbols_only_quote_skips_stage2_and_is_unverified():
+    # no word characters and no exact match -> stage 2 must not run
+    out, status = verify_evidence(_ev("###"), TEXT, "b.py")
+    assert status == "unverified"
+    assert out[0]["verified"] is False
+
+
+def test_symbols_only_quote_exact_match_verifies_via_stage1():
+    text = "x = 1\n# ---\ny = 2\n"
+    out, status = verify_evidence(_ev("# ---"), text, "b.py", base_line=1)
+    assert status == "verified"
+    assert out[0]["start_line"] == 2 and out[0]["end_line"] == 2
+
+
 def test_apply_penalty():
     assert apply_penalty(0.8, "unverified") == 0.8 * UNVERIFIED_PENALTY
     assert apply_penalty(0.8, "partial") == 0.8

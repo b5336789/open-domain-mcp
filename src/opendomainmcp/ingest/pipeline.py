@@ -62,6 +62,7 @@ class IngestReport:
     skipped: list = field(default_factory=list)   # [{"path", "reason"}]
     errors: list = field(default_factory=list)    # [{"path", "error"}]
     filtered: list = field(default_factory=list)  # [{"path", "rule"}] excluded by filter rules
+    pruned_sources: list = field(default_factory=list)  # [{"source", "reason"}] removed by sync
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -411,7 +412,7 @@ class Pipeline:
     def _sync_deletions(self, root: Path, seen: set, report: IngestReport,
                         progress: Optional[Progress]):
         """Remove stored chunks under ``root`` whose source file was not seen
-        in this run (i.e. the file was deleted)."""
+        in this run — either the file was deleted or it is now excluded by filter rules."""
         prefix = str(root) + os.sep
         for source in self._store.get_all_sources():
             if source in seen:
@@ -422,6 +423,7 @@ class Pipeline:
                 self._graph.delete_for_chunks(ids)
                 report.chunks_pruned += removed
                 reason = "excluded" if Path(source).exists() else "file removed"
+                report.pruned_sources.append({"source": source, "reason": reason})
                 self._emit(progress, "prune", source, detail=reason)
 
     @staticmethod

@@ -204,3 +204,4 @@ def test_sync_prunes_chunks_of_newly_excluded_files(pipeline, store, tmp_path):
     assert not store.get_ids_for_source(str(f))
     prune_events = [e for e in events if e["stage"] == "prune"]
     assert any(e["detail"] == "excluded" for e in prune_events)
+    assert {"source": str(f), "reason": "excluded"} in report.pruned_sources

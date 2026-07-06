@@ -180,3 +180,21 @@ def test_ingest_cli_passes_filter_flags(monkeypatch, capsys, tmp_path, store, pi
     rc = cli.main(["ingest", str(tmp_path), "--no-default-excludes"])
     assert rc == 0
     assert "Filtered" not in capsys.readouterr().out
+
+
+def test_codegraph_cli_stats(tmp_path, capsys, monkeypatch, fake_graph):
+    (tmp_path / "A.java").write_text(
+        "public class A { public void run() { help(); } void help() {} }")
+
+    from opendomainmcp.config import Settings
+
+    class _FakeCtxCodegraph:
+        settings = Settings()
+        graph = fake_graph
+
+    import opendomainmcp.cli as cli
+    monkeypatch.setattr(cli, "build_context", lambda **_: _FakeCtxCodegraph())
+    rc = cli.main(["codegraph", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "functions" in out and "entry" in out.lower()

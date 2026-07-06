@@ -171,6 +171,9 @@ class Settings(BaseSettings):
     # matching workflow steps) in the ask context. Off or NullGraphStore == today.
     retrieve_include_graph: bool = False
 
+    # Max call-chain depth for codegraph chain assembly (spec 4A). Env-only.
+    codegraph_max_chain_depth: int = 12
+
     # Resilience for external API calls (Anthropic): per-request timeout in
     # seconds and the number of automatic retries on transient errors.
     request_timeout: float = 60.0

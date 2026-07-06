@@ -53,10 +53,10 @@ def merge_groups(units: list[RuleUnit],
             conflicted_keys.add(key_a)
             conflicted_keys.add(key_b)
 
-    # Union-find over "same" verdicts
+    # Union-find over "same" verdicts (skip stale keys not present in units)
     uf = UnionFind(all_keys)
     for key_a, key_b, verdict in verdicts:
-        if verdict == "same":
+        if verdict == "same" and key_a in units_by_key and key_b in units_by_key:
             uf.union(key_a, key_b)
 
     # Group units by their canonical representative
@@ -79,19 +79,20 @@ def merge_groups(units: list[RuleUnit],
         claims.sort(key=lambda c: (-len(c), c))  # Sort by descending length, then lexicographic
         statement = claims[0]
 
+        # Layers (computed once; also used for the trust decision below)
+        layers = sorted(set(u.layer for u in group))
+
         # Determine trust
         if any(u.key in conflicted_keys for u in group):
             trust = "conflicted"
         else:
-            # Collect layers
-            layers = sorted(set(u.layer for u in group))
             non_chain_layers = [l for l in layers if l != "chain"]
-            chain_layers = [l for l in layers if l == "chain"]
+            has_chain = "chain" in layers
 
             # "high" if ≥ 2 distinct non-chain layers OR (≥ 2 members AND chain + ≥1 non-chain)
             if len(non_chain_layers) >= 2:
                 trust = "high"
-            elif len(group) >= 2 and chain_layers and non_chain_layers:
+            elif len(group) >= 2 and has_chain and non_chain_layers:
                 trust = "high"
             else:
                 trust = "normal"
@@ -112,16 +113,19 @@ def merge_groups(units: list[RuleUnit],
                     seen_evidence.add(key_tuple)
                     evidence.append(ev)
 
-        # Combine evidence_status: "verified" if all have it, else ""
-        evidence_statuses = set()
-        for ev in evidence:
-            status = "verified" if ev.get("verified") else ""
-            if status:
-                evidence_statuses.add(status)
-        combined_evidence_status = "verified" if evidence_statuses == {"verified"} else ""
+        # Combine evidence_status by entry counts (same rule as extract/verify.py):
+        # all verified → "verified", some → "partial", none → "unverified", empty → ""
+        verified_count = sum(1 for ev in evidence if ev.get("verified"))
+        if not evidence:
+            combined_evidence_status = ""
+        elif verified_count == len(evidence):
+            combined_evidence_status = "verified"
+        elif verified_count:
+            combined_evidence_status = "partial"
+        else:
+            combined_evidence_status = "unverified"
 
-        # Collect layers, member_keys, chunk_ids, sources
-        layers = sorted(set(u.layer for u in group))
+        # Collect member_keys, chunk_ids, sources
         member_keys = [u.key for u in group]
         member_chunk_ids = sorted(set(cid for u in group for cid in u.chunk_ids))
         sources = sorted(set(u.source for u in group))

@@ -59,3 +59,42 @@ def test_review_mode_marks_pending():
     rules = merge_groups(units, [("chunk:a:0", "chunk:b:0", "same")],
                          review_mode=True)
     assert rules[0].review_status == "pending"
+
+
+def test_stale_same_verdict_key_does_not_crash():
+    # A "same" verdict referencing a key absent from units is legal input
+    # (stale verdicts); it must be skipped, leaving an unconflicted singleton.
+    units = [_u("chunk:a:0", "surviving rule", "service")]
+    rules = merge_groups(units, [("chunk:gone:0", "chunk:a:0", "same")])
+    assert rules == []
+
+
+def test_partial_evidence_status_when_one_entry_unverified():
+    units = [_u("chunk:a:0", "amount must not be negative", "service"),
+             _u("chunk:b:0", "order amount cannot be negative at all", "db")]
+    units[1].evidence[0]["verified"] = False
+    rules = merge_groups(units, [("chunk:a:0", "chunk:b:0", "same")])
+    assert len(rules) == 1
+    assert rules[0].evidence_status == "partial"
+
+
+def test_transitive_same_chain_merges_into_one_rule():
+    units = [_u("chunk:a:0", "rule alpha", "service"),
+             _u("chunk:b:0", "rule alpha longer", "db"),
+             _u("chunk:c:0", "rule alpha longest one", "docs")]
+    rules = merge_groups(units, [("chunk:a:0", "chunk:b:0", "same"),
+                                 ("chunk:b:0", "chunk:c:0", "same")])
+    assert len(rules) == 1
+    assert rules[0].corroborations == 3
+
+
+def test_evidence_deduped_by_claim_quote_source():
+    shared = {"claim": "shared claim", "quote": "shared quote", "source": "s",
+              "start_line": 1, "end_line": 1, "verified": True}
+    a = _u("chunk:a:0", "shared claim", "service")
+    b = _u("chunk:b:0", "shared claim wording longer", "db")
+    a.evidence = [dict(shared)]
+    b.evidence = [dict(shared)]
+    rules = merge_groups([a, b], [("chunk:a:0", "chunk:b:0", "same")])
+    assert len(rules) == 1
+    assert len(rules[0].evidence) == 1

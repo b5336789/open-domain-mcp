@@ -51,13 +51,35 @@ def test_rerun_hits_cache_and_prunes_stale(store, fake_graph, tmp_path):
     adj = _same_adjudicator(tmp_path)
     run_consensus(store, Settings(), graph=fake_graph, adjudicator=adj)
 
-    # second run: cache hit, same rule id, no dupes
+    # second run: cache hit, same rule id, no dupes, nothing genuinely new
     adj2 = RuleAdjudicator(Settings(), cache_path=tmp_path / "v.json",
                            complete=lambda s, u: (_ for _ in ()).throw(
                                AssertionError("cache must hit")))
     r2 = run_consensus(store, Settings(), graph=fake_graph, adjudicator=adj2)
     assert r2["cache_hits"] >= 1
+    assert r2["rules_created"] == 0  # rule already existed; upserted, not new
     assert len(store.get_items(limit=10, where={"kind": "rule"})) == 1
+
+
+def test_cache_hits_is_per_run_delta_with_reused_adjudicator(store, fake_graph,
+                                                             tmp_path):
+    # ONE adjudicator instance reused across runs: each run must report its
+    # own cache-hit delta, not the instance's cumulative counter.
+    _seed(store)
+    adj = _same_adjudicator(tmp_path)
+
+    r1 = run_consensus(store, Settings(), graph=fake_graph, adjudicator=adj)
+    assert r1["cache_hits"] == 0  # cold cache: every pair hit the LLM
+
+    # Run 2 re-collects units including the stored rule's own evidence, so a
+    # couple of the new pairs are cache misses; run 3 is fully warm — every
+    # candidate pair must be a hit.  A cumulative counter would report
+    # run2_hits + run3_hits here and overshoot the pair count.
+    r2 = run_consensus(store, Settings(), graph=fake_graph, adjudicator=adj)
+    assert r2["cache_hits"] >= 1
+    r3 = run_consensus(store, Settings(), graph=fake_graph, adjudicator=adj)
+    assert r3["candidates"] >= 1
+    assert r3["cache_hits"] == r3["candidates"]
 
 
 def test_total_adjudication_failure_preserves_prior_rules(store, fake_graph,

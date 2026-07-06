@@ -81,6 +81,9 @@ def run_consensus(
 
     verdicts: list[tuple[str, str, str]] = []
     adjudicated = 0
+    # Snapshot the counter so a reused adjudicator instance reports this
+    # run's cache-hit delta, not its cumulative total.
+    pre_hits = adjudicator.cache_hits
 
     for pair in candidates:
         quotes_a = [ev.get("quote", "") for ev in pair.a.evidence]
@@ -97,7 +100,7 @@ def run_consensus(
 
     # Always save the cache — even on partial failure.
     adjudicator.save()
-    cache_hits = adjudicator.cache_hits
+    cache_hits = adjudicator.cache_hits - pre_hits
     _emit("adjudicate", adjudicated=adjudicated, errors=len(errors))
 
     # ------------------------------------------------------------------
@@ -150,10 +153,13 @@ def run_consensus(
 
         if rules:
             store.upsert(rules)
-            rules_created = len(rules)
+
+        # "Created" means genuinely new: expected ids that were not already
+        # stored.  Everything is still upserted (refreshes existing rules).
+        expected_ids = {r.id for r in rules}
+        rules_created = len(expected_ids - existing_ids)
 
         # Prune stale rule ids not in the newly produced set.
-        expected_ids = {r.id for r in rules}
         stale_ids = existing_ids - expected_ids
         if stale_ids:
             store.delete_ids(stale_ids)

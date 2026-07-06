@@ -52,6 +52,12 @@ class NullGraphStore:
     def list_workflows(self, q=None, limit=50):
         return []
 
+    def upsert_functions(self, functions: list[dict]) -> None:
+        pass
+
+    def get_function(self, qualified_name: str) -> Optional[dict]:
+        return None
+
 
 _SCHEMA = (
     """
@@ -110,6 +116,19 @@ _SCHEMA = (
         -- for utf8mb4: (150+150+128+150)*4 = 2312 bytes. The prior single-column
         -- prefix on prerequisite alone was insufficient given the other columns.
         PRIMARY KEY (collection(150), workflow_key(150), chunk_id, prerequisite(150))
+    ) CHARACTER SET utf8mb4
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS code_functions (
+        collection     VARCHAR(255) NOT NULL,
+        qualified_name VARCHAR(512) NOT NULL,
+        file           VARCHAR(1024) NOT NULL,
+        start_line     INT NOT NULL,
+        end_line       INT NOT NULL,
+        language       VARCHAR(32) NOT NULL,
+        signature      VARCHAR(1024) NOT NULL DEFAULT '',
+        kind           VARCHAR(32) NOT NULL DEFAULT 'function',
+        PRIMARY KEY (collection(150), qualified_name(300))
     ) CHARACTER SET utf8mb4
     """,
 )
@@ -329,3 +348,27 @@ class MariaGraphStore:
                 f"WHERE {' AND '.join(clauses)} GROUP BY workflow_key "
                 "ORDER BY workflow_name LIMIT %s", params)
             return [{"name": r["workflow_name"]} for r in cur.fetchall()]
+
+    def upsert_functions(self, functions: list[dict]) -> None:
+        if not functions:
+            return
+        with self._connect() as conn, conn.cursor() as cur:
+            for fn in functions:
+                cur.execute(
+                    "INSERT INTO code_functions "
+                    "(collection, qualified_name, file, start_line, end_line, language, signature, kind) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
+                    "file=VALUES(file), start_line=VALUES(start_line), end_line=VALUES(end_line), "
+                    "signature=VALUES(signature), kind=VALUES(kind)",
+                    (self._collection, fn["qualified_name"], fn["file"],
+                     fn["start_line"], fn["end_line"], fn["language"],
+                     fn.get("signature", ""), fn.get("kind", "function")))
+
+    def get_function(self, qualified_name: str) -> Optional[dict]:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT qualified_name, file, start_line, end_line, language, signature, kind "
+                "FROM code_functions WHERE collection=%s AND qualified_name=%s",
+                (self._collection, qualified_name))
+            row = cur.fetchone()
+            return dict(row) if row else None

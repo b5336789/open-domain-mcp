@@ -839,3 +839,8 @@ git commit -m "feat: evidence panels on Review cards and Graph entity detail"
 - **Placeholder scan:** T8's get_items-lifting and T9's e2e are conditional on reading the actual code first — both name exactly what to check and what must hold. Everything else is complete code.
 - **Type consistency:** the evidence entry dict shape is defined once (Global Constraints) and used identically in T1–T8; `parse_evidence_field` (T1) is the single JSON-parsing point reused in T7/T8; `verify_evidence`/`apply_penalty` (T2) used in T5/T6.
 - **Known risks:** `_parse_evidence` import across modules in T4 (if T3's reviewer renames it, T4 adapts); Review.tsx has no component tests — build + visual conventions only (Playwright only if a spec already exists).
+
+## Post-review addendum
+
+- Edge evidence is surfaced in `neighbors()` payloads (`edge_evidence`, Maria + Fake); a dedicated edge-detail UI element in the SPA is DEFERRED (no edge-detail view exists yet).
+- Deferred to enhancement #3 (review priority queue): the spec's "unverified items sort first" — the `evidence_status` filter field added here is the hook it needs.

@@ -93,10 +93,12 @@ def _summarize_levels(
 
             direct_set = direct_callees_map.get(qname, set())
 
-            # Fill callee_sources until the context budget is exhausted
+            # Fill callee_sources until the context budget is exhausted. The
+            # budget bounds callee-source content only — the function's own
+            # source is always included.
             callee_sources: dict[str, str] = {}
             callee_summaries: dict[str, object] = {}
-            running = len(src)
+            running = 0
 
             for callee in sorted(direct_set):
                 callee_src = fn_sources.get(callee, "")
@@ -180,17 +182,21 @@ def _backfill(
 
     review_status = "pending" if getattr(settings, "review_mode", False) else "approved"
 
+    # Pass 1: accumulate per-chunk contributions. Two functions whose line
+    # ranges overlap the same chunk must MERGE their knowledge, not have the
+    # second upsert silently overwrite the first. Sorted qualified-name order
+    # makes the merged output deterministic.
+    contributions: dict[str, tuple[dict, list]] = {}  # chunk_id -> (item, [FunctionSummary])
     chunk_ids_by_function: dict[str, list[str]] = {}
-    for qname, fs in summaries.items():
+    for qname in sorted(summaries):
+        fs = summaries[qname]
         fn = graph.functions.get(qname)
         if fn is None:
             continue
         source = file_to_source.get(fn.file)
         if source is None:
             continue
-        items = source_items.get(source, [])
-        real_ids: list[str] = []
-        for item in items:
+        for item in source_items.get(source, []):
             meta = item.get("metadata", {})
             item_start = meta.get("start_line")
             item_end = meta.get("end_line")
@@ -199,26 +205,40 @@ def _backfill(
             # Overlap check: function [start_line, end_line] ∩ chunk [item_start, item_end]
             if item_end < fn.start_line or item_start > fn.end_line:
                 continue
-            chunk = Chunk(
-                text=item.get("text", ""),
-                source=meta.get("source", source),
-                kind=meta.get("kind", "code"),
-                language=meta.get("language"),
-                symbol=meta.get("symbol"),
-                node_type=meta.get("node_type"),
-                start_line=item_start,
-                end_line=item_end,
-            )
-            chunk.knowledge = KnowledgeUnit(
-                summary=fs.summary,
-                concepts=fs.rules[:8],
-                confidence=fs.confidence,
-                review_status=review_status,
-            )
-            store.upsert([chunk])
-            real_ids.append(chunk.id)
-        if real_ids:
-            chunk_ids_by_function[qname] = real_ids
+            contributions.setdefault(item["id"], (item, []))[1].append(fs)
+            chunk_ids_by_function.setdefault(qname, []).append(item["id"])
+
+    # Pass 2: one merge + upsert per chunk id (no duplicate re-embeds).
+    for chunk_id, (item, fss) in contributions.items():
+        if len(fss) > 1:
+            logger.debug("analyze: merging %d function summaries into chunk %s",
+                         len(fss), chunk_id)
+        summary_parts: list[str] = []
+        concepts: list[str] = []
+        for fs in fss:
+            if fs.summary and fs.summary not in summary_parts:
+                summary_parts.append(fs.summary)
+            for rule in fs.rules:
+                if rule not in concepts:
+                    concepts.append(rule)
+        meta = item.get("metadata", {})
+        chunk = Chunk(
+            text=item.get("text", ""),
+            source=meta.get("source", ""),
+            kind=meta.get("kind", "text"),
+            language=meta.get("language"),
+            symbol=meta.get("symbol"),
+            node_type=meta.get("node_type"),
+            start_line=meta.get("start_line"),
+            end_line=meta.get("end_line"),
+        )
+        chunk.knowledge = KnowledgeUnit(
+            summary=" ".join(summary_parts),
+            concepts=concepts[:8],
+            confidence=max((fs.confidence for fs in fss), default=0.0),
+            review_status=review_status,
+        )
+        store.upsert([chunk])
 
     return chunk_ids_by_function, file_to_source
 
@@ -307,7 +327,7 @@ def _fallback_extract(
             chunk = Chunk(
                 text=item.get("text", ""),
                 source=meta.get("source", source),
-                kind=meta.get("kind", "code"),
+                kind=meta.get("kind", "text"),
                 language=meta.get("language"),
                 symbol=meta.get("symbol"),
                 node_type=meta.get("node_type"),
@@ -385,7 +405,8 @@ def analyze_corpus(
     # Stage 4 ---------------------------------------------------------------
     _emit("backfill", functions_analyzed=functions_analyzed)
     chunk_ids_by_function, file_to_source = _backfill(root, graph, summaries, store, settings)
-    chunks_backfilled = sum(len(ids) for ids in chunk_ids_by_function.values())
+    # Distinct chunks: a chunk shared by several functions is backfilled once.
+    chunks_backfilled = len({cid for ids in chunk_ids_by_function.values() for cid in ids})
 
     # Stage 5 ---------------------------------------------------------------
     _emit("chains", chains=len(chains))

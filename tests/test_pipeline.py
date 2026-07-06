@@ -205,3 +205,14 @@ def test_sync_prunes_chunks_of_newly_excluded_files(pipeline, store, tmp_path):
     prune_events = [e for e in events if e["stage"] == "prune"]
     assert any(e["detail"] == "excluded" for e in prune_events)
     assert {"source": str(f), "reason": "excluded"} in report.pruned_sources
+
+
+def test_plsql_file_ingests_via_line_fallback(pipeline, store, tmp_path):
+    f = tmp_path / "pkg_billing.pkb"
+    f.write_text("CREATE OR REPLACE PACKAGE BODY pkg_billing AS\n"
+                 "  PROCEDURE validate_amount(p IN NUMBER) IS\n"
+                 "  BEGIN\n    NULL;\n  END validate_amount;\nEND pkg_billing;\n")
+    report = pipeline.ingest_path(f)
+    assert report.files_indexed == 1
+    items = store.get_items(limit=10, where={"language": "plsql"})
+    assert items and all(i["metadata"]["kind"] == "code" for i in items)

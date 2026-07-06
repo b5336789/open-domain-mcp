@@ -41,3 +41,18 @@ def test_binary_fails_loud(tmp_path):
     p.write_bytes(b"\xff\xfe\x00\x01\x80")
     with pytest.raises(UnsupportedFileError):
         load_file(p)
+
+
+def test_vbnet_and_plsql_extensions_load_as_code(tmp_path):
+    from opendomainmcp.ingest.loader import load_file
+
+    vb = tmp_path / "Billing.vb"
+    vb.write_text("Module M\n  Sub Ping()\n  End Sub\nEnd Module\n")
+    doc = load_file(vb)
+    assert doc.kind == "code" and doc.language == "vbnet"
+
+    for ext in (".sql", ".pks", ".pkb", ".pls"):
+        f = tmp_path / f"pkg{ext}"
+        f.write_text("CREATE OR REPLACE PROCEDURE p AS BEGIN NULL; END;\n")
+        doc = load_file(f)
+        assert doc.kind == "code" and doc.language == "plsql", ext

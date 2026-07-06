@@ -6,7 +6,8 @@ existing entities/edges tables (types: function/procedure/endpoint/external;
 relations: calls/executes_sql/http_call) plus a code_functions provenance
 table (file + line range per function). Chunk ids here are synthetic
 ("cg:<qualified_name>") — plan 4B replaces them with real chunk ids when the
-pipeline integration lands."""
+pipeline integration lands. Languages (including VB.NET and PL/SQL) come from
+the ingest loader mapping."""
 
 from __future__ import annotations
 
@@ -34,10 +35,6 @@ def _synthetic_chunk_id(qualified_name: str) -> str:
     import hashlib
     return "cg:" + hashlib.sha256(qualified_name.encode("utf-8")).hexdigest()[:32]
 
-# Codegraph-only language additions; the ingest loader mapping is unchanged
-# until plan 4B wires VB.NET/PL-SQL into loading/splitting.
-_EXTRA_EXTS = {".vb": "vbnet", ".sql": "plsql", ".pks": "plsql",
-               ".pkb": "plsql", ".pls": "plsql"}
 
 EXTRACTORS = {
     "java": lambda src, file: extract_java(src, file),
@@ -50,8 +47,7 @@ EXTRACTORS = {
 
 
 def _language_of(path: Path) -> str | None:
-    ext = path.suffix.lower()
-    lang = _EXTRA_EXTS.get(ext) or LANGUAGE_BY_EXT.get(ext)
+    lang = LANGUAGE_BY_EXT.get(path.suffix.lower())
     return lang if lang in EXTRACTORS else None
 
 

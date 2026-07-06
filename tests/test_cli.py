@@ -180,3 +180,62 @@ def test_ingest_cli_passes_filter_flags(monkeypatch, capsys, tmp_path, store, pi
     rc = cli.main(["ingest", str(tmp_path), "--no-default-excludes"])
     assert rc == 0
     assert "Filtered" not in capsys.readouterr().out
+
+
+def test_codegraph_persist_with_null_graph_returns_1(tmp_path, capsys, monkeypatch):
+    """--persist with NullGraphStore must return rc=1 and print to stderr
+    (4A final-review fix 4)."""
+    (tmp_path / "A.java").write_text(
+        "public class A { public void run() {} }")
+
+    from opendomainmcp.config import Settings
+    from opendomainmcp.graph.store import NullGraphStore
+
+    class _CtxNullGraph:
+        settings = Settings()
+        graph = NullGraphStore()
+
+    import opendomainmcp.cli as cli
+    monkeypatch.setattr(cli, "build_context", lambda **_: _CtxNullGraph())
+    rc = cli.main(["codegraph", str(tmp_path), "--persist"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "graph store not configured" in err
+
+
+def test_codegraph_persist_with_fake_graph_returns_0(tmp_path, capsys, monkeypatch, fake_graph):
+    """--persist with a real graph store (FakeGraphStore) must succeed (rc=0)
+    (4A final-review fix 4 — regression guard)."""
+    (tmp_path / "A.java").write_text(
+        "public class A { public void run() {} }")
+
+    from opendomainmcp.config import Settings
+
+    class _CtxFakeGraph:
+        settings = Settings()
+        graph = fake_graph
+
+    import opendomainmcp.cli as cli
+    monkeypatch.setattr(cli, "build_context", lambda **_: _CtxFakeGraph())
+    rc = cli.main(["codegraph", str(tmp_path), "--persist"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "persisted" in out
+
+
+def test_codegraph_cli_stats(tmp_path, capsys, monkeypatch, fake_graph):
+    (tmp_path / "A.java").write_text(
+        "public class A { public void run() { help(); } void help() {} }")
+
+    from opendomainmcp.config import Settings
+
+    class _FakeCtxCodegraph:
+        settings = Settings()
+        graph = fake_graph
+
+    import opendomainmcp.cli as cli
+    monkeypatch.setattr(cli, "build_context", lambda **_: _FakeCtxCodegraph())
+    rc = cli.main(["codegraph", str(tmp_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "functions" in out and "entry" in out.lower()

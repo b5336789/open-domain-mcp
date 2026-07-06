@@ -135,6 +135,7 @@ class FakeGraphStore:
                 "edges": [],
                 "workflow_steps": [],    # list of dicts
                 "workflow_prereqs": [],  # list of dicts
+                "code_functions": {},    # qualified_name -> dict
             }
         return self._backing[self._collection]
 
@@ -270,6 +271,14 @@ class FakeGraphStore:
             names[r["workflow_key"]] = max(names.get(r["workflow_key"], r["workflow_name"]), r["workflow_name"])
         out = [{"name": n} for _, n in sorted(names.items())]
         return out[:max(1, min(500, limit))]
+
+    def upsert_functions(self, functions):
+        table = self._slot().setdefault("code_functions", {})
+        for fn in functions:
+            table[fn["qualified_name"]] = dict(fn)
+
+    def get_function(self, qualified_name):
+        return self._slot().get("code_functions", {}).get(qualified_name)
 
     def list_entities(self, type=None, q=None, limit=50):
         slot = self._slot()

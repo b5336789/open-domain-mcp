@@ -116,6 +116,43 @@ def _cmd_collections(ctx, args) -> int:
     return 0
 
 
+def _cmd_codegraph(ctx, args) -> int:
+    import json as _json
+    from collections import Counter
+
+    from .codegraph.build import build_codegraph, persist_codegraph
+    from .codegraph.chains import assemble_chains
+
+    graph = build_codegraph(args.path, ctx.settings)
+    chains = assemble_chains(graph,
+                             max_depth=ctx.settings.codegraph_max_chain_depth)
+    stats = {
+        "functions": len(graph.functions),
+        "functions_by_language": dict(Counter(
+            f.language for f in graph.functions.values())),
+        "edges_by_relation": dict(Counter(e.relation for e in graph.edges)),
+        "unresolved_external_edges": sum(1 for e in graph.edges if e.external),
+        "entry_points": sum(1 for c in chains),
+        "truncated_chains": sum(1 for c in chains if c.truncated),
+    }
+    if args.persist:
+        from .graph.store import NullGraphStore
+        if isinstance(ctx.graph, NullGraphStore):
+            print(
+                "graph store not configured — set ODM_GRAPH_DB_* "
+                "(or ODM_GRAPH_STORE_BACKEND=mariadb)",
+                file=sys.stderr,
+            )
+            return 1
+        stats["persisted"] = persist_codegraph(graph, ctx.graph)
+    if args.json:
+        print(_json.dumps(stats, indent=2))
+    else:
+        for key, value in stats.items():
+            print(f"{key}: {value}")
+    return 0
+
+
 def _cmd_synthesize(ctx, args) -> int:
     from .synthesis import synthesize_articles
 
@@ -222,6 +259,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_synth.add_argument("--dry-run", action="store_true",
                          help="Synthesize and critique but do not store")
     p_synth.set_defaults(func=_cmd_synthesize)
+
+    p_cg = sub.add_parser("codegraph",
+                          help="Build the function-level code graph and show stats")
+    p_cg.add_argument("path", help="Directory of source code to analyze")
+    p_cg.add_argument("--persist", action="store_true",
+                      help="Write the graph to the configured graph store")
+    p_cg.add_argument("--json", action="store_true", help="Emit stats as JSON")
+    p_cg.set_defaults(func=_cmd_codegraph)
     return parser
 
 

@@ -1,0 +1,81 @@
+"""Oracle PL/SQL lightweight parser (spec 4A, task 5)."""
+
+from opendomainmcp.codegraph.plsql import extract_plsql
+
+PKG = """
+CREATE OR REPLACE PACKAGE BODY pkg_billing AS
+
+  PROCEDURE validate_amount(p_amt IN NUMBER) IS
+  BEGIN
+    IF p_amt < 0 THEN
+      RAISE_APPLICATION_ERROR(-20001, 'negative amount');
+    END IF;
+    log_util.write('validated');
+  END validate_amount;
+
+  FUNCTION compute_total(p_id IN NUMBER) RETURN NUMBER IS
+    v_total NUMBER;
+  BEGIN
+    validate_amount(v_total);
+    RETURN v_total;
+  END compute_total;
+
+END pkg_billing;
+"""
+
+
+def test_package_procedures_qualified_lowercase():
+    syms = extract_plsql(PKG, "pkg_billing.pkb")
+    names = {f.qualified_name: f for f in syms.functions}
+    assert set(names) == {"pkg_billing.validate_amount", "pkg_billing.compute_total"}
+    v = names["pkg_billing.validate_amount"]
+    assert v.kind == "procedure" and v.language == "plsql"
+    assert v.start_line == 4 and v.end_line >= 10
+
+
+def test_call_sites_within_bodies():
+    syms = extract_plsql(PKG, "pkg_billing.pkb")
+    calls = {(c.caller, c.callee_text) for c in syms.calls}
+    assert ("pkg_billing.compute_total", "validate_amount") in calls
+    assert ("pkg_billing.validate_amount", "log_util.write") in calls
+    # keywords are not calls
+    assert not any(c.callee_text.lower() in ("if", "raise_application_error")
+                   for c in syms.calls)
+
+
+def test_standalone_procedure():
+    src = "CREATE OR REPLACE PROCEDURE billing_report AS\nBEGIN\n  pkg_billing.compute_total(1);\nEND;\n"
+    syms = extract_plsql(src, "report.sql")
+    assert [f.qualified_name for f in syms.functions] == ["billing_report"]
+    assert ("billing_report", "pkg_billing.compute_total") in {
+        (c.caller, c.callee_text) for c in syms.calls}
+
+
+MIXED = """
+CREATE OR REPLACE PACKAGE BODY pkg_x AS
+
+  PROCEDURE me IS
+  BEGIN
+    pkg_x.me();
+  END me;
+
+END pkg_x;
+
+CREATE OR REPLACE PROCEDURE standalone_report AS
+BEGIN
+  helper_pkg.run(1);
+END;
+"""
+
+
+def test_package_then_standalone_scoping():
+    syms = extract_plsql(MIXED, "mixed.sql")
+    names = {f.qualified_name: f for f in syms.functions}
+    assert set(names) == {"pkg_x.me", "standalone_report"}
+    # standalone body runs to its own END (line 14), untouched by package logic
+    assert names["standalone_report"].start_line == 11
+    assert names["standalone_report"].end_line >= 14
+    calls = {(c.caller, c.callee_text) for c in syms.calls}
+    assert ("standalone_report", "helper_pkg.run") in calls
+    # qualified self-call emits no call site
+    assert ("pkg_x.me", "pkg_x.me") not in calls

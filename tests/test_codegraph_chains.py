@@ -51,6 +51,27 @@ def test_cycle_truncates_but_terminates():
     assert entry[0].members == ["x.A.a", "x.B.b"]
 
 
+def test_diamond_subtree_walked_once():
+    # A -> B, A -> C, B -> D, C -> D, D -> E: D's subtree must not be
+    # re-traversed via the second reaching path, but the C->D edge itself
+    # is still recorded.
+    names = ("d.A.a", "d.B.b", "d.C.c", "d.D.d", "d.E.e")
+    fns = {q: _fd(q) for q in names}
+    edges = [_edge("d.A.a", "d.B.b"), _edge("d.A.a", "d.C.c"),
+             _edge("d.B.b", "d.D.d"), _edge("d.C.c", "d.D.d"),
+             _edge("d.D.d", "d.E.e")]
+    g = CodeGraph(functions=fns, edges=edges)
+    chains = {c.entry: c for c in assemble_chains(g)}
+    c = chains["d.A.a"]
+    # dst-sorted DFS preorder, no duplicates
+    assert c.members == ["d.A.a", "d.B.b", "d.D.d", "d.E.e", "d.C.c"]
+    pairs = [(e.src, e.dst) for e in c.edges]
+    assert pairs.count(("d.B.b", "d.D.d")) == 1
+    assert pairs.count(("d.C.c", "d.D.d")) == 1
+    assert pairs.count(("d.D.d", "d.E.e")) == 1  # subtree not duplicated
+    assert not c.truncated
+
+
 def test_depth_limit_truncates():
     fns = {f"m.C{i}.f": _fd(f"m.C{i}.f") for i in range(5)}
     edges = [_edge(f"m.C{i}.f", f"m.C{i+1}.f") for i in range(4)]

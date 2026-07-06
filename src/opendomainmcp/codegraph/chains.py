@@ -31,11 +31,12 @@ def detect_entry_points(graph: CodeGraph) -> list[str]:
     entries = {q for q, f in graph.functions.items() if f.route is not None}
     entries |= {q for q, d in indegree.items() if d == 0}
     # cycle-only components: nodes not reachable from any current entry
-    reachable = _reachable(graph, entries)
+    out = _out_edges(graph)
+    reachable = _reachable(graph, entries, out)
     leftover = sorted(internal - reachable)
     while leftover:
         entries.add(leftover[0])
-        reachable = _reachable(graph, entries)
+        reachable = _reachable(graph, entries, out)
         leftover = sorted(internal - reachable)
     return sorted(entries)
 
@@ -47,8 +48,8 @@ def _out_edges(graph: CodeGraph) -> dict[str, list[ResolvedEdge]]:
     return out
 
 
-def _reachable(graph: CodeGraph, roots: set[str]) -> set[str]:
-    out = _out_edges(graph)
+def _reachable(graph: CodeGraph, roots: set[str],
+               out: dict[str, list[ResolvedEdge]]) -> set[str]:
     seen = set(roots)
     stack = list(roots)
     while stack:
@@ -64,15 +65,15 @@ def assemble_chains(graph: CodeGraph, max_depth: int = 12) -> list[Chain]:
     out = _out_edges(graph)
     chains = []
     for entry in detect_entry_points(graph):
-        chain = Chain(entry=entry)
-        _dfs(entry, out, graph, chain, path=[entry], depth=0, max_depth=max_depth)
-        chain.members = _preorder(chain, entry)
+        chain = Chain(entry=entry, members=[entry])
+        _dfs(entry, out, graph, chain, visited={entry},
+             path=[entry], depth=0, max_depth=max_depth)
         chains.append(chain)
     return chains
 
 
 def _dfs(node: str, out, graph: CodeGraph, chain: Chain,
-         path: list[str], depth: int, max_depth: int):
+         visited: set[str], path: list[str], depth: int, max_depth: int):
     for e in sorted(out.get(node, []), key=lambda e: (e.dst, e.relation)):
         if e.external or e.dst not in graph.functions:
             chain.edges.append(e)          # boundary edge, not traversed
@@ -84,14 +85,9 @@ def _dfs(node: str, out, graph: CodeGraph, chain: Chain,
             chain.truncated = True
             continue
         chain.edges.append(e)
-        _dfs(e.dst, out, graph, chain, path + [e.dst], depth + 1, max_depth)
-
-
-def _preorder(chain: Chain, entry: str) -> list[str]:
-    members = [entry]
-    seen = {entry}
-    for e in chain.edges:
-        if not e.external and e.dst not in seen:
-            seen.add(e.dst)
-            members.append(e.dst)
-    return members
+        if e.dst in visited:
+            continue  # distinct edge recorded; subtree already walked
+        visited.add(e.dst)
+        chain.members.append(e.dst)        # DFS preorder, entry first
+        _dfs(e.dst, out, graph, chain, visited,
+             path + [e.dst], depth + 1, max_depth)

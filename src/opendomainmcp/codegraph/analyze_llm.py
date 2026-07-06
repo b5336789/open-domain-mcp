@@ -59,7 +59,7 @@ def _normalize_evidence(value) -> list[dict]:
     for item in value:
         if isinstance(item, str):
             # String becomes {"claim": "", "quote": s}
-            entry = {"claim": "", "quote": item}
+            entry = {"claim": "", "quote": item.strip()}
         elif isinstance(item, dict):
             # Dict: extract claim/quote keys
             entry = {

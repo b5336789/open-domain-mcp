@@ -16,10 +16,11 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 from ..models import Chunk
 from .code_splitter import split_code
+from .filters import IngestFilter
 from .loader import UnsupportedFileError, load_file
 from .text_splitter import RecursiveTextSplitter
 
@@ -60,6 +61,7 @@ class IngestReport:
     chunks_pruned: int = 0                         # stale chunks removed by sync
     skipped: list = field(default_factory=list)   # [{"path", "reason"}]
     errors: list = field(default_factory=list)    # [{"path", "error"}]
+    filtered: list = field(default_factory=list)  # [{"path", "rule"}] excluded by filter rules
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -86,6 +88,8 @@ class Pipeline:
         sync: bool = False,
         allowed_root: Optional[str | Path] = None,
         checkpoint=None,
+        exclude: Optional[Sequence[str]] = None,
+        use_default_excludes: bool = True,
     ) -> IngestReport:
         # A Git URL or .zip is materialised into a temp dir which then doubles as
         # the allowed_root; plain paths fall through unchanged. An optional
@@ -93,13 +97,18 @@ class Pipeline:
         # already-completed files are skipped and progress is persisted per file.
         from .sources import prepared_source
 
+        ingest_filter = IngestFilter.from_settings(
+            self._settings, tuple(exclude or ()), use_default_excludes
+        )
         with prepared_source(path, self._settings.data_dir) as prepared:
             if prepared is not None:
                 self._emit(progress, "fetch", str(path), detail="materialised source")
                 return self._ingest(prepared, progress, sync=False,
-                                    allowed_root=prepared, checkpoint=checkpoint)
+                                    allowed_root=prepared, checkpoint=checkpoint,
+                                    ingest_filter=ingest_filter)
             return self._ingest(Path(path), progress, sync=sync,
-                                allowed_root=allowed_root, checkpoint=checkpoint)
+                                allowed_root=allowed_root, checkpoint=checkpoint,
+                                ingest_filter=ingest_filter)
 
     def _ingest(
         self,
@@ -108,6 +117,7 @@ class Pipeline:
         sync: bool,
         allowed_root: Optional[str | Path],
         checkpoint=None,
+        ingest_filter: Optional[IngestFilter] = None,
     ) -> IngestReport:
         report = IngestReport()
         # Confine ingestion to an allowed root when one is configured. The
@@ -127,6 +137,10 @@ class Pipeline:
             raise FileNotFoundError(f"{path} does not exist")
         if root is not None:
             files = self._filter_within(files, root, report, progress)
+        if ingest_filter is None:
+            ingest_filter = IngestFilter.from_settings(self._settings)
+        base = path if path.is_dir() else path.parent
+        files = self._apply_ingest_filter(files, base, report, progress, ingest_filter)
         if checkpoint is not None:
             # If the extraction config changed since this checkpoint was written,
             # discard the completed-file set so everything re-extracts.
@@ -158,10 +172,12 @@ class Pipeline:
         """The file paths ingest_path would process, in processing order.
         Used by the Task Center to enumerate child entries up front."""
         p = Path(path)
+        flt = IngestFilter.from_settings(self._settings)
         if p.is_dir():
-            return [str(f) for f in self._walk(p)]
+            return [str(f) for f in self._walk(p)
+                    if flt.exclusion_reason(f, p) is None]
         if p.is_file():
-            return [str(p)]
+            return [str(p)] if flt.exclusion_reason(p, p.parent) is None else []
         return []
 
     # -- internals ------------------------------------------------------
@@ -173,6 +189,20 @@ class Pipeline:
             for name in sorted(filenames):
                 if not name.startswith("."):
                     yield Path(dirpath) / name
+
+    def _apply_ingest_filter(self, files, base: Path, report: IngestReport,
+                             progress: Optional[Progress],
+                             ingest_filter: IngestFilter):
+        """Drop files excluded by filter rules — always reported, never silent."""
+        kept = []
+        for f in files:
+            rule = ingest_filter.exclusion_reason(f, base)
+            if rule is None:
+                kept.append(f)
+            else:
+                report.filtered.append({"path": str(f), "rule": rule})
+                self._emit(progress, "filter", str(f), detail=rule)
+        return kept
 
     def _filter_within(self, files, root: Path, report: IngestReport,
                        progress: Optional[Progress]):

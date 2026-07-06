@@ -333,3 +333,16 @@ def test_graph_not_consulted_when_floor_refuses():
     result = answer_question("what does calculate_taxes call?", store, settings,
                              synthesize=lambda *a: called.append(1) or "x", graph=g)
     assert result["citations"] == [] and not called  # refused before graph
+
+
+def test_rule_citation_shape():
+    from opendomainmcp.models import SearchResult
+    from opendomainmcp.query.rag import _citations, _source_label
+
+    meta = {"kind": "rule", "statement": "amount must not be negative",
+            "trust": "high"}
+    r = SearchResult(id="r1", text="amount must not be negative\n...", score=0.9,
+                     metadata=meta)
+    assert _source_label(r) == "amount must not be negative"
+    cite = _citations([r])[0]
+    assert cite["type"] == "rule" and cite["trust"] == "high"

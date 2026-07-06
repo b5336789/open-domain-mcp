@@ -10,6 +10,24 @@ from ..models import SearchResult
 from . import rrf_fuse
 
 
+def _suppress_rule_members(hits: list[SearchResult]) -> list[SearchResult]:
+    """When canonical rules are present, drop their constituent chunk members.
+
+    Collects all chunk ids listed in any rule hit's ``member_chunk_ids`` CSV and
+    removes those ids from the result list. Rules keep their own ranking; no score
+    boosting is applied.
+    """
+    suppressed: set[str] = set()
+    for r in hits:
+        if r.metadata.get("kind") == "rule":
+            raw = r.metadata.get("member_chunk_ids", "")
+            if raw:
+                suppressed.update(cid.strip() for cid in raw.split(",") if cid.strip())
+    if not suppressed:
+        return hits
+    return [r for r in hits if r.id not in suppressed]
+
+
 def search_unified(store, query, *, top_k=5, mode="vector", settings,
                    where=None, source_contains=None) -> list[SearchResult]:
     chunk_hits = store.search(query, top_k=top_k, where=where, mode=mode,
@@ -39,9 +57,12 @@ def search_unified(store, query, *, top_k=5, mode="vector", settings,
                 pool.update({r.id: r for r in chain_hits})
                 ranked_lists.append([h.id for h in chain_hits])
 
+    prefer_rules = getattr(settings, "retrieve_prefer_rules", True)
+
     if len(ranked_lists) == 1:
-        # No siblings contributed — return plain chunk results unchanged.
-        return chunk_hits
+        # No siblings contributed — return plain chunk results (with suppression if on).
+        return _suppress_rule_members(chunk_hits) if prefer_rules else chunk_hits
 
     fused = rrf_fuse(ranked_lists, top_k=top_k)
-    return [pool[_id] for _id, _ in fused if _id in pool]
+    results = [pool[_id] for _id, _ in fused if _id in pool]
+    return _suppress_rule_members(results) if prefer_rules else results

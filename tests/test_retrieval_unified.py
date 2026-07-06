@@ -68,3 +68,31 @@ def test_where_filter_forwarded_to_article_search(store):
     assert "article" not in kinds
     # But code chunks should still be present
     assert "code" in kinds
+
+
+def test_prefer_rules_suppresses_member_chunks(store):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.models import Chunk, RuleItem
+    from opendomainmcp.retrieval import search_unified
+
+    member = Chunk(text="if (amt < 0) throw new Error('negative amount')",
+                   source="Billing.java", kind="code", language="java")
+    store.upsert([member])
+    rule = RuleItem(statement="amount must not be negative",
+                    member_chunk_ids=[member.id],
+                    sources=["Billing.java:1-1"])
+    store.upsert([rule])
+
+    hits = search_unified(store, "negative amount rule", top_k=5,
+                          settings=Settings(retrieve_prefer_rules=True,
+                                            retrieve_include_articles=False,
+                                            retrieve_include_chains=False))
+    kinds = [h.metadata.get("kind") for h in hits]
+    assert "rule" in kinds
+    assert member.id not in [h.id for h in hits]
+
+    hits_off = search_unified(store, "negative amount rule", top_k=5,
+                              settings=Settings(retrieve_prefer_rules=False,
+                                                retrieve_include_articles=False,
+                                                retrieve_include_chains=False))
+    assert member.id in [h.id for h in hits_off]

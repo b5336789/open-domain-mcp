@@ -29,6 +29,8 @@ def _source_label(r) -> str:
         return meta.get("title") or "Knowledge graph"
     if meta.get("kind") == "chain":
         return meta.get("title") or meta.get("entry") or r.id
+    if meta.get("kind") == "rule":
+        return meta.get("statement") or r.id
     loc = meta.get("source", "?")
     if meta.get("symbol"):
         loc += f"::{meta['symbol']}"
@@ -96,6 +98,14 @@ def _citations(results: list[SearchResult]) -> list[dict]:
             quote = _first_verified_quote(r.metadata)
             if quote is not None:
                 cite["quote"] = quote
+        elif kind == "rule":
+            source = _source_label(r)
+            type_ = "rule"
+            cite = {
+                "n": i, "id": r.id, "source": source,
+                "symbol": None, "score": r.score, "type": type_,
+                "trust": r.metadata.get("trust", "normal"),
+            }
         else:
             source = r.metadata.get("source", "?")  # bare path — CLI appends ::symbol itself
             symbol = r.metadata.get("symbol")

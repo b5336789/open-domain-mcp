@@ -325,7 +325,7 @@ function EntityEvidenceList({ entries }: { entries: EvidenceEntry[] }) {
             {entry.quote}
           </code>
           <div className="mt-0.5 font-mono text-xs text-slate-400">
-            {entry.start_line != null
+            {entry.start_line != null && entry.end_line != null
               ? `${entry.source ?? ""}:${entry.start_line}-${entry.end_line}`
               : "unverified"}
           </div>

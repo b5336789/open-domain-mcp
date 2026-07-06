@@ -26,7 +26,9 @@ const STATUS_TONE: Record<Status, "amber" | "green" | "red"> = {
   rejected: "red",
 };
 
-const EVIDENCE_TONE: Record<string, "green" | "amber" | "red"> = {
+type EvidenceStatus = "verified" | "partial" | "unverified";
+
+const EVIDENCE_TONE: Record<EvidenceStatus, "green" | "amber" | "red"> = {
   verified: "green",
   partial: "amber",
   unverified: "red",
@@ -144,8 +146,14 @@ export default function Review() {
                         </span>
                       )}
                       {it.metadata.evidence_status &&
-                        EVIDENCE_TONE[it.metadata.evidence_status] && (
-                          <Badge tone={EVIDENCE_TONE[it.metadata.evidence_status]}>
+                        it.metadata.evidence_status in EVIDENCE_TONE && (
+                          <Badge
+                            tone={
+                              EVIDENCE_TONE[
+                                it.metadata.evidence_status as EvidenceStatus
+                              ]
+                            }
+                          >
                             {it.metadata.evidence_status}
                           </Badge>
                         )}
@@ -260,7 +268,7 @@ function EvidencePanel({ entries }: { entries: EvidenceEntry[] }) {
                 {entry.quote}
               </code>
               <div className="mt-0.5 font-mono text-xs text-slate-400">
-                {entry.start_line != null
+                {entry.start_line != null && entry.end_line != null
                   ? `${entry.source ?? ""}:${entry.start_line}-${entry.end_line}`
                   : "unverified"}
               </div>

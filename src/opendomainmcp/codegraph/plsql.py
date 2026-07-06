@@ -50,14 +50,18 @@ def extract_plsql(source: str, file: str) -> RawSymbols:
             if m:
                 decls.append((lineno, f"{package}.{m.group(1).lower()}"))
 
-    # pass 2: body boundaries = next declaration (or package END / EOF)
+    # pass 2: body boundaries = next declaration (or package END / EOF).
+    # Package scope is per-declaration (from the qualified name), not the
+    # leftover pass-1 state — a standalone proc after a package body must
+    # not get the package END-scan applied.
     end_line_total = len(lines)
     for i, (start, qualified) in enumerate(decls):
         end = decls[i + 1][0] - 1 if i + 1 < len(decls) else end_line_total
-        if package:
+        if "." in qualified:
+            pkg = qualified.split(".", 1)[0]
             for lineno in range(start, end + 1):
                 m_end = _END_PACKAGE.match(lines[lineno - 1])
-                if m_end and m_end.group(1).lower() == package:
+                if m_end and m_end.group(1).lower() == pkg:
                     end = lineno - 1
                     break
         name = qualified.rsplit(".", 1)[-1]
@@ -74,7 +78,7 @@ def _emit_calls(qualified: str, lines: list[str], start: int, end: int,
         for m in _CALL.finditer(lines[lineno - 1]):
             callee = m.group(1).lower()
             head = callee.split(".")[0]
-            if head in _KEYWORD_BLACKLIST or callee == self_name:
+            if head in _KEYWORD_BLACKLIST or callee in (self_name, qualified):
                 continue
             syms.calls.append(CallSite(caller=qualified, callee_text=callee,
                                        file=file, line=lineno))

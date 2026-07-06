@@ -49,3 +49,33 @@ def test_standalone_procedure():
     assert [f.qualified_name for f in syms.functions] == ["billing_report"]
     assert ("billing_report", "pkg_billing.compute_total") in {
         (c.caller, c.callee_text) for c in syms.calls}
+
+
+MIXED = """
+CREATE OR REPLACE PACKAGE BODY pkg_x AS
+
+  PROCEDURE me IS
+  BEGIN
+    pkg_x.me();
+  END me;
+
+END pkg_x;
+
+CREATE OR REPLACE PROCEDURE standalone_report AS
+BEGIN
+  helper_pkg.run(1);
+END;
+"""
+
+
+def test_package_then_standalone_scoping():
+    syms = extract_plsql(MIXED, "mixed.sql")
+    names = {f.qualified_name: f for f in syms.functions}
+    assert set(names) == {"pkg_x.me", "standalone_report"}
+    # standalone body runs to its own END (line 14), untouched by package logic
+    assert names["standalone_report"].start_line == 11
+    assert names["standalone_report"].end_line >= 14
+    calls = {(c.caller, c.callee_text) for c in syms.calls}
+    assert ("standalone_report", "helper_pkg.run") in calls
+    # qualified self-call emits no call site
+    assert ("pkg_x.me", "pkg_x.me") not in calls

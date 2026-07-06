@@ -164,7 +164,7 @@ def test_ingest_cli_passes_filter_flags(monkeypatch, capsys, tmp_path, store, pi
     (tmp_path / "test_billing.py").write_text("def test_c():\n    pass\n")
 
     ctx = Context(settings=pipeline._settings, store=store, pipeline=pipeline, graph=fake_graph)
-    monkeypatch.setattr(cli, "build_context", lambda: ctx)
+    monkeypatch.setattr(cli, "build_context", lambda **_: ctx)
 
     parser = cli.build_parser()
     args = parser.parse_args(["ingest", str(tmp_path), "--exclude", "*.md"])

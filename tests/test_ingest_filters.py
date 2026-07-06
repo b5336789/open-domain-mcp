@@ -85,3 +85,20 @@ def test_no_defaults_mode_disables_sniff(tmp_path):
 def test_missing_file_does_not_raise(tmp_path):
     # exclusion_reason may be probed on paths that vanish mid-run
     assert IngestFilter().exclusion_reason(tmp_path / "gone.py", tmp_path) is None
+
+
+def test_from_settings_layers_setting_and_run_excludes(tmp_path):
+    from opendomainmcp.config import Settings
+
+    settings = Settings(ingest_exclude="*.sql, legacy/")
+    flt = IngestFilter.from_settings(settings, extra_excludes=("*.tmp",))
+    root = tmp_path
+    assert flt.exclusion_reason(root / "p.sql", root) == "*.sql"        # setting
+    assert flt.exclusion_reason(root / "x.tmp", root) == "*.tmp"        # per-run
+    assert flt.exclusion_reason(root / "test_a.py", root) == "test_*.py"  # built-in
+
+
+def test_ingest_exclude_is_runtime_editable():
+    from opendomainmcp.config import EDITABLE_FIELDS
+
+    assert "ingest_exclude" in EDITABLE_FIELDS

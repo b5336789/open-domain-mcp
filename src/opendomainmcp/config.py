@@ -49,6 +49,7 @@ EDITABLE_FIELDS = (
     "retrieve_include_articles",
     "retrieve_min_score",
     "retrieve_include_graph",
+    "ingest_exclude",
 )
 
 
@@ -65,6 +66,11 @@ class Settings(BaseSettings):
     # that resolve outside it (including via symlinks) are rejected. Unset means
     # no restriction (trusted local use); set it when exposing the web/MCP server.
     ingest_root: Optional[Path] = None
+
+    # Ingest filtering: comma/newline-separated extra exclude globs layered
+    # over the built-in defaults (tests/generated/vendored — see
+    # ingest/filters.py). Runtime-editable from the web Settings page.
+    ingest_exclude: str = ""
 
     # Security: reject uploads larger than this (megabytes) to bound memory use.
     max_upload_mb: int = 50

@@ -85,6 +85,13 @@ class IngestFilter:
         self._patterns: tuple[str, ...] = tuple(base) + tuple(extra_excludes)
         self._sniff = use_defaults
 
+    @classmethod
+    def from_settings(cls, settings, extra_excludes: Sequence[str] = (),
+                      use_defaults: bool = True) -> "IngestFilter":
+        """Built-ins + ``ODM_INGEST_EXCLUDE`` + per-run extras (CLI layer)."""
+        configured = _parse_exclude_spec(getattr(settings, "ingest_exclude", ""))
+        return cls(tuple(configured) + tuple(extra_excludes), use_defaults)
+
     def exclusion_reason(self, path: Path,
                          root: Optional[Path] = None) -> Optional[str]:
         """The rule that excludes ``path``, or ``None`` if it should be ingested."""

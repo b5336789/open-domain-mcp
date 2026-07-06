@@ -4,7 +4,14 @@ No usable tree-sitter grammar exists for VB.NET, but the language is
 line-oriented and block-delimited (Sub/Function ... End Sub/Function), so a
 regex line scanner recovers definitions and call sites reliably. Anything
 ambiguous is skipped rather than guessed — the resolver treats missing calls
-as lower coverage, not wrong edges."""
+as lower coverage, not wrong edges.
+
+Known silent limitations:
+- Line continuations (trailing ``_``) are not joined; each physical line is
+  parsed independently.
+- Single-line colon-separated procedures (``Sub Foo() : ... : End Sub``) are
+  not recognized as complete blocks; statements packed after the ``:`` on the
+  declaration line are not scanned for calls."""
 
 from __future__ import annotations
 
@@ -67,16 +74,7 @@ def extract_vbnet(source: str, file: str) -> RawSymbols:
         if current is None:
             m = _PROC.match(line)
             if m and m.group("name").lower() not in _KEYWORD_BLACKLIST:
-                prefix = ".".join(([namespace] if namespace else []) + classes)
-                name = m.group("name")
-                mods = (m.group("mods") or "").lower()
-                current = FunctionDef(
-                    qualified_name=f"{prefix}.{name}" if prefix else name,
-                    file=file, start_line=lineno, end_line=lineno,
-                    language="vbnet",
-                    signature=f"{name}{m.group('params') or '()'}",
-                    exported="public" in mods,
-                )
+                current = _start_proc(m, namespace, classes, file, lineno)
                 body_lines = []
             continue
         # inside a Sub/Function body
@@ -86,9 +84,36 @@ def extract_vbnet(source: str, file: str) -> RawSymbols:
             _emit_calls(current, body_lines, file, syms)
             current = None
             continue
+        m = _PROC.match(line)
+        if m and m.group("name").lower() not in _KEYWORD_BLACKLIST:
+            # Implicit recovery: a new Sub/Function declaration while a body
+            # is still open means the previous End Sub/Function is missing
+            # (malformed but real in legacy corpora). Close the current
+            # function at the previous line and start the new one here,
+            # instead of leaking the declaration into the body as a call.
+            current.end_line = lineno - 1
+            syms.functions.append(current)
+            _emit_calls(current, body_lines, file, syms)
+            current = _start_proc(m, namespace, classes, file, lineno)
+            body_lines = []
+            continue
         body_lines.append((lineno, line))
 
     return syms
+
+
+def _start_proc(m: re.Match, namespace: str, classes: list[str], file: str,
+                lineno: int) -> FunctionDef:
+    prefix = ".".join(([namespace] if namespace else []) + classes)
+    name = m.group("name")
+    mods = (m.group("mods") or "").lower()
+    return FunctionDef(
+        qualified_name=f"{prefix}.{name}" if prefix else name,
+        file=file, start_line=lineno, end_line=lineno,
+        language="vbnet",
+        signature=f"{name}{m.group('params') or '()'}",
+        exported="public" in mods,
+    )
 
 
 def _emit_calls(fn: FunctionDef, body: list[tuple[int, str]], file: str,

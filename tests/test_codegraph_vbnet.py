@@ -63,3 +63,26 @@ def test_imports_and_module_without_namespace():
         "Util.vb")
     assert "System.Data" in syms.imports
     assert [f.qualified_name for f in syms.functions] == ["Util.Ping"]
+
+
+def test_unterminated_sub_recovers_on_next_declaration():
+    # Malformed but real in legacy corpora: Alpha lacks End Sub. The parser
+    # must implicitly close Alpha when Beta's declaration appears, register
+    # both, and not attribute a spurious "Beta" call site to Alpha.
+    source = (
+        "Module Util\n"
+        "  Sub Alpha()\n"
+        "    DoWork()\n"
+        "  Public Sub Beta()\n"
+        "    Cleanup()\n"
+        "  End Sub\n"
+        "End Module\n"
+    )
+    syms = extract_vbnet(source, "Util.vb")
+    names = [f.qualified_name for f in syms.functions]
+    assert "Util.Alpha" in names and "Util.Beta" in names
+    assert not any(c.callee_text == "Beta" for c in syms.calls
+                   if c.caller.endswith(".Alpha"))
+    pairs = {(c.caller, c.callee_text) for c in syms.calls}
+    assert ("Util.Alpha", "DoWork") in pairs
+    assert ("Util.Beta", "Cleanup") in pairs

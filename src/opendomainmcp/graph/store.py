@@ -4,9 +4,21 @@ PyMySQL); ``NullGraphStore`` is a no-op used where the graph is not wired."""
 
 from __future__ import annotations
 
+import json
 from typing import Iterable, Optional, Protocol
 
 from .models import Edge, Entity
+
+
+def _parse_evidence_json(raw: str) -> list[dict]:
+    """Parse an evidence_json column value; returns [] on absence/corruption."""
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    return data if isinstance(data, list) else []
 
 
 class GraphStoreProtocol(Protocol):
@@ -70,6 +82,7 @@ _SCHEMA = (
         display_name    VARCHAR(512) NOT NULL,
         type            VARCHAR(64)  NOT NULL,
         confidence      FLOAT        NOT NULL DEFAULT 1.0,
+        evidence_json   TEXT         NULL,
         PRIMARY KEY (collection, normalized_name)
     ) CHARACTER SET utf8mb4
     """,
@@ -89,6 +102,7 @@ _SCHEMA = (
         relation_type VARCHAR(64)  NOT NULL,
         chunk_id      VARCHAR(128) NOT NULL,
         confidence    FLOAT        NOT NULL DEFAULT 1.0,
+        evidence_json TEXT         NULL,
         -- Prefix lengths on the varchar key columns keep the composite key
         -- under InnoDB's 3072-byte index limit for utf8mb4 (4 bytes/char):
         -- (150+150+150+64+128)*4 = 2568 bytes. Mirrors the prefix-index pattern
@@ -164,6 +178,11 @@ class MariaGraphStore:
         with self._connect() as conn, conn.cursor() as cur:
             for ddl in _SCHEMA:
                 cur.execute(ddl)
+            # Additive migrations — safe to run repeatedly on existing installs.
+            cur.execute(
+                "ALTER TABLE entities ADD COLUMN IF NOT EXISTS evidence_json TEXT NULL")
+            cur.execute(
+                "ALTER TABLE edges ADD COLUMN IF NOT EXISTS evidence_json TEXT NULL")
 
     def upsert_entities(self, entities: list[Entity]) -> None:
         if not entities:
@@ -171,11 +190,14 @@ class MariaGraphStore:
         with self._connect() as conn, conn.cursor() as cur:
             for e in entities:
                 cur.execute(
-                    "INSERT INTO entities (collection, normalized_name, display_name, type, confidence) "
-                    "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
+                    "INSERT INTO entities "
+                    "(collection, normalized_name, display_name, type, confidence, evidence_json) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
                     "display_name=VALUES(display_name), type=VALUES(type), "
-                    "confidence=GREATEST(confidence, VALUES(confidence))",
-                    (self._collection, e.normalized_name, e.display_name, e.type, e.confidence))
+                    "confidence=GREATEST(confidence, VALUES(confidence)), "
+                    "evidence_json=IF(VALUES(evidence_json)='', evidence_json, VALUES(evidence_json))",
+                    (self._collection, e.normalized_name, e.display_name, e.type, e.confidence,
+                     e.evidence or ""))
                 cur.execute(
                     "INSERT IGNORE INTO entity_chunks (collection, normalized_name, chunk_id) "
                     "VALUES (%s, %s, %s)", (self._collection, e.normalized_name, e.chunk_id))
@@ -186,10 +208,13 @@ class MariaGraphStore:
         with self._connect() as conn, conn.cursor() as cur:
             for e in edges:
                 cur.execute(
-                    "INSERT INTO edges (collection, src, dst, relation_type, chunk_id, confidence) "
-                    "VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
-                    "confidence=GREATEST(confidence, VALUES(confidence))",
-                    (self._collection, e.src, e.dst, e.relation_type, e.chunk_id, e.confidence))
+                    "INSERT INTO edges "
+                    "(collection, src, dst, relation_type, chunk_id, confidence, evidence_json) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
+                    "confidence=GREATEST(confidence, VALUES(confidence)), "
+                    "evidence_json=IF(VALUES(evidence_json)='', evidence_json, VALUES(evidence_json))",
+                    (self._collection, e.src, e.dst, e.relation_type, e.chunk_id, e.confidence,
+                     e.evidence or ""))
 
     def delete_for_chunks(self, chunk_ids: Iterable[str]) -> None:
         ids = list(chunk_ids)
@@ -226,7 +251,7 @@ class MariaGraphStore:
 
     def _get_entity_with_cur(self, cur, normalized_name: str) -> Optional[dict]:
         """Fetch an entity using an already-open cursor (no new connection)."""
-        cur.execute("SELECT normalized_name, display_name, type, confidence "
+        cur.execute("SELECT normalized_name, display_name, type, confidence, evidence_json "
                     "FROM entities WHERE collection=%s AND normalized_name=%s",
                     (self._collection, normalized_name))
         row = cur.fetchone()
@@ -236,9 +261,10 @@ class MariaGraphStore:
                     "WHERE collection=%s AND normalized_name=%s",
                     (self._collection, normalized_name))
         chunk_ids = [r["chunk_id"] for r in cur.fetchall()]
+        evidence = _parse_evidence_json(row.get("evidence_json") or "")
         return {"name": row["display_name"], "normalized_name": row["normalized_name"],
                 "type": row["type"], "confidence": row["confidence"],
-                "aliases": [], "chunk_ids": chunk_ids}
+                "aliases": [], "chunk_ids": chunk_ids, "evidence": evidence}
 
     def get_entity(self, name: str) -> Optional[dict]:
         from .normalize import normalize_name
@@ -292,10 +318,12 @@ class MariaGraphStore:
         where = " WHERE " + " AND ".join(clauses)
         params.append(max(1, min(500, limit)))
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT normalized_name, display_name, type FROM entities"
+            cur.execute("SELECT normalized_name, display_name, type, evidence_json FROM entities"
                         f"{where} ORDER BY normalized_name LIMIT %s", params)
             return [{"name": r["display_name"], "normalized_name": r["normalized_name"],
-                     "type": r["type"]} for r in cur.fetchall()]
+                     "type": r["type"],
+                     "evidence": _parse_evidence_json(r.get("evidence_json") or "")}
+                    for r in cur.fetchall()]
 
     def upsert_workflow(self, workflow_name, chunk_id, chunk_index, steps, prerequisites):
         if not workflow_name or (not steps and not prerequisites):

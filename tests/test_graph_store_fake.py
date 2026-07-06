@@ -39,3 +39,17 @@ def test_fake_graph_dedupes_repeated_edge(fake_graph):
     fake_graph.upsert_edges([edge])
     result = fake_graph.neighbors("a")
     assert len(result["neighbors"]) == 1
+
+
+def test_fake_store_roundtrips_entity_evidence(fake_graph):
+    import json
+
+    from opendomainmcp.graph.models import Entity
+
+    ev = json.dumps([{"claim": "c", "quote": "q", "source": "A.java",
+                      "start_line": 1, "end_line": 1, "verified": True}])
+    fake_graph.upsert_entities([Entity(normalized_name="x", display_name="X",
+                                       type="Concept", chunk_id="c1",
+                                       evidence=ev)])
+    got = fake_graph.get_entity("x")
+    assert got["evidence"] == json.loads(ev)

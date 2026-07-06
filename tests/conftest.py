@@ -147,9 +147,12 @@ class FakeGraphStore:
         for e in entities:
             cur = slot["entities"].get(e.normalized_name)
             conf = max(e.confidence, cur["confidence"]) if cur else e.confidence
+            # Keep existing evidence when new value is empty (mirrors Maria IF() logic).
+            existing_ev = cur.get("evidence_json", "") if cur else ""
+            evidence_json = e.evidence if e.evidence else existing_ev
             slot["entities"][e.normalized_name] = {
                 "name": e.display_name, "normalized_name": e.normalized_name,
-                "type": e.type, "confidence": conf}
+                "type": e.type, "confidence": conf, "evidence_json": evidence_json}
             slot["entity_chunks"].setdefault(e.normalized_name, set()).add(e.chunk_id)
 
     def upsert_edges(self, edges):
@@ -181,14 +184,21 @@ class FakeGraphStore:
         self._backing.pop(name, None)
 
     def get_entity(self, name):
+        import json
         from opendomainmcp.graph.normalize import normalize_name
         norm = normalize_name(name)
         slot = self._slot()
         row = slot["entities"].get(norm)
         if row is None:
             return None
-        return {**row, "aliases": [],
-                "chunk_ids": sorted(slot["entity_chunks"].get(norm, set()))}
+        raw_ev = row.get("evidence_json", "")
+        try:
+            evidence = json.loads(raw_ev) if raw_ev else []
+        except (TypeError, ValueError):
+            evidence = []
+        return {**{k: v for k, v in row.items() if k != "evidence_json"},
+                "aliases": [], "chunk_ids": sorted(slot["entity_chunks"].get(norm, set())),
+                "evidence": evidence}
 
     def neighbors(self, name, relation_type=None, depth=1):
         from opendomainmcp.graph.normalize import normalize_name
@@ -281,6 +291,7 @@ class FakeGraphStore:
         return self._slot().get("code_functions", {}).get(qualified_name)
 
     def list_entities(self, type=None, q=None, limit=50):
+        import json
         slot = self._slot()
         rows = []
         for norm, row in sorted(slot["entities"].items()):
@@ -288,7 +299,13 @@ class FakeGraphStore:
                 continue
             if q and q.lower().strip() not in norm:
                 continue
-            rows.append({"name": row["name"], "normalized_name": norm, "type": row["type"]})
+            raw_ev = row.get("evidence_json", "")
+            try:
+                evidence = json.loads(raw_ev) if raw_ev else []
+            except (TypeError, ValueError):
+                evidence = []
+            rows.append({"name": row["name"], "normalized_name": norm,
+                         "type": row["type"], "evidence": evidence})
         return rows[:max(1, min(500, limit))]
 
     def delete_codegraph(self) -> None:

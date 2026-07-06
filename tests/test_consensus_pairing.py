@@ -57,6 +57,21 @@ def test_entity_signal_via_fake_graph(fake_graph):
     assert len(pairs) == 1 and pairs[0].signal == "entity"
 
 
+def test_chain_signal_pairs_two_chunk_units_in_same_chain():
+    chain_unit = _unit("chain:x:0", "unrelated chain wording", ["ca", "cb"],
+                       layer="chain", origin="chain")
+    chunk_a = _unit("chunk:a:0", "first rule", ["ca"])
+    chunk_b = _unit("chunk:b:0", "second rule", ["cb"])
+    pairs = find_candidates([chain_unit, chunk_a, chunk_b], TwoBucketEmbedder(),
+                            graph=None, threshold=0.99)
+    keys = {(p.a.key, p.b.key) for p in pairs}
+    # The two CHUNK units are paired via co-membership in the chain unit.
+    assert ("chunk:a:0", "chunk:b:0") in keys
+    chunk_pair = next(p for p in pairs
+                      if (p.a.key, p.b.key) == ("chunk:a:0", "chunk:b:0"))
+    assert chunk_pair.signal == "chain"
+
+
 def test_dedup_and_determinism():
     a = _unit("chunk:a:0", "no negative amounts", ["ca"])
     b = _unit("chunk:b:0", "negative amounts forbidden", ["ca"])  # also same chunk? no — chain-less

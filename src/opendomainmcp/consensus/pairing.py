@@ -58,8 +58,9 @@ def find_candidates(
     Args:
         units: RuleUnits from a corpus pass (thousands at most).
         embedder: Embedder protocol — ``embed(texts) -> list[vec]``.
-        graph: Optional graph store. None or any exception silently skips the
-            entity signal (NullGraphStore returns empties — also safe).
+        graph: Optional graph store. None skips the entity signal; a graph
+            exception skips it with a logged warning (NullGraphStore returns
+            empties — also safe).
         threshold: Minimum cosine similarity for the embedding signal.
         entity_scan_limit: Cap on entities scanned; a warning is logged when
             the scan reaches this limit.
@@ -155,7 +156,7 @@ def find_candidates(
                     chunk_to_units.setdefault(cid, []).append(u)
 
             for ent_row in entities:
-                entity = graph.get_entity(ent_row["name"])
+                entity = graph.get_entity(ent_row["normalized_name"])
                 if not entity:
                     continue
                 entity_chunk_ids: list[str] = entity.get("chunk_ids", [])
@@ -173,9 +174,10 @@ def find_candidates(
                     for j in range(i + 1, len(matching)):
                         _add(matching[i], matching[j], "entity")
 
-        except Exception:
-            # NullGraphStore returns empties or raises — skip entity signal.
-            pass
+        except Exception as exc:
+            # NullGraphStore returns [] (handled above); a real graph failure
+            # lands here — log it so the skipped signal is visible.
+            logger.warning("Entity signal skipped due to graph error: %r", exc)
 
     # Build deterministic output sorted by unordered key pair.
     result: list[CandidatePair] = []

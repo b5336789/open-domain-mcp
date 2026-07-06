@@ -107,10 +107,22 @@ def run_analyze_chains(ctx, store, task, is_cancelled) -> None:
     graph = build_codegraph(path, ctx.settings)
     chains = assemble_chains(graph, ctx.settings.codegraph_max_chain_depth)
     store.set_children_names(task.id, [c.entry for c in chains])
-    if is_cancelled():
-        return
+
+    done = {"n": 0}
+    failures: list[dict] = []
+
+    def on_event(event):
+        store.update(task.id, throttle=True, done=done["n"],
+                     failures=list(failures))
+        if is_cancelled():
+            raise _Cancelled()
+
     try:
-        result = analyze_corpus(path, ctx.store, ctx.settings, ctx.graph)
+        result = analyze_corpus(path, ctx.store, ctx.settings, ctx.graph,
+                                progress=on_event)
+    except _Cancelled:
+        store.update(task.id, done=done["n"], failures=failures)
+        return
     except Exception as exc:  # noqa: BLE001 - Fail Loud into the report
         store.update(task.id, failures=[{"name": str(path), "status": "error"}])
         raise

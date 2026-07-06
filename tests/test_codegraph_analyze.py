@@ -73,6 +73,18 @@ def test_analyze_reports_llm_failures_and_falls_back(tmp_path, pipeline, store,
                                                      fake_graph, fake_extractor):
     _setup(tmp_path, pipeline)
 
+    # Pre-seed graph with a function/entity carrying a real (non-cg:) chunk id —
+    # the total-failure run must NOT wipe it.
+    from opendomainmcp.graph.models import Entity
+    fake_graph.upsert_entities([Entity(normalized_name="billing.validate",
+                                       display_name="billing.validate",
+                                       type="function", chunk_id="real-chunk-0001")])
+    fake_graph.upsert_functions([{"qualified_name": "billing.validate",
+                                   "file": "BillingService.java",
+                                   "start_line": 1, "end_line": 5,
+                                   "language": "java", "signature": "validate",
+                                   "kind": "function"}])
+
     def broken(system, user):
         raise RuntimeError("llm down")
 
@@ -84,6 +96,14 @@ def test_analyze_reports_llm_failures_and_falls_back(tmp_path, pipeline, store,
     assert result["errors"]                          # failures recorded
     assert result["fallback_extracted"] >= 1          # uncovered code chunks extracted
     assert result["chains_stored"] == 0
+    assert result.get("graph_persist_skipped")       # graph NOT wiped
+
+    # Pre-seeded function and entity still present (graph not destroyed).
+    fn = fake_graph.get_function("billing.validate")
+    assert fn is not None
+    ent = fake_graph.get_entity("billing.validate")
+    assert ent is not None
+    assert "real-chunk-0001" in ent["chunk_ids"]
 
 
 def test_backfill_merges_summaries_for_shared_chunk(tmp_path, pipeline, store,
@@ -140,6 +160,49 @@ def test_backfill_merges_summaries_for_shared_chunk(tmp_path, pipeline, store,
     assert "rule of pkg_two.beta" in merged[0]["metadata"]["concepts"]
     # the shared chunk was upserted exactly once during backfill
     assert upserted_ids.count(merged[0]["id"]) == 1
+
+
+def test_store_chains_prunes_stale_items(tmp_path, pipeline, store, fake_graph):
+    """A stale ChainItem from a previous run is deleted after a successful analysis."""
+    _setup(tmp_path, pipeline)
+
+    from opendomainmcp.models import ChainItem
+    chains_store = store.sibling(f"{store.stats()['collection']}__chains")
+    stale = ChainItem(entry="stale.entry", title="Stale", body="Old chain")
+    chains_store.upsert([stale])
+    assert any(i["id"] == stale.id for i in chains_store.get_items(limit=10))
+
+    settings = Settings(codegraph_extract=True)
+    analyzer = ChainAnalyzer(settings, complete=_fake_complete)
+    result = analyze_corpus(tmp_path, store, settings, fake_graph, analyzer=analyzer)
+
+    assert result["chains_stored"] >= 1
+    remaining = chains_store.get_items(limit=50)
+    assert not any(i["id"] == stale.id for i in remaining), \
+        "stale chain item should have been pruned after a successful run"
+
+
+def test_store_chains_stale_survives_broken_llm(tmp_path, pipeline, store,
+                                                fake_graph, fake_extractor):
+    """A stale ChainItem is preserved when the LLM fails entirely (no new chains stored)."""
+    _setup(tmp_path, pipeline)
+
+    from opendomainmcp.models import ChainItem
+    chains_store = store.sibling(f"{store.stats()['collection']}__chains")
+    stale = ChainItem(entry="stale.entry", title="Stale", body="Old chain")
+    chains_store.upsert([stale])
+
+    def broken(system, user):
+        raise RuntimeError("llm down")
+
+    settings = Settings(codegraph_extract=True)
+    analyze_corpus(tmp_path, store, settings, fake_graph,
+                   analyzer=ChainAnalyzer(settings, complete=broken),
+                   extractor=fake_extractor)
+
+    remaining = chains_store.get_items(limit=50)
+    assert any(i["id"] == stale.id for i in remaining), \
+        "stale chain item must survive when no new chains were stored (total LLM failure)"
 
 
 def test_delete_codegraph_clears_synthetic_rows(fake_graph):

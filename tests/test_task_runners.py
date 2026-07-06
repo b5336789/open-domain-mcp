@@ -3,7 +3,7 @@ from pathlib import Path
 from opendomainmcp.config import Settings
 from opendomainmcp.context import Context
 from opendomainmcp.models import Chunk, KnowledgeUnit
-from opendomainmcp.tasks.runners import run_ingest, run_synthesize, run_extract
+from opendomainmcp.tasks.runners import run_ingest, run_synthesize, run_extract, run_analyze_chains
 from opendomainmcp.tasks.store import TaskStore
 
 
@@ -112,3 +112,52 @@ def test_run_analyze_chains_registered_and_result(tmp_path, monkeypatch, store, 
     assert t.result == fake_result
     children = ts.read_children(task.id, 0, 10)
     assert any(c["name"] == "A.run" for c in children["children"])
+
+
+def test_run_analyze_chains_cancels_gracefully(tmp_path, monkeypatch, store, fake_graph):
+    """Cancelling mid-analyze returns without raising and records partial state."""
+    call_count = {"n": 0}
+
+    def fake_analyze(root, st, settings, graph, progress=None, analyzer=None,
+                     extractor=None):
+        # Invoke progress twice; the second call will trigger cancellation.
+        if progress:
+            progress({"stage": "summaries", "detail": "level 1/2: 3 functions"})
+            progress({"stage": "summaries", "detail": "level 2/2: 2 functions"})
+        return {"functions_analyzed": 5, "chains_stored": 2,
+                "chunks_backfilled": 1, "fallback_extracted": 0,
+                "coverage": 1.0, "errors": [], "graph_persist_skipped": False}
+
+    cancel_countdown = {"n": 1}
+
+    def is_cancelled_after_first():
+        cancel_countdown["n"] -= 1
+        return cancel_countdown["n"] < 0
+
+    class _FakeGraph:
+        functions = {}
+        edges = []
+
+    class _FakeChain:
+        entry = "A.run"
+        truncated = False
+
+    monkeypatch.setattr("opendomainmcp.tasks.runners.analyze_corpus", fake_analyze)
+    monkeypatch.setattr("opendomainmcp.tasks.runners.build_codegraph",
+                        lambda path, settings: _FakeGraph())
+    monkeypatch.setattr("opendomainmcp.tasks.runners.assemble_chains",
+                        lambda graph, max_depth: [_FakeChain()])
+
+    ctx = Context(settings=Settings(data_dir=tmp_path), store=store,
+                  pipeline=None, graph=fake_graph)
+    ts = TaskStore(tmp_path)
+    task = ts.create("analyze_chains", "Analyze chains", "c",
+                     {"path": str(tmp_path)})
+
+    # Must not raise — cancellation is handled gracefully.
+    run_analyze_chains(ctx, ts, task, is_cancelled_after_first)
+
+    # Task was updated with partial state (no result key since we cancelled).
+    t = ts.get(task.id)
+    assert t is not None
+    assert t.result is None  # cancelled before completion → no result stored

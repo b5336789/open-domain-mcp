@@ -76,6 +76,7 @@ def _summarize_levels(
     analyzer,
     settings,
     errors: list[dict],
+    progress: Optional[Callable[[dict], None]] = None,
 ) -> dict[str, object]:
     """Analyze functions level by level (leaves first) using ThreadPoolExecutor
     per level.  Returns {qualified_name: FunctionSummary}."""
@@ -83,7 +84,7 @@ def _summarize_levels(
     concurrency: int = getattr(settings, "extract_concurrency", 8)
     summaries: dict[str, object] = {}
 
-    for level in levels:
+    for i, level in enumerate(levels):
         # snapshot summaries for this level (so workers share the same read-only view)
         summaries_snapshot = dict(summaries)
 
@@ -139,6 +140,11 @@ def _summarize_levels(
                     summaries[qname] = fs
                 except Exception as exc:  # noqa: BLE001 - Fail Loud into errors list
                     errors.append({"function": qname, "error": repr(exc)})
+
+        n = len([q for q in level if q in summaries])
+        if progress:
+            progress({"stage": "summaries",
+                      "detail": f"level {i + 1}/{len(levels)}: {n} functions"})
 
     return summaries
 
@@ -260,6 +266,7 @@ def _store_chains(
     __chains collection. Returns the number of chains stored."""
     chains_store = store.sibling(f"{store.stats()['collection']}__chains")
     stored = 0
+    current_ids: set[str] = set()
     for chain in chains:
         # Only process chains with at least one summarized member
         if not any(m in summaries for m in chain.members):
@@ -289,7 +296,18 @@ def _store_chains(
             truncated=chain.truncated,
         )
         chains_store.upsert([item])
+        current_ids.add(item.id)
         stored += 1
+
+    # Prune stale items from previous runs. Only prune when at least one chain
+    # was stored (i.e. we had successful summaries) — consistent with the
+    # graph-persist guard so a total-failure run never wipes prior good data.
+    if current_ids:
+        existing = chains_store.get_items(limit=10_000)
+        stale = [i["id"] for i in existing if i["id"] not in current_ids]
+        if stale:
+            chains_store.delete_ids(stale)
+
     return stored
 
 
@@ -399,6 +417,7 @@ def analyze_corpus(
     _emit("summaries", total=len(graph.functions), levels=len(levels))
     summaries = _summarize_levels(
         levels, graph, fn_sources, direct_callees_map, analyzer, settings, errors,
+        progress=progress,
     )
     functions_analyzed = len(summaries)
 
@@ -415,8 +434,18 @@ def analyze_corpus(
     )
 
     # Stage 6 ---------------------------------------------------------------
-    graph_store.delete_codegraph()
-    persist_codegraph(graph, graph_store, chunk_ids_by_function=chunk_ids_by_function)
+    # Guard: if the LLM failed entirely AND there were functions to analyze,
+    # skip delete + persist so a previously-good graph is not replaced by
+    # synthetic-id-only rows.  A fresh corpus with zero functions (and zero
+    # errors) still gets an empty graph persisted as expected.
+    if not summaries and errors and graph.functions:
+        errors.append({"stage": "persist",
+                       "error": "skipped graph persistence: no successful summaries"})
+        graph_persist_skipped = True
+    else:
+        graph_store.delete_codegraph()
+        persist_codegraph(graph, graph_store, chunk_ids_by_function=chunk_ids_by_function)
+        graph_persist_skipped = False
 
     # Stage 7 ---------------------------------------------------------------
     _emit("fallback")
@@ -435,4 +464,5 @@ def analyze_corpus(
         "fallback_extracted": fallback_extracted,
         "coverage": coverage,
         "errors": errors,
+        "graph_persist_skipped": graph_persist_skipped,
     }

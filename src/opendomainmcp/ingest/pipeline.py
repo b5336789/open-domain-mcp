@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -82,6 +83,11 @@ class Pipeline:
             settings.chunk_size, settings.chunk_overlap
         )
         self._graph = graph or NullGraphStore()
+        # Guards the evidence counters on IngestReport: int += is a
+        # LOAD/ADD/STORE sequence, not GIL-atomic, so concurrent _extract_one
+        # calls could lose increments. (list.append is a single atomic op, so
+        # report.errors needs no lock.)
+        self._evidence_lock = threading.Lock()
 
     # -- public API -----------------------------------------------------
     def ingest_path(
@@ -369,11 +375,11 @@ class Pipeline:
                 chunk.knowledge.evidence_status = status
                 chunk.knowledge.confidence = apply_penalty(
                     chunk.knowledge.confidence, status)
-                for entry in verified:
-                    if entry.get("verified"):
-                        report.evidence_verified += 1
-                    else:
-                        report.evidence_unverified += 1
+                v = sum(1 for e in verified if e.get("verified"))
+                u = len(verified) - v
+                with self._evidence_lock:
+                    report.evidence_verified += v
+                    report.evidence_unverified += u
         except Exception as exc:  # extraction is best-effort; record and continue
             report.errors.append({"path": str(path), "error": f"extract: {exc!r}"})
 

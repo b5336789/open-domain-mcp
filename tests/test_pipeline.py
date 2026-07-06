@@ -314,3 +314,30 @@ def test_unverified_evidence_penalizes_confidence(store, fake_graph, tmp_path):
     items = store.get_items(limit=10, where={"evidence_status": "unverified"})
     assert items and abs(float(items[0]["metadata"]["confidence"])
                          - 0.8 * UNVERIFIED_PENALTY) < 1e-6
+
+
+def test_evidence_counts_exact_under_concurrent_extraction(
+        store, fake_graph, tmp_path):
+    """Counter increments must not be lost under the ThreadPool (a lock guards
+    the non-atomic int += on the shared report)."""
+    from opendomainmcp.config import Settings
+    from opendomainmcp.ingest.pipeline import Pipeline
+    from opendomainmcp.models import KnowledgeUnit
+
+    class EvidenceExtractor:  # exactly 1 verified + 1 unverified per chunk
+        def extract(self, text, kind, language=None):
+            return KnowledgeUnit(
+                summary="S", knowledge_type="Code", confidence=0.8,
+                evidence=[{"claim": "real", "quote": text[:10]},
+                          {"claim": "fake", "quote": "zz_not_in_text_zz"}])
+
+    f = tmp_path / "notes.md"
+    f.write_text("\n\n".join(f"Paragraph {i}: billing rule number {i} "
+                             f"applies to invoices." for i in range(20)))
+    settings = Settings(chunk_size=80, chunk_overlap=0, extract_concurrency=8)
+    report = Pipeline(store, EvidenceExtractor(), settings,
+                      graph=fake_graph).ingest_path(f)
+
+    assert report.chunks_indexed >= 4  # genuinely multi-chunk, parallel path
+    assert report.evidence_verified == report.chunks_indexed
+    assert report.evidence_unverified == report.chunks_indexed

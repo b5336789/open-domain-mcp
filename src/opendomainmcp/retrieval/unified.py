@@ -32,7 +32,9 @@ def search_unified(store, query, *, top_k=5, mode="vector", settings,
     if getattr(settings, "retrieve_include_chains", True) and hasattr(store, "sibling"):
         chain_store = store.sibling(f"{store.stats()['collection']}__chains")
         if chain_store.stats()["count"] > 0:
-            chain_hits = chain_store.search(query, top_k=top_k, mode=mode)
+            chain_hits = chain_store.search(query, top_k=top_k, where=where,
+                                            mode=mode,
+                                            source_contains=source_contains)
             if chain_hits:
                 pool.update({r.id: r for r in chain_hits})
                 ranked_lists.append([h.id for h in chain_hits])

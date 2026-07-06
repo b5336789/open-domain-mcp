@@ -55,6 +55,28 @@ def test_chain_citations_and_source_label():
     assert cite["type"] == "chain" and cite["source"] == "Charge flow"
 
 
+def test_where_filter_forwarded_to_chain_search(store):
+    """A where filter must reach the chain sibling search, not be dropped.
+
+    kind=code excludes chain items (kind=chain); if the where clause were
+    silently dropped for the chains sibling, the item would leak into results.
+    """
+    from opendomainmcp.models import Chunk
+    from opendomainmcp.retrieval import search_unified
+    from opendomainmcp.store import build_where
+
+    store.upsert([Chunk(text="def charge(): pass", source="a.py", kind="code")])
+    chains = store.sibling(f"{store.stats()['collection']}__chains")
+    chains.upsert([_item()])
+
+    hits = search_unified(store, "charge flow rules", top_k=5,
+                          settings=Settings(retrieve_include_chains=True),
+                          where=build_where({"kind": "code"}))
+    kinds = {h.metadata.get("kind") for h in hits}
+    assert "chain" not in kinds
+    assert "code" in kinds
+
+
 def test_retrieve_include_chains_is_editable():
     from opendomainmcp.config import EDITABLE_FIELDS
 

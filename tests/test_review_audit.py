@@ -1,5 +1,7 @@
 """Append-only SQLite review audit log (enhancement #3)."""
 
+import threading
+
 from opendomainmcp.review.audit import AuditEntry, AuditLog
 
 
@@ -54,3 +56,28 @@ def test_defaults_and_auto_actor(tmp_path):
     e = log.record("r1", "auto-approve", "auto", new_status="approved")
     assert e.note == "" and e.prev_status == ""
     assert log.history("r1")[0]["action"] == "auto-approve"
+
+
+def test_concurrent_writes_and_reads(tmp_path):
+    log = _log(tmp_path)
+    errors = []
+
+    def worker(n):
+        try:
+            for i in range(20):
+                log.record(f"item{n}", "approve", "u", note=str(i))
+                log.history(f"item{n}")
+                log.all()
+        except Exception as exc:  # pragma: no cover - failure path
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(n,)) for n in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert errors == []
+    assert len(log.all(limit=1000)) == 100
+    for n in range(5):
+        assert len(log.history(f"item{n}")) == 20

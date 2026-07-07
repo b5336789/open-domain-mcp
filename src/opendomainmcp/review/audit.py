@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS review_audit (
     note TEXT NOT NULL DEFAULT '',
     prev_status TEXT NOT NULL DEFAULT '',
     new_status TEXT NOT NULL DEFAULT ''
-)
+);
+CREATE INDEX IF NOT EXISTS idx_review_audit_item ON review_audit(item_id);
 """
 
 
@@ -52,7 +53,7 @@ class AuditLog:
         self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         with self._conn:
-            self._conn.execute(_SCHEMA)
+            self._conn.executescript(_SCHEMA)
 
     def record(self, item_id: str, action: str, actor: str, note: str = "",
                prev_status: str = "", new_status: str = "") -> AuditEntry:
@@ -69,12 +70,14 @@ class AuditLog:
         return entry
 
     def history(self, item_id: str) -> list[dict]:
-        cur = self._conn.execute(
-            "SELECT * FROM review_audit WHERE item_id = ? ORDER BY id DESC",
-            (item_id,))
-        return [dict(r) for r in cur.fetchall()]
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM review_audit WHERE item_id = ? ORDER BY id DESC",
+                (item_id,))
+            return [dict(r) for r in cur.fetchall()]
 
     def all(self, limit: int = 200) -> list[dict]:
-        cur = self._conn.execute(
-            "SELECT * FROM review_audit ORDER BY id DESC LIMIT ?", (limit,))
-        return [dict(r) for r in cur.fetchall()]
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM review_audit ORDER BY id DESC LIMIT ?", (limit,))
+            return [dict(r) for r in cur.fetchall()]

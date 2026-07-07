@@ -340,3 +340,15 @@ def test_consolidate_command_json_flag(monkeypatch, capsys):
     assert rc == 0
     data = json.loads(out)
     assert data["rules_created"] == 2
+
+
+def test_consolidate_command_returns_1_when_pass_raises(monkeypatch, capsys):
+    def fake_consensus(store, settings, graph=None, progress=None, adjudicator=None):
+        raise RuntimeError("consensus pass blew up")
+
+    monkeypatch.setattr(cli, "build_context", lambda **kw: _FakeCtx())
+    monkeypatch.setattr("opendomainmcp.consensus.run.run_consensus", fake_consensus)
+    rc = cli.main(["consolidate"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "consensus pass blew up" in err

@@ -141,14 +141,18 @@ def run_consolidate(ctx, store, task, is_cancelled) -> None:
         store.update(task.id, failures=[])
         return
 
-    failures: list[dict] = []
-
     def progress(event):
         pass  # single unit of work; no per-item children to track
 
-    result = run_consensus(ctx.store, ctx.settings, graph=ctx.graph, progress=progress)
+    try:
+        result = run_consensus(ctx.store, ctx.settings, graph=ctx.graph,
+                               progress=progress)
+    except Exception:  # noqa: BLE001 - Fail Loud into the report
+        store.update(task.id, failures=[{"name": "consolidate", "status": "error"}])
+        raise
     failures = [
-        {"name": str(e.get("pair", "?")), "status": "error"}
+        {"name": " / ".join(e["pair"]) if isinstance(e.get("pair"), list) else "?",
+         "status": "error"}
         for e in result.get("errors", [])
     ]
     store.update(task.id, done=1, failures=failures, result=result)

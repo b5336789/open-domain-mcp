@@ -176,6 +176,29 @@ def _cmd_codegraph(ctx, args) -> int:
     return 0
 
 
+def _cmd_consolidate(ctx, args) -> int:
+    import json as _json
+    from .consensus.run import run_consensus
+
+    def progress(event):
+        stage = event.get("stage", "")
+        detail = {k: v for k, v in event.items() if k != "stage"}
+        print(f"[{stage:>10}] {detail}", file=sys.stderr)
+
+    try:
+        result = run_consensus(ctx.store, ctx.settings, graph=ctx.graph, progress=progress)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(_json.dumps(result, indent=2))
+    else:
+        for key, value in result.items():
+            print(f"{key}: {value}")
+    return 0
+
+
 def _cmd_synthesize(ctx, args) -> int:
     from .synthesis import synthesize_articles
 
@@ -293,6 +316,14 @@ def build_parser() -> argparse.ArgumentParser:
                            "summaries and stores chain items)")
     p_cg.add_argument("--json", action="store_true", help="Emit stats as JSON")
     p_cg.set_defaults(func=_cmd_codegraph)
+
+    p_consolidate = sub.add_parser(
+        "consolidate",
+        help="Run a consensus pass to deduplicate and consolidate rules",
+    )
+    p_consolidate.add_argument("--json", action="store_true", help="Emit result as JSON")
+    p_consolidate.set_defaults(func=_cmd_consolidate)
+
     return parser
 
 

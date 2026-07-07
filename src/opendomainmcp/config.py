@@ -48,6 +48,7 @@ EDITABLE_FIELDS = (
     "retrieve_approved_only",
     "retrieve_include_articles",
     "retrieve_include_chains",
+    "retrieve_prefer_rules",
     "retrieve_min_score",
     "retrieve_include_graph",
     "ingest_exclude",
@@ -166,6 +167,13 @@ class Settings(BaseSettings):
     # retrieval, fused with chunks. No chains ingested == today's behavior.
     retrieve_include_chains: bool = True
 
+    # When on and a hit is a canonical rule (kind=="rule"), suppress other hits
+    # whose chunk id appears in that rule's member_chunk_ids — so the rule
+    # represents its constituent chunks rather than both appearing. Rules still
+    # rank on their own merits (no score boosting). On by default; set False to
+    # restore all raw member chunks alongside their rule.
+    retrieve_prefer_rules: bool = True
+
     # Relevance floor for the 'ask' RAG path: if the best retrieved chunk's
     # similarity score is below this, refuse ("no content matched") instead of
     # answering from weak/irrelevant sources. 0.0 == disabled (today's behavior).
@@ -179,6 +187,14 @@ class Settings(BaseSettings):
 
     # Max call-chain depth for codegraph chain assembly (spec 4A). Env-only.
     codegraph_max_chain_depth: int = 12
+
+    # Char budget for direct-callee source context during chain analysis
+    # (spec 4B). Env-only.
+    codegraph_context_chars: int = 16000
+
+    # Minimum cosine similarity between two rule units before they are considered
+    # corroborating the same rule during consensus (spec 5). Env-only.
+    consensus_similarity_threshold: float = 0.80
 
     # When on, code chunks skip per-chunk LLM extraction at ingest — the
     # codegraph chain-analysis pass (codegraph --analyze / analyze_chains task)

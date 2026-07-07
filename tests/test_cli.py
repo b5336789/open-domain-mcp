@@ -289,3 +289,66 @@ def test_codegraph_analyze_cli(tmp_path, capsys, monkeypatch, store, fake_graph)
     rc = cli.main(["codegraph", str(tmp_path), "--analyze"])
     assert rc == 0 and called["root"] == str(tmp_path)
     assert "chains_stored" in capsys.readouterr().out
+
+
+def test_consolidate_command_prints_result(monkeypatch, capsys):
+    fake_result = {
+        "units": 10,
+        "candidates": 4,
+        "adjudicated": 4,
+        "cache_hits": 1,
+        "rules_created": 3,
+        "conflicts": 1,
+        "trust": {"high": 2, "normal": 1, "conflicted": 1},
+        "pruned": 0,
+        "errors": [],
+    }
+
+    def fake_consensus(store, settings, graph=None, progress=None, adjudicator=None):
+        return fake_result
+
+    monkeypatch.setattr(cli, "build_context", lambda **kw: _FakeCtx())
+    monkeypatch.setattr("opendomainmcp.consensus.run.run_consensus", fake_consensus)
+    rc = cli.main(["consolidate"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "rules_created" in out
+
+
+def test_consolidate_command_json_flag(monkeypatch, capsys):
+    import json
+
+    fake_result = {
+        "units": 5,
+        "candidates": 2,
+        "adjudicated": 2,
+        "cache_hits": 0,
+        "rules_created": 2,
+        "conflicts": 0,
+        "trust": {"high": 2, "normal": 0, "conflicted": 0},
+        "pruned": 0,
+        "errors": [],
+    }
+
+    def fake_consensus(store, settings, graph=None, progress=None, adjudicator=None):
+        return fake_result
+
+    monkeypatch.setattr(cli, "build_context", lambda **kw: _FakeCtx())
+    monkeypatch.setattr("opendomainmcp.consensus.run.run_consensus", fake_consensus)
+    rc = cli.main(["consolidate", "--json"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    data = json.loads(out)
+    assert data["rules_created"] == 2
+
+
+def test_consolidate_command_returns_1_when_pass_raises(monkeypatch, capsys):
+    def fake_consensus(store, settings, graph=None, progress=None, adjudicator=None):
+        raise RuntimeError("consensus pass blew up")
+
+    monkeypatch.setattr(cli, "build_context", lambda **kw: _FakeCtx())
+    monkeypatch.setattr("opendomainmcp.consensus.run.run_consensus", fake_consensus)
+    rc = cli.main(["consolidate"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "consensus pass blew up" in err

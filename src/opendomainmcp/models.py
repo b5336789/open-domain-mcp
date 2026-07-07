@@ -276,6 +276,70 @@ class ChainItem:
 
 
 @dataclass
+class RuleItem:
+    """A validated business rule synthesized from chunks and chains.
+
+    Duck-types the store contract (id/text/embedding_text/metadata) like
+    Article and ChainItem; lives in the MAIN collection (the design depends on it —
+    retrieval suppression and view filters all operate on a single unified store)."""
+
+    statement: str
+    trust: str = "normal"               # high | normal | conflicted
+    corroborations: int = 1
+    layers: list[str] = field(default_factory=list)
+    member_keys: list[str] = field(default_factory=list)    # RuleUnit keys
+    member_chunk_ids: list[str] = field(default_factory=list)   # chunk-origin only (suppression set)
+    chain_chunk_ids: list[str] = field(default_factory=list)    # chain-origin ids (lineage only)
+    sources: list[str] = field(default_factory=list)        # "file:start-end" / entry names
+    evidence: list[dict] = field(default_factory=list)      # union of member evidence entries
+    evidence_status: str = ""
+    review_status: str = "approved"
+
+    @staticmethod
+    def id_for_statement(statement: str) -> str:
+        """Stable id for a rule statement. Single source of the id formula.
+        Normalizes by stripping and lowercasing before hashing."""
+        normalized = statement.strip().lower()
+        digest = hashlib.sha256(f"rule:{normalized}".encode("utf-8"))
+        return digest.hexdigest()
+
+    @property
+    def id(self) -> str:
+        return RuleItem.id_for_statement(self.statement)
+
+    @property
+    def text(self) -> str:
+        """Statement + corroboration summary."""
+        summary = f"\nCorroborated by {self.corroborations} source{'s' if self.corroborations != 1 else ''}"
+        return f"{self.statement}{summary}"
+
+    def embedding_text(self) -> str:
+        """Statement + trust/layers for semantic retrieval."""
+        return f"{self.statement}\nTrust: {self.trust}\nLayers: {', '.join(self.layers)}"
+
+    def metadata(self) -> dict:
+        """Flat, JSON/Chroma-friendly metadata (no list or dict values)."""
+        meta = {
+            "kind": "rule",
+            "statement": self.statement,
+            "trust": self.trust,
+            "corroborations": self.corroborations,
+            "layers": ", ".join(self.layers),
+            "member_keys": ", ".join(self.member_keys),
+            "member_chunk_ids": ", ".join(self.member_chunk_ids),
+            "chain_chunk_ids": ", ".join(self.chain_chunk_ids),
+            "sources": " | ".join(self.sources),
+            "review_status": self.review_status,
+        }
+        # Evidence serialization (JSON-encoded for complex list structure).
+        if self.evidence:
+            meta["evidence"] = json.dumps(self.evidence, ensure_ascii=False)
+        if self.evidence_status:
+            meta["evidence_status"] = self.evidence_status
+        return {k: v for k, v in meta.items() if v is not None and v != ""}
+
+
+@dataclass
 class SearchResult:
     id: str
     text: str

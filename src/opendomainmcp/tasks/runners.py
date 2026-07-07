@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..codegraph.analyze import analyze_corpus
 from ..codegraph.build import build_codegraph
 from ..codegraph.chains import assemble_chains
+from ..consensus.run import run_consensus
 from ..extract.knowledge import get_extractor
 from ..ingest.checkpoint import Checkpoint, extractor_signature
 from ..models import Chunk
@@ -135,6 +136,28 @@ def run_analyze_chains(ctx, store, task, is_cancelled) -> None:
     store.update(task.id, done=len(chains), failures=failures, result=result)
 
 
+def run_consolidate(ctx, store, task, is_cancelled) -> None:
+    if is_cancelled():
+        store.update(task.id, failures=[])
+        return
+
+    def progress(event):
+        pass  # single unit of work; no per-item children to track
+
+    try:
+        result = run_consensus(ctx.store, ctx.settings, graph=ctx.graph,
+                               progress=progress)
+    except Exception:  # noqa: BLE001 - Fail Loud into the report
+        store.update(task.id, failures=[{"name": "consolidate", "status": "error"}])
+        raise
+    failures = [
+        {"name": " / ".join(e["pair"]) if isinstance(e.get("pair"), list) else "?",
+         "status": "error"}
+        for e in result.get("errors", [])
+    ]
+    store.update(task.id, done=1, failures=failures, result=result)
+
+
 class _Cancelled(Exception):
     pass
 
@@ -144,4 +167,5 @@ RUNNERS = {
     "synthesize": run_synthesize,
     "extract": run_extract,
     "analyze_chains": run_analyze_chains,
+    "consolidate": run_consolidate,
 }

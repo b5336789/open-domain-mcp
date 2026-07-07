@@ -24,6 +24,8 @@ def _title(type: str, params: dict) -> str:
         return f"Re-extract {params.get('source', '')}"
     if type == "analyze_chains":
         return f"Analyze chains {params.get('path', '')}"
+    if type == "consolidate":
+        return "Consolidate rules"
     return type
 
 

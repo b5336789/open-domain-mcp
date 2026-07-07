@@ -10,9 +10,37 @@ from ..models import SearchResult
 from . import rrf_fuse
 
 
+def _suppress_rule_members(hits: list[SearchResult]) -> list[SearchResult]:
+    """When canonical rules are present, drop their constituent chunk members.
+
+    Collects all chunk ids listed in any rule hit's ``member_chunk_ids`` CSV and
+    removes those ids from the result list. Rules keep their own ranking; no score
+    boosting is applied.
+
+    Suppression shrinks the list, so ``search_unified`` over-fetches (2x top_k)
+    before calling this and slices back to top_k afterwards — otherwise callers
+    would silently receive fewer than top_k results even when other candidates
+    matched.
+    """
+    suppressed: set[str] = set()
+    for r in hits:
+        if r.metadata.get("kind") == "rule":
+            raw = r.metadata.get("member_chunk_ids", "")
+            if raw:
+                suppressed.update(cid.strip() for cid in raw.split(",") if cid.strip())
+    if not suppressed:
+        return hits
+    return [r for r in hits if r.id not in suppressed]
+
+
 def search_unified(store, query, *, top_k=5, mode="vector", settings,
                    where=None, source_contains=None) -> list[SearchResult]:
-    chunk_hits = store.search(query, top_k=top_k, where=where, mode=mode,
+    prefer_rules = getattr(settings, "retrieve_prefer_rules", True)
+    # Over-fetch when rule suppression is on so dropping member chunks does not
+    # under-fill the final top_k (see _suppress_rule_members).
+    fetch_k = top_k * 2 if prefer_rules else top_k
+
+    chunk_hits = store.search(query, top_k=fetch_k, where=where, mode=mode,
                               source_contains=source_contains)
 
     # Accumulate result pool and ranked lists for a single rrf_fuse call below.
@@ -22,7 +50,7 @@ def search_unified(store, query, *, top_k=5, mode="vector", settings,
     if getattr(settings, "retrieve_include_articles", True) and hasattr(store, "sibling"):
         article_store = store.sibling(f"{store.stats()['collection']}__articles")
         if article_store.stats()["count"] > 0:
-            article_hits = article_store.search(query, top_k=top_k, where=where,
+            article_hits = article_store.search(query, top_k=fetch_k, where=where,
                                                 mode=mode,
                                                 source_contains=source_contains)
             if article_hits:
@@ -32,7 +60,7 @@ def search_unified(store, query, *, top_k=5, mode="vector", settings,
     if getattr(settings, "retrieve_include_chains", True) and hasattr(store, "sibling"):
         chain_store = store.sibling(f"{store.stats()['collection']}__chains")
         if chain_store.stats()["count"] > 0:
-            chain_hits = chain_store.search(query, top_k=top_k, where=where,
+            chain_hits = chain_store.search(query, top_k=fetch_k, where=where,
                                             mode=mode,
                                             source_contains=source_contains)
             if chain_hits:
@@ -40,8 +68,13 @@ def search_unified(store, query, *, top_k=5, mode="vector", settings,
                 ranked_lists.append([h.id for h in chain_hits])
 
     if len(ranked_lists) == 1:
-        # No siblings contributed — return plain chunk results unchanged.
+        # No siblings contributed — plain chunk results (suppressed + sliced if on).
+        if prefer_rules:
+            return _suppress_rule_members(chunk_hits)[:top_k]
         return chunk_hits
 
-    fused = rrf_fuse(ranked_lists, top_k=top_k)
-    return [pool[_id] for _id, _ in fused if _id in pool]
+    fused = rrf_fuse(ranked_lists, top_k=fetch_k)
+    results = [pool[_id] for _id, _ in fused if _id in pool]
+    if prefer_rules:
+        return _suppress_rule_members(results)[:top_k]
+    return results[:top_k]

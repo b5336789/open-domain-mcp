@@ -155,6 +155,128 @@ def test_run_analyze_chains_registered_and_result(tmp_path, monkeypatch, store, 
     assert any(c["name"] == "A.run" for c in children["children"])
 
 
+def test_run_consolidate_registered_and_result(tmp_path, monkeypatch, store, fake_graph):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.context import Context
+    from opendomainmcp.tasks.runners import RUNNERS
+    from opendomainmcp.tasks.store import TaskStore
+
+    assert "consolidate" in RUNNERS
+
+    fake_result = {
+        "units": 5,
+        "candidates": 3,
+        "adjudicated": 3,
+        "cache_hits": 0,
+        "rules_created": 2,
+        "conflicts": 0,
+        "trust": {"high": 2, "normal": 0, "conflicted": 0},
+        "pruned": 0,
+        "errors": [],
+    }
+
+    def fake_consensus(store, settings, graph=None, progress=None, adjudicator=None):
+        return fake_result
+
+    monkeypatch.setattr("opendomainmcp.tasks.runners.run_consensus", fake_consensus)
+
+    ctx = Context(settings=Settings(data_dir=tmp_path), store=store,
+                  pipeline=None, graph=fake_graph)
+    ts = TaskStore(tmp_path)
+    task = ts.create("consolidate", "Consolidate rules", "c", {})
+
+    RUNNERS["consolidate"](ctx, ts, task, _never_cancel)
+
+    t = ts.get(task.id)
+    assert t.result == fake_result
+
+
+def test_run_consolidate_cancel_before_start(tmp_path, monkeypatch, store, fake_graph):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.context import Context
+    from opendomainmcp.tasks.runners import RUNNERS
+    from opendomainmcp.tasks.store import TaskStore
+
+    called = {"n": 0}
+
+    def fake_consensus(store, settings, graph=None, progress=None, adjudicator=None):
+        called["n"] += 1
+        return {}
+
+    monkeypatch.setattr("opendomainmcp.tasks.runners.run_consensus", fake_consensus)
+
+    ctx = Context(settings=Settings(data_dir=tmp_path), store=store,
+                  pipeline=None, graph=fake_graph)
+    ts = TaskStore(tmp_path)
+    task = ts.create("consolidate", "Consolidate rules", "c", {})
+
+    RUNNERS["consolidate"](ctx, ts, task, lambda: True)
+
+    # run_consensus must not have been called
+    assert called["n"] == 0
+    t = ts.get(task.id)
+    assert t.result is None
+
+
+def test_run_consolidate_fails_loud_on_raise(tmp_path, monkeypatch, store, fake_graph):
+    """run_consensus raising → failure recorded on the task AND exception propagates."""
+    import pytest
+
+    from opendomainmcp.config import Settings
+    from opendomainmcp.context import Context
+    from opendomainmcp.tasks.runners import run_consolidate
+    from opendomainmcp.tasks.store import TaskStore
+
+    def fake_consensus(store, settings, graph=None, progress=None, adjudicator=None):
+        raise RuntimeError("adjudicator exploded")
+
+    monkeypatch.setattr("opendomainmcp.tasks.runners.run_consensus", fake_consensus)
+
+    ctx = Context(settings=Settings(data_dir=tmp_path), store=store,
+                  pipeline=None, graph=fake_graph)
+    ts = TaskStore(tmp_path)
+    task = ts.create("consolidate", "Consolidate rules", "c", {})
+
+    with pytest.raises(RuntimeError, match="adjudicator exploded"):
+        run_consolidate(ctx, ts, task, _never_cancel)
+
+    t = ts.get(task.id)
+    assert t.failures == [{"name": "consolidate", "status": "error"}]
+    assert t.result is None
+
+
+def test_run_consolidate_failures_render_pairs(tmp_path, monkeypatch, store, fake_graph):
+    """Per-pair errors become readable 'a / b' failure names, not list reprs."""
+    from opendomainmcp.config import Settings
+    from opendomainmcp.context import Context
+    from opendomainmcp.tasks.runners import run_consolidate
+    from opendomainmcp.tasks.store import TaskStore
+
+    fake_result = {
+        "units": 2, "candidates": 1, "adjudicated": 0, "cache_hits": 0,
+        "rules_created": 0, "conflicts": 0,
+        "trust": {"high": 0, "normal": 0, "conflicted": 0}, "pruned": 0,
+        "errors": [{"pair": ["key-a", "key-b"], "error": "boom"},
+                   {"error": "no pair key"}],
+    }
+
+    def fake_consensus(store, settings, graph=None, progress=None, adjudicator=None):
+        return fake_result
+
+    monkeypatch.setattr("opendomainmcp.tasks.runners.run_consensus", fake_consensus)
+
+    ctx = Context(settings=Settings(data_dir=tmp_path), store=store,
+                  pipeline=None, graph=fake_graph)
+    ts = TaskStore(tmp_path)
+    task = ts.create("consolidate", "Consolidate rules", "c", {})
+
+    run_consolidate(ctx, ts, task, _never_cancel)
+
+    t = ts.get(task.id)
+    assert t.failures == [{"name": "key-a / key-b", "status": "error"},
+                          {"name": "?", "status": "error"}]
+
+
 def test_run_analyze_chains_cancels_gracefully(tmp_path, monkeypatch, store, fake_graph):
     """Cancelling mid-analyze returns without raising and records partial state."""
     call_count = {"n": 0}

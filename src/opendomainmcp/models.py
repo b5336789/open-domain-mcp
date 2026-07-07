@@ -280,14 +280,16 @@ class RuleItem:
     """A validated business rule synthesized from chunks and chains.
 
     Duck-types the store contract (id/text/embedding_text/metadata) like
-    Article and ChainItem; lives in the ``<collection>__rules`` sibling collection."""
+    Article and ChainItem; lives in the MAIN collection (the design depends on it —
+    retrieval suppression and view filters all operate on a single unified store)."""
 
     statement: str
     trust: str = "normal"               # high | normal | conflicted
     corroborations: int = 1
     layers: list[str] = field(default_factory=list)
     member_keys: list[str] = field(default_factory=list)    # RuleUnit keys
-    member_chunk_ids: list[str] = field(default_factory=list)
+    member_chunk_ids: list[str] = field(default_factory=list)   # chunk-origin only (suppression set)
+    chain_chunk_ids: list[str] = field(default_factory=list)    # chain-origin ids (lineage only)
     sources: list[str] = field(default_factory=list)        # "file:start-end" / entry names
     evidence: list[dict] = field(default_factory=list)      # union of member evidence entries
     evidence_status: str = ""
@@ -325,6 +327,7 @@ class RuleItem:
             "layers": ", ".join(self.layers),
             "member_keys": ", ".join(self.member_keys),
             "member_chunk_ids": ", ".join(self.member_chunk_ids),
+            "chain_chunk_ids": ", ".join(self.chain_chunk_ids),
             "sources": " | ".join(self.sources),
             "review_status": self.review_status,
         }

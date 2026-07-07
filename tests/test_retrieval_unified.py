@@ -98,6 +98,44 @@ def test_prefer_rules_suppresses_member_chunks(store):
     assert member.id in [h.id for h in hits_off]
 
 
+def test_chain_chunk_ids_not_suppressed_in_retrieval(store):
+    """A chunk whose id appears only in chain_chunk_ids (not member_chunk_ids)
+    must NOT be suppressed when retrieve_prefer_rules=True.
+
+    This is Fix 2: the retrieval suppressor reads RuleItem.member_chunk_ids which
+    must contain only chunk-origin ids; chain-origin ids live in chain_chunk_ids.
+    """
+    from opendomainmcp.config import Settings
+    from opendomainmcp.models import Chunk, RuleItem
+    from opendomainmcp.retrieval import search_unified
+
+    # A chunk that is a CHAIN member but not a direct chunk member of the rule.
+    chain_member = Chunk(text="negative amount rule chain member",
+                         source="Chain.java", kind="code", language="java")
+    # A direct chunk member of the rule.
+    chunk_member = Chunk(text="negative amount rule direct chunk member",
+                         source="Billing.java", kind="code", language="java")
+    store.upsert([chunk_member, chain_member])
+
+    rule = RuleItem(
+        statement="negative amount rule",
+        member_chunk_ids=[chunk_member.id],     # suppression set: chunk-origin only
+        chain_chunk_ids=[chain_member.id],      # chain-origin: must NOT be suppressed
+        sources=["Billing.java:1-1"],
+    )
+    store.upsert([rule])
+
+    hits = search_unified(store, "negative amount rule", top_k=5,
+                          settings=Settings(retrieve_prefer_rules=True,
+                                            retrieve_include_articles=False,
+                                            retrieve_include_chains=False))
+    hit_ids = [h.id for h in hits]
+    # Direct chunk member is suppressed (it's in member_chunk_ids).
+    assert chunk_member.id not in hit_ids
+    # Chain member is NOT suppressed (it's only in chain_chunk_ids).
+    assert chain_member.id in hit_ids
+
+
 def test_prefer_rules_suppression_does_not_underfill_top_k(store):
     """Suppression must not shrink the result list below top_k when enough other
     candidates match: search_unified over-fetches, suppresses, then slices."""

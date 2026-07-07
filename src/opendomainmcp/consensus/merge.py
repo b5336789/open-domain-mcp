@@ -125,9 +125,16 @@ def merge_groups(units: list[RuleUnit],
         else:
             combined_evidence_status = "unverified"
 
-        # Collect member_keys, chunk_ids, sources
+        # Collect member_keys, chunk_ids, sources.
+        # member_chunk_ids: ONLY chunk-origin units (used as the retrieval suppression set).
+        # chain_chunk_ids: ONLY chain-origin units (lineage/graph purposes only).
         member_keys = [u.key for u in group]
-        member_chunk_ids = sorted(set(cid for u in group for cid in u.chunk_ids))
+        member_chunk_ids = sorted(set(
+            cid for u in group if u.origin == "chunk" for cid in u.chunk_ids
+        ))
+        chain_chunk_ids = sorted(set(
+            cid for u in group if u.origin == "chain" for cid in u.chunk_ids
+        ))
         sources = sorted(set(u.source for u in group))
 
         # Create RuleItem
@@ -138,6 +145,7 @@ def merge_groups(units: list[RuleUnit],
             layers=layers,
             member_keys=member_keys,
             member_chunk_ids=member_chunk_ids,
+            chain_chunk_ids=chain_chunk_ids,
             sources=sources,
             evidence=evidence,
             evidence_status=combined_evidence_status,

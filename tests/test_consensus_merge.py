@@ -98,3 +98,40 @@ def test_evidence_deduped_by_claim_quote_source():
     rules = merge_groups([a, b], [("chunk:a:0", "chunk:b:0", "same")])
     assert len(rules) == 1
     assert len(rules[0].evidence) == 1
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: chain chunk_ids must NOT enter the suppression set (member_chunk_ids)
+# ---------------------------------------------------------------------------
+
+def _chain_unit(key, claim, chunk_ids):
+    """Build a chain-origin RuleUnit."""
+    from opendomainmcp.consensus.units import RuleUnit
+    return RuleUnit(
+        key=key, claim=claim, origin="chain", origin_id=key.split(":")[1],
+        layer="chain", source="entry_fn",
+        chunk_ids=chunk_ids,
+        evidence=[{"claim": claim, "quote": "q", "source": "s",
+                   "start_line": 1, "end_line": 1, "verified": True}],
+    )
+
+
+def test_chain_chunk_ids_not_in_suppression_set():
+    """A rule merged from one chunk unit and one chain unit must put the
+    chain's member_chunk_ids into chain_chunk_ids only — NOT into
+    member_chunk_ids (the retrieval suppression set)."""
+    chunk_unit = _u("chunk:x:0", "amount must not be negative", "service",
+                    chunk_ids=["chunk_x"])
+    chain_unit = _chain_unit("chain:c:0", "amount should not be negative",
+                             chunk_ids=["ca", "cb", "cx"])
+
+    rules = merge_groups([chunk_unit, chain_unit],
+                         [("chunk:x:0", "chain:c:0", "same")])
+    assert len(rules) == 1
+    r = rules[0]
+    # Suppression set must contain only the chunk-origin id.
+    assert r.member_chunk_ids == ["chunk_x"]
+    # Chain ids land in chain_chunk_ids only.
+    assert set(r.chain_chunk_ids) == {"ca", "cb", "cx"}
+    # Chain ids must not appear in the suppression set.
+    assert not (set(r.member_chunk_ids) & {"ca", "cb", "cx"})

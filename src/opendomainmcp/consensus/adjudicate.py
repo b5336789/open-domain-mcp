@@ -88,10 +88,15 @@ class RuleAdjudicator:
 
     @staticmethod
     def pair_key(claim_a: str, claim_b: str) -> str:
-        """Order-independent SHA256 hash of a claim pair."""
-        # Sort claims to make key order-independent
-        pair = tuple(sorted([claim_a, claim_b]))
-        text = "\n".join(pair)
+        """Order-independent SHA256 hash of a claim pair.
+
+        Formula: sha256(NUL-joined sorted [lower-stripped claims]).
+        Using NUL as separator prevents the collision ("a\\nb","c") vs
+        ("a","b\\nc"), which the newline separator would conflate.
+        Case/whitespace normalisation collapses trivial variants to the
+        same key so the verdict cache stays small.
+        """
+        text = "\x00".join(sorted([claim_a.lower().strip(), claim_b.lower().strip()]))
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     def judge(self, claim_a: str, quotes_a: list[str],

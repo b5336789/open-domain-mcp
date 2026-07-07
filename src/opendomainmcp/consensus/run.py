@@ -132,7 +132,11 @@ def run_consensus(
         _emit("store", skipped=True, reason="total_adjudication_failure")
     else:
         # Collect existing rule ids (paginated) before upserting new ones.
+        # Also capture review_status and member_keys so we can carry human
+        # approve/reject decisions across re-runs (Fix 1).
         existing_ids: set[str] = set()
+        # Maps rule_id → {"review_status": str, "member_keys_set": set[str]}
+        existing_rule_info: dict[str, dict] = {}
         offset = 0
         while True:
             try:
@@ -142,14 +146,42 @@ def run_consensus(
             except Exception as exc:
                 logger.warning("Pagination of existing rules failed at offset %d: %r",
                                offset, exc)
+                errors.append({"stage": "existing_rules_pagination",
+                               "error": repr(exc)})
                 break
             if not items:
                 break
             for item in items:
-                existing_ids.add(item["id"])
+                rid = item["id"]
+                existing_ids.add(rid)
+                meta = item.get("metadata", {})
+                raw_mk = meta.get("member_keys", "")
+                mk_set = set(k.strip() for k in raw_mk.split(",") if k.strip())
+                existing_rule_info[rid] = {
+                    "review_status": meta.get("review_status", "pending"),
+                    "member_keys_set": mk_set,
+                    "trust": meta.get("trust", "normal"),
+                }
             offset += len(items)
             if len(items) < _PAGE:
                 break
+
+        # Fix 1: carry human approve/reject across re-runs.
+        # Only restore if same membership AND trust did not newly become "conflicted".
+        if existing_rule_info:
+            for rule in rules:
+                prior = existing_rule_info.get(rule.id)
+                if prior is None:
+                    continue
+                human_status = prior["review_status"]
+                if human_status not in ("approved", "rejected"):
+                    continue
+                # Membership check: compare member_keys sets.
+                same_membership = set(rule.member_keys) == prior["member_keys_set"]
+                newly_conflicted = (rule.trust == "conflicted"
+                                    and prior["trust"] != "conflicted")
+                if same_membership and not newly_conflicted:
+                    rule.review_status = human_status
 
         if rules:
             store.upsert(rules)
@@ -164,12 +196,18 @@ def run_consensus(
         if stale_ids:
             store.delete_ids(stale_ids)
             pruned = len(stale_ids)
+            # Fix 4: also remove graph rows for pruned rule ids.
+            if graph is not None:
+                try:
+                    graph.delete_for_chunks(stale_ids)
+                except Exception as exc:
+                    errors.append({"stage": "prune_graph", "error": repr(exc)})
 
         _emit("store", rules_created=rules_created, pruned=pruned)
 
         # Graph: conflict edges and entity lineage.
         if graph is not None:
-            _upsert_graph(graph, rules, verdicts)
+            _upsert_graph(graph, rules, verdicts, errors)
 
     return {
         "units": len(units),
@@ -184,13 +222,25 @@ def run_consensus(
     }
 
 
-def _upsert_graph(graph, rules, verdicts: list[tuple[str, str, str]]) -> None:
+def _upsert_graph(graph, rules, verdicts: list[tuple[str, str, str]],
+                  errors: list[dict]) -> None:
     """Upsert rule entities and conflict edges into the graph store.
 
-    For every rule: one Entity per member_chunk_id (establishes entity_chunks
-    lineage) plus one keyed by the rule's own id.
+    For every rule: one Entity per member_chunk_id AND chain_chunk_id
+    (establishes entity_chunks lineage) plus one keyed by the rule's own id.
     For every cross-group conflict verdict: one Edge with relation_type="conflicts".
+
+    Graph failures are surfaced into ``errors`` (Fix 5) so the caller can
+    report them without hiding behind a silent warning.
+
+    Normalized entity names are truncated to 255 chars for VARCHAR(255) safety
+    (Fix 5).
     """
+    _MAX_NAME = 255
+
+    def _norm(statement: str) -> str:
+        return normalize_name(statement)[:_MAX_NAME]
+
     # Build unit-key → rule mapping for edge resolution.
     key_to_rule = {}
     for rule in rules:
@@ -198,9 +248,10 @@ def _upsert_graph(graph, rules, verdicts: list[tuple[str, str, str]]) -> None:
             key_to_rule[key] = rule
 
     # Entities: one row per (rule, chunk_id) for lineage tracking.
+    # member_chunk_ids = chunk-origin suppression set; chain_chunk_ids = lineage.
     entities: list[Entity] = []
     for rule in rules:
-        norm = normalize_name(rule.statement)
+        norm = _norm(rule.statement)
         # Primary entity anchored by the rule's content-hash id.
         entities.append(Entity(
             normalized_name=norm,
@@ -208,8 +259,16 @@ def _upsert_graph(graph, rules, verdicts: list[tuple[str, str, str]]) -> None:
             type="rule",
             chunk_id=rule.id,
         ))
-        # Corroborating member chunk ids (entity_chunks lineage).
+        # Chunk-origin member ids (entity_chunks lineage).
         for cid in rule.member_chunk_ids:
+            entities.append(Entity(
+                normalized_name=norm,
+                display_name=rule.statement,
+                type="rule",
+                chunk_id=cid,
+            ))
+        # Chain-origin member ids (lineage only, not suppression set).
+        for cid in rule.chain_chunk_ids:
             entities.append(Entity(
                 normalized_name=norm,
                 display_name=rule.statement,
@@ -222,6 +281,7 @@ def _upsert_graph(graph, rules, verdicts: list[tuple[str, str, str]]) -> None:
             graph.upsert_entities(entities)
         except Exception as exc:
             logger.warning("Graph entity upsert failed: %r", exc)
+            errors.append({"stage": "graph", "error": repr(exc)})
 
     # Edges: one per cross-group conflict verdict.
     edges: list[Edge] = []
@@ -235,8 +295,8 @@ def _upsert_graph(graph, rules, verdicts: list[tuple[str, str, str]]) -> None:
         if rule_a.id == rule_b.id:
             continue  # intra-group: not a cross-group conflict
         edges.append(Edge(
-            src=normalize_name(rule_a.statement),
-            dst=normalize_name(rule_b.statement),
+            src=_norm(rule_a.statement),
+            dst=_norm(rule_b.statement),
             relation_type="conflicts",
             chunk_id=rule_a.id,
         ))
@@ -246,3 +306,4 @@ def _upsert_graph(graph, rules, verdicts: list[tuple[str, str, str]]) -> None:
             graph.upsert_edges(edges)
         except Exception as exc:
             logger.warning("Graph edge upsert failed: %r", exc)
+            errors.append({"stage": "graph", "error": repr(exc)})

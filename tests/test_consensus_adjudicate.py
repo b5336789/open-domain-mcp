@@ -69,3 +69,27 @@ def test_non_dict_cache_tolerated(tmp_path):
     adj, calls = _adj(tmp_path, [{"verdict": "same", "reason": ""}])
     assert adj.judge("x", [], "y", []) == "same"
     assert calls["n"] == 1 and adj.cache_hits == 0  # cache started empty
+
+
+# ---------------------------------------------------------------------------
+# Fix 3: pair_key formula — NUL separator + case/whitespace normalisation
+# ---------------------------------------------------------------------------
+
+def test_pair_key_case_and_whitespace_variants_hit_same_key(tmp_path):
+    """Upper-case and extra whitespace must produce the same cache key."""
+    from opendomainmcp.consensus.adjudicate import RuleAdjudicator
+    k1 = RuleAdjudicator.pair_key("Amount Must Not Be Negative", "order is required")
+    k2 = RuleAdjudicator.pair_key("  amount must not be negative  ", "  ORDER IS REQUIRED  ")
+    assert k1 == k2
+
+
+def test_pair_key_no_collision_with_newline_in_claim(tmp_path):
+    """('a\\nb', 'c') and ('a', 'b\\nc') must produce DIFFERENT keys.
+
+    The old newline-join formula produced the same text for both pairs.
+    The NUL-separator formula avoids the collision.
+    """
+    from opendomainmcp.consensus.adjudicate import RuleAdjudicator
+    k1 = RuleAdjudicator.pair_key("a\nb", "c")
+    k2 = RuleAdjudicator.pair_key("a", "b\nc")
+    assert k1 != k2

@@ -438,13 +438,27 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     def list_items(limit: int = 50, offset: int = 0, kind: str | None = None,
                    review_status: str | None = None,
                    knowledge_type: str | None = None,
+                   order: str | None = None,
                    ctx: Context = Depends(get_ctx)):
         from ..store import build_where
+        from ..review.priority import order_by_priority
 
         where = build_where({
             "kind": kind, "review_status": review_status,
             "knowledge_type": knowledge_type,
         })
+        if order == "priority" and review_status == "pending":
+            # Fetch full pending set (bounded) then sort in Python.
+            all_items: list[dict] = []
+            page = 500
+            off = 0
+            while True:
+                batch = ctx.store.get_items(limit=page, offset=off, where=where)
+                all_items.extend(batch)
+                if len(batch) < page:
+                    break
+                off += page
+            return order_by_priority(all_items)[offset: offset + limit]
         return ctx.store.get_items(limit=limit, offset=offset, where=where)
 
     @app.post("/api/items")

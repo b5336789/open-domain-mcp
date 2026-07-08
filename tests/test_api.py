@@ -341,3 +341,28 @@ def test_history_newest_first(client):
     tc.post(f"/api/items/{ids[0]}/reject")
     hist = tc.get(f"/api/items/{ids[0]}/history").json()
     assert [h["action"] for h in hist] == ["reject", "approve"]
+
+
+def test_pending_priority_order_route(client):
+    from opendomainmcp.models import Chunk, KnowledgeUnit, RuleItem
+    tc, ctx, _ = client
+    ctx.store.upsert([
+        Chunk(text="plain", source="p.md", kind="text",
+              knowledge=KnowledgeUnit(summary="ok", confidence=0.9,
+                                      review_status="pending")),
+        Chunk(text="weak", source="w.md", kind="text",
+              knowledge=KnowledgeUnit(summary="weak", confidence=0.2,
+                                      evidence_status="unverified",
+                                      review_status="pending")),
+    ])
+    ctx.store.upsert([RuleItem(statement="conflicting rule", trust="conflicted",
+                               review_status="pending")])
+    ordered = tc.get("/api/items",
+                     params={"review_status": "pending", "order": "priority"}).json()
+    kinds = [i["metadata"].get("trust") or i["metadata"].get("evidence_status")
+             or "plain" for i in ordered]
+    assert kinds[0] == "conflicted" and kinds[1] == "unverified"
+
+    # default order unaffected
+    default = tc.get("/api/items", params={"review_status": "pending"}).json()
+    assert len(default) == 3

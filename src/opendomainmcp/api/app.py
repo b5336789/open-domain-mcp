@@ -47,6 +47,28 @@ _synthesize_lock = threading.Lock()
 # durable record; the registry holds the live object while the run is active.
 _ingest_jobs: dict = {}
 
+# Per-data-dir append-only review audit logs (path -> AuditLog), created lazily
+# so review auditing works without any extra wiring. Mirrors _ingest_jobs.
+_audit_logs: dict = {}
+_audit_lock = threading.Lock()
+
+
+def _get_audit_log(ctx: Context):
+    from ..review.audit import AuditLog
+
+    key = str(ctx.settings.data_dir)
+    with _audit_lock:
+        log = _audit_logs.get(key)
+        if log is None:
+            log = AuditLog(Path(ctx.settings.data_dir) / "review_audit.db")
+            _audit_logs[key] = log
+    return log
+
+
+def _actor(principal: dict) -> str:
+    """The audit actor: the API-key name when auth is on, else 'local'."""
+    return principal.get("key") or "local"
+
 
 class SearchRequest(BaseModel):
     query: str
@@ -64,6 +86,16 @@ class AskRequest(BaseModel):
 
 class ItemPatch(BaseModel):
     metadata: dict
+
+
+class ReviewAction(BaseModel):
+    note: str = ""
+
+
+class ReviewBatch(BaseModel):
+    ids: list[str]
+    action: str
+    note: str = ""
 
 
 class ItemCreate(BaseModel):
@@ -438,17 +470,60 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
             ctx.graph.upsert_edges(edges)
         return ctx.store.get_item(chunk.id)
 
-    @app.post("/api/items/{item_id}/approve")
-    def approve_item(item_id: str, ctx: Context = Depends(get_ctx)):
-        if not ctx.store.update_metadata(item_id, {"review_status": "approved"}):
-            raise HTTPException(status_code=404, detail="item not found")
+    def _review_one(ctx: Context, item_id: str, action: str, actor: str,
+                    note: str) -> Optional[dict]:
+        """Apply approve/reject to one item and write its audit row.
+
+        Returns the updated item, or None when the item does not exist. The
+        audit write is not guarded: if it fails the route fails loudly (500)
+        rather than reporting an unaudited status change as success."""
+        new_status = "approved" if action == "approve" else "rejected"
+        item = ctx.store.get_item(item_id)
+        if item is None:
+            return None
+        prev = item.get("metadata", {}).get("review_status", "")
+        if not ctx.store.update_metadata(item_id, {"review_status": new_status}):
+            return None
+        _get_audit_log(ctx).record(item_id, action, actor, note=note,
+                                   prev_status=prev, new_status=new_status)
         return ctx.store.get_item(item_id)
 
-    @app.post("/api/items/{item_id}/reject")
-    def reject_item(item_id: str, ctx: Context = Depends(get_ctx)):
-        if not ctx.store.update_metadata(item_id, {"review_status": "rejected"}):
+    @app.post("/api/items/{item_id}/approve")
+    def approve_item(item_id: str, body: ReviewAction = ReviewAction(),
+                     ctx: Context = Depends(get_ctx),
+                     principal: dict = Depends(auth_dependency)):
+        item = _review_one(ctx, item_id, "approve", _actor(principal), body.note)
+        if item is None:
             raise HTTPException(status_code=404, detail="item not found")
-        return ctx.store.get_item(item_id)
+        return item
+
+    @app.post("/api/items/{item_id}/reject")
+    def reject_item(item_id: str, body: ReviewAction = ReviewAction(),
+                    ctx: Context = Depends(get_ctx),
+                    principal: dict = Depends(auth_dependency)):
+        item = _review_one(ctx, item_id, "reject", _actor(principal), body.note)
+        if item is None:
+            raise HTTPException(status_code=404, detail="item not found")
+        return item
+
+    @app.post("/api/items/review-batch")
+    def review_batch(body: ReviewBatch, ctx: Context = Depends(get_ctx),
+                     principal: dict = Depends(auth_dependency)):
+        if body.action not in ("approve", "reject"):
+            raise HTTPException(status_code=400,
+                                detail="action must be approve or reject")
+        actor = _actor(principal)
+        updated, missing = [], []
+        for item_id in body.ids:
+            if _review_one(ctx, item_id, body.action, actor, body.note) is None:
+                missing.append(item_id)
+            else:
+                updated.append(item_id)
+        return {"updated": updated, "missing": missing, "action": body.action}
+
+    @app.get("/api/items/{item_id}/history")
+    def item_history(item_id: str, ctx: Context = Depends(get_ctx)):
+        return _get_audit_log(ctx).history(item_id)
 
     @app.get("/api/items/{item_id}")
     def get_item(item_id: str, ctx: Context = Depends(get_ctx)):

@@ -282,3 +282,62 @@ def test_settings_roundtrip_and_validation(client):
     assert ok.json()["updated"] == ["chunk_size"]
     bad = tc.patch("/api/settings", json={"values": {"data_dir": "/etc"}})
     assert bad.status_code == 400
+
+
+def _seed_pending(ctx, n=3):
+    from opendomainmcp.models import Chunk, KnowledgeUnit
+    chunks = [Chunk(text=f"pending {i}", source=f"s{i}.md", kind="text",
+                    knowledge=KnowledgeUnit(summary=f"p{i}", knowledge_type="Feature",
+                                            review_status="pending"))
+              for i in range(n)]
+    ctx.store.upsert(chunks)
+    return [c.id for c in chunks]
+
+
+def test_approve_writes_audit_with_note_and_actor(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+    r = tc.post(f"/api/items/{ids[0]}/approve", json={"note": "verified by hand"})
+    assert r.json()["metadata"]["review_status"] == "approved"
+    hist = tc.get(f"/api/items/{ids[0]}/history").json()
+    assert len(hist) == 1
+    assert hist[0]["action"] == "approve" and hist[0]["note"] == "verified by hand"
+    assert hist[0]["prev_status"] == "pending" and hist[0]["new_status"] == "approved"
+    assert hist[0]["actor"] == "local"   # auth off in tests
+
+
+def test_reject_without_note_defaults_empty(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+    tc.post(f"/api/items/{ids[0]}/reject")
+    hist = tc.get(f"/api/items/{ids[0]}/history").json()
+    assert hist[0]["action"] == "reject" and hist[0]["note"] == ""
+
+
+def test_review_batch_applies_and_reports_missing(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 3)
+    r = tc.post("/api/items/review-batch",
+                json={"ids": ids + ["nope"], "action": "approve", "note": "bulk"})
+    body = r.json()
+    assert set(body["updated"]) == set(ids) and body["missing"] == ["nope"]
+    pending = tc.get("/api/items", params={"review_status": "pending"}).json()
+    assert pending == []
+    for i in ids:
+        h = tc.get(f"/api/items/{i}/history").json()
+        assert h[0]["note"] == "bulk" and h[0]["action"] == "approve"
+
+
+def test_review_batch_rejects_bad_action(client):
+    tc, ctx, _ = client
+    assert tc.post("/api/items/review-batch",
+                   json={"ids": [], "action": "purge"}).status_code == 400
+
+
+def test_history_newest_first(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+    tc.post(f"/api/items/{ids[0]}/approve")
+    tc.post(f"/api/items/{ids[0]}/reject")
+    hist = tc.get(f"/api/items/{ids[0]}/history").json()
+    assert [h["action"] for h in hist] == ["reject", "approve"]

@@ -366,3 +366,12 @@ def test_pending_priority_order_route(client):
     # default order unaffected
     default = tc.get("/api/items", params={"review_status": "pending"}).json()
     assert len(default) == 3
+
+
+def test_batch_store_failure_is_500_not_missing(client, monkeypatch):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+    monkeypatch.setattr(ctx.store, "update_metadata", lambda *a, **k: False)
+    r = tc.post("/api/items/review-batch",
+                json={"ids": ids, "action": "approve"})
+    assert r.status_code == 500  # existing item + failed update = loud, not "missing"

@@ -485,37 +485,42 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
         return ctx.store.get_item(chunk.id)
 
     def _review_one(ctx: Context, item_id: str, action: str, actor: str,
-                    note: str) -> Optional[dict]:
+                    note: str) -> dict | None:
         """Apply approve/reject to one item and write its audit row.
 
-        Returns the updated item, or None when the item does not exist. The
-        audit write is not guarded: if it fails the route fails loudly (500)
-        rather than reporting an unaudited status change as success."""
+        Returns the updated item, or None ONLY when the item does not exist.
+        A store update that fails on an EXISTING item raises (500) so batch
+        callers cannot misreport a store error as "missing". The audit write
+        is likewise unguarded: if it fails the route fails loudly rather than
+        reporting an unaudited status change as success."""
         new_status = "approved" if action == "approve" else "rejected"
         item = ctx.store.get_item(item_id)
         if item is None:
             return None
         prev = item.get("metadata", {}).get("review_status", "")
         if not ctx.store.update_metadata(item_id, {"review_status": new_status}):
-            return None
+            raise HTTPException(status_code=500,
+                                detail=f"store update failed for {item_id}")
         _get_audit_log(ctx).record(item_id, action, actor, note=note,
                                    prev_status=prev, new_status=new_status)
         return ctx.store.get_item(item_id)
 
     @app.post("/api/items/{item_id}/approve")
-    def approve_item(item_id: str, body: ReviewAction = ReviewAction(),
+    def approve_item(item_id: str, body: ReviewAction | None = None,
                      ctx: Context = Depends(get_ctx),
                      principal: dict = Depends(auth_dependency)):
-        item = _review_one(ctx, item_id, "approve", _actor(principal), body.note)
+        note = body.note if body else ""
+        item = _review_one(ctx, item_id, "approve", _actor(principal), note)
         if item is None:
             raise HTTPException(status_code=404, detail="item not found")
         return item
 
     @app.post("/api/items/{item_id}/reject")
-    def reject_item(item_id: str, body: ReviewAction = ReviewAction(),
+    def reject_item(item_id: str, body: ReviewAction | None = None,
                     ctx: Context = Depends(get_ctx),
                     principal: dict = Depends(auth_dependency)):
-        item = _review_one(ctx, item_id, "reject", _actor(principal), body.note)
+        note = body.note if body else ""
+        item = _review_one(ctx, item_id, "reject", _actor(principal), note)
         if item is None:
             raise HTTPException(status_code=404, detail="item not found")
         return item

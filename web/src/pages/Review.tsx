@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Article, AUDIENCES, EvidenceEntry, Item, KNOWLEDGE_TYPES } from "../api";
+import { api, Article, AUDIENCES, AuditRow, EvidenceEntry, Item, KNOWLEDGE_TYPES } from "../api";
 import {
   Badge,
   Button,
@@ -40,12 +40,20 @@ export default function Review() {
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [riskSort, setRiskSort] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batchNote, setBatchNote] = useState("");
+  const [batchBusy, setBatchBusy] = useState(false);
   const toast = useToast();
 
   function load() {
     setItems(null);
+    setSelected(new Set());
     api
-      .items(PAGE, offset, null, { review_status: status })
+      .items(PAGE, offset, null, {
+        review_status: status,
+        order: status === "pending" && riskSort ? "priority" : null,
+      })
       .then(setItems)
       .catch((e) => {
         toast.show(String(e), "red");
@@ -53,7 +61,35 @@ export default function Review() {
       });
   }
 
-  useEffect(load, [status, offset]);
+  useEffect(load, [status, offset, riskSort]);
+
+  function toggleSelected(id: string) {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function batchAct(action: "approve" | "reject") {
+    if (selected.size === 0) return;
+    setBatchBusy(true);
+    try {
+      const res = await api.reviewBatch([...selected], action, batchNote.trim());
+      toast.show(
+        `Batch ${action}d ${res.updated.length} item(s)` +
+          (res.missing.length ? `, ${res.missing.length} missing` : ""),
+        action === "approve" ? "green" : "neutral",
+      );
+      setBatchNote("");
+      load();
+    } catch (e) {
+      toast.show(String(e), "red");
+    } finally {
+      setBatchBusy(false);
+    }
+  }
 
   async function act(it: Item, action: "approve" | "reject") {
     setBusy(it.id);
@@ -84,7 +120,7 @@ export default function Review() {
         }
       />
 
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {STATUSES.map((s) => (
           <button
             key={s}
@@ -101,7 +137,42 @@ export default function Review() {
             {s}
           </button>
         ))}
+        {status === "pending" && (
+          <label className="ml-2 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+            <input
+              type="checkbox"
+              checked={riskSort}
+              onChange={(e) => {
+                setOffset(0);
+                setRiskSort(e.target.checked);
+              }}
+            />
+            Sort by risk
+          </label>
+        )}
       </div>
+
+      {selected.size > 0 && (
+        <Card className="flex flex-wrap items-center gap-2 p-3">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            {selected.size} selected
+          </span>
+          <Input
+            className="h-8 w-64"
+            placeholder="Optional note…"
+            value={batchNote}
+            onChange={(e) => setBatchNote(e.target.value)}
+          />
+          <Button size="sm" variant="secondary" loading={batchBusy}
+                  onClick={() => batchAct("approve")}>
+            <IconCheck className="h-4 w-4" /> Approve selected
+          </Button>
+          <Button size="sm" variant="danger" disabled={batchBusy}
+                  onClick={() => batchAct("reject")}>
+            <IconClose className="h-4 w-4" /> Reject selected
+          </Button>
+        </Card>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-4">
@@ -130,9 +201,29 @@ export default function Review() {
 
           {items && items.length > 0 && (
             <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="flex items-center gap-2 p-2.5">
+                <input
+                  type="checkbox"
+                  aria-label="Select all on page"
+                  checked={items.every((it) => selected.has(it.id))}
+                  onChange={(e) =>
+                    setSelected(
+                      e.target.checked ? new Set(items.map((it) => it.id)) : new Set(),
+                    )
+                  }
+                />
+                <span className="text-xs text-slate-400">Select all on page</span>
+              </div>
               {items.map((it) => (
                 <div key={it.id} className="flex items-start justify-between gap-4 p-3.5">
-                  <div className="min-w-0">
+                  <input
+                    type="checkbox"
+                    className="mt-1 shrink-0"
+                    aria-label={`Select ${it.id}`}
+                    checked={selected.has(it.id)}
+                    onChange={() => toggleSelected(it.id)}
+                  />
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {it.metadata.knowledge_type && (
                         <Badge tone="brand">{it.metadata.knowledge_type}</Badge>
@@ -172,6 +263,7 @@ export default function Review() {
                     {it.evidence && it.evidence.length > 0 && (
                       <EvidencePanel entries={it.evidence} />
                     )}
+                    <HistoryPanel itemId={it.id} />
                   </div>
                   <div className="flex shrink-0 gap-1.5">
                     {status !== "approved" && (
@@ -236,6 +328,51 @@ export default function Review() {
             else toast.show("Added to approved knowledge", "green");
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function HistoryPanel({ itemId }: { itemId: string }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<AuditRow[] | null>(null);
+  const toast = useToast();
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && rows === null) {
+      api
+        .itemHistory(itemId)
+        .then(setRows)
+        .catch((e) => {
+          toast.show(String(e), "red");
+          setRows([]);
+        });
+    }
+  }
+
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={toggle}
+        className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+      >
+        {open ? "▾" : "▸"} History
+      </button>
+      {open && rows !== null && (
+        <div className="mt-1 space-y-0.5">
+          {rows.length === 0 && (
+            <div className="text-xs text-slate-400">No review actions yet.</div>
+          )}
+          {rows.map((r, i) => (
+            <div key={i} className="font-mono text-xs text-slate-500 dark:text-slate-400">
+              {r.ts} — {r.action} by {r.actor}
+              {r.note ? ` (${r.note})` : ""}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

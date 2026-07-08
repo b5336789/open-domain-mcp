@@ -124,3 +124,82 @@ test.describe("knowledge review", () => {
     });
   });
 });
+
+test.describe("batch review", () => {
+  test("select-all, batch approve, and history disclosure", async ({ page }) => {
+    let batchPayload: unknown = null;
+    let itemsCall = 0;
+    await installApiMocks(page, {
+      "GET /api/articles": ARTICLES,
+      "GET /api/items": ITEMS_WITH_EVIDENCE,
+      "POST /api/items/review-batch": {
+        updated: ["item-ev-1"],
+        missing: [],
+        action: "approve",
+      },
+      "GET /api/items/item-ev-1/history": [
+        {
+          ts: "2026-07-09T00:00:00+00:00",
+          item_id: "item-ev-1",
+          action: "approve",
+          actor: "local",
+          note: "bulk",
+          prev_status: "pending",
+          new_status: "approved",
+        },
+      ],
+    });
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (request.method() === "POST" && url.pathname === "/api/items/review-batch") {
+        batchPayload = request.postDataJSON();
+      }
+      if (request.method() === "GET" && url.pathname === "/api/items") {
+        itemsCall += 1;
+      }
+    });
+
+    await page.goto("/#/review");
+    await expect(page.getByRole("heading", { name: "Knowledge Review" })).toBeVisible();
+
+    // history disclosure lazy-loads and renders an audit row
+    await page.getByRole("button", { name: /History/ }).click();
+    await expect(page.getByText(/approve by local \(bulk\)/)).toBeVisible();
+
+    // select all on page -> batch bar appears
+    await page.getByLabel("Select all on page").check();
+    await expect(page.getByText("1 selected")).toBeVisible();
+
+    // batch approve posts the ids and reloads the list
+    await page.getByPlaceholder("Optional note…").fill("bulk");
+    await page.getByRole("button", { name: "Approve selected" }).click();
+    await expect(page.getByText(/Batch approved 1 item/)).toBeVisible();
+    await expect.poll(() => batchPayload).toEqual({
+      ids: ["item-ev-1"],
+      action: "approve",
+      note: "bulk",
+    });
+    await expect.poll(() => itemsCall).toBeGreaterThan(1); // reloaded
+  });
+
+  test("risk sort toggle requests priority order", async ({ page }) => {
+    const itemUrls: string[] = [];
+    await installApiMocks(page, {
+      "GET /api/articles": ARTICLES,
+      "GET /api/items": ITEMS_WITH_EVIDENCE,
+    });
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (request.method() === "GET" && url.pathname === "/api/items") {
+        itemUrls.push(url.search);
+      }
+    });
+
+    await page.goto("/#/review");
+    await expect(page.getByRole("heading", { name: "Knowledge Review" })).toBeVisible();
+    await page.getByLabel("Sort by risk").check();
+    await expect
+      .poll(() => itemUrls.some((s) => s.includes("order=priority")))
+      .toBe(true);
+  });
+});

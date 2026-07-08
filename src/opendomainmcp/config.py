@@ -205,8 +205,11 @@ class Settings(BaseSettings):
 
     # When on, consensus rules with trust=="high" and evidence_status=="verified"
     # that have not yet received a human decision are automatically approved and
-    # recorded in the audit log. Default off so human review is always required
-    # unless explicitly opted in.
+    # recorded in the audit log. NOTE: enabling this also gates every OTHER
+    # consensus rule as "pending" (as if review_mode were on for rules) — the
+    # flag means "auto-approve the safe ones, humans review the rest", not
+    # "approve more". Default off so human review is always required unless
+    # explicitly opted in.
     review_auto_approve_high_trust: bool = False
 
     # Resilience for external API calls (Anthropic): per-request timeout in

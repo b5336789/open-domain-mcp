@@ -53,6 +53,7 @@ EDITABLE_FIELDS = (
     "retrieve_include_graph",
     "ingest_exclude",
     "codegraph_extract",
+    "review_auto_approve_high_trust",
 )
 
 
@@ -201,6 +202,12 @@ class Settings(BaseSettings):
     # backfills their summaries with call-chain context instead. Documents are
     # unaffected. Off == today's behavior.
     codegraph_extract: bool = False
+
+    # When on, consensus rules with trust=="high" and evidence_status=="verified"
+    # that have not yet received a human decision are automatically approved and
+    # recorded in the audit log. Default off so human review is always required
+    # unless explicitly opted in.
+    review_auto_approve_high_trust: bool = False
 
     # Resilience for external API calls (Anthropic): per-request timeout in
     # seconds and the number of automatic retries on transient errors.

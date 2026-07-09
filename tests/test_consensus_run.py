@@ -269,3 +269,38 @@ def test_long_statement_entity_name_truncated(store, fake_graph, tmp_path):
         assert len(entity_row["normalized_name"]) <= 255, (
             f"entity normalized_name too long: {len(entity_row['normalized_name'])}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Task 4: optional auto-approve of high-trust verified rules
+# ---------------------------------------------------------------------------
+
+def test_auto_approve_high_trust_verified_rules(store, fake_graph, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.consensus.run import run_consensus
+    from opendomainmcp.review.audit import AuditLog
+
+    _seed(store)  # two cross-layer chunks, verified evidence -> high trust
+    settings = Settings(data_dir=tmp_path, review_auto_approve_high_trust=True)
+    audit = AuditLog(tmp_path / "review_audit.db",
+                     clock=lambda: "2026-07-08T00:00:00+00:00")
+    result = run_consensus(store, settings, graph=fake_graph, audit=audit,
+                           adjudicator=_same_adjudicator(tmp_path))
+    assert result["auto_approved"] == 1
+    rules = store.get_items(limit=10, where={"kind": "rule"})
+    assert rules[0]["metadata"]["review_status"] == "approved"
+    hist = audit.history(rules[0]["id"])
+    assert hist and hist[0]["action"] == "auto-approve" and hist[0]["actor"] == "auto"
+
+
+def test_auto_approve_off_by_default(store, fake_graph, tmp_path):
+    from opendomainmcp.config import Settings
+    from opendomainmcp.consensus.run import run_consensus
+
+    _seed(store)
+    result = run_consensus(store, Settings(data_dir=tmp_path), graph=fake_graph,
+                           adjudicator=_same_adjudicator(tmp_path))
+    assert result.get("auto_approved", 0) == 0
+    rules = store.get_items(limit=10, where={"kind": "rule"})
+    assert rules[0]["metadata"]["review_status"] == "approved" or \
+        rules[0]["metadata"]["review_status"] == "pending"  # per review_mode, not auto

@@ -282,3 +282,175 @@ def test_settings_roundtrip_and_validation(client):
     assert ok.json()["updated"] == ["chunk_size"]
     bad = tc.patch("/api/settings", json={"values": {"data_dir": "/etc"}})
     assert bad.status_code == 400
+
+
+def _seed_pending(ctx, n=3):
+    from opendomainmcp.models import Chunk, KnowledgeUnit
+    chunks = [Chunk(text=f"pending {i}", source=f"s{i}.md", kind="text",
+                    knowledge=KnowledgeUnit(summary=f"p{i}", knowledge_type="Feature",
+                                            review_status="pending"))
+              for i in range(n)]
+    ctx.store.upsert(chunks)
+    return [c.id for c in chunks]
+
+
+def test_approve_writes_audit_with_note_and_actor(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+    r = tc.post(f"/api/items/{ids[0]}/approve", json={"note": "verified by hand"})
+    assert r.json()["metadata"]["review_status"] == "approved"
+    hist = tc.get(f"/api/items/{ids[0]}/history").json()
+    assert len(hist) == 1
+    assert hist[0]["action"] == "approve" and hist[0]["note"] == "verified by hand"
+    assert hist[0]["prev_status"] == "pending" and hist[0]["new_status"] == "approved"
+    assert hist[0]["actor"] == "local"   # auth off in tests
+
+
+def test_reject_without_note_defaults_empty(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+    tc.post(f"/api/items/{ids[0]}/reject")
+    hist = tc.get(f"/api/items/{ids[0]}/history").json()
+    assert hist[0]["action"] == "reject" and hist[0]["note"] == ""
+
+
+def test_review_batch_applies_and_reports_missing(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 3)
+    r = tc.post("/api/items/review-batch",
+                json={"ids": ids + ["nope"], "action": "approve", "note": "bulk"})
+    body = r.json()
+    assert set(body["updated"]) == set(ids) and body["missing"] == ["nope"]
+    pending = tc.get("/api/items", params={"review_status": "pending"}).json()
+    assert pending == []
+    for i in ids:
+        h = tc.get(f"/api/items/{i}/history").json()
+        assert h[0]["note"] == "bulk" and h[0]["action"] == "approve"
+
+
+def test_review_batch_rejects_bad_action(client):
+    tc, ctx, _ = client
+    assert tc.post("/api/items/review-batch",
+                   json={"ids": [], "action": "purge"}).status_code == 400
+
+
+def test_history_newest_first(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+    tc.post(f"/api/items/{ids[0]}/approve")
+    tc.post(f"/api/items/{ids[0]}/reject")
+    hist = tc.get(f"/api/items/{ids[0]}/history").json()
+    assert [h["action"] for h in hist] == ["reject", "approve"]
+
+
+def test_pending_priority_order_route(client):
+    from opendomainmcp.models import Chunk, KnowledgeUnit, RuleItem
+    tc, ctx, _ = client
+    ctx.store.upsert([
+        Chunk(text="plain", source="p.md", kind="text",
+              knowledge=KnowledgeUnit(summary="ok", confidence=0.9,
+                                      review_status="pending")),
+        Chunk(text="weak", source="w.md", kind="text",
+              knowledge=KnowledgeUnit(summary="weak", confidence=0.2,
+                                      evidence_status="unverified",
+                                      review_status="pending")),
+    ])
+    ctx.store.upsert([RuleItem(statement="conflicting rule", trust="conflicted",
+                               review_status="pending")])
+    ordered = tc.get("/api/items",
+                     params={"review_status": "pending", "order": "priority"}).json()
+    kinds = [i["metadata"].get("trust") or i["metadata"].get("evidence_status")
+             or "plain" for i in ordered]
+    assert kinds[0] == "conflicted" and kinds[1] == "unverified"
+
+    # default order unaffected
+    default = tc.get("/api/items", params={"review_status": "pending"}).json()
+    assert len(default) == 3
+
+
+def test_batch_store_failure_is_500_not_missing(client, monkeypatch):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+    monkeypatch.setattr(ctx.store, "update_metadata", lambda *a, **k: False)
+    r = tc.post("/api/items/review-batch",
+                json={"ids": ids, "action": "approve"})
+    assert r.status_code == 500  # existing item + failed update = loud, not "missing"
+
+
+# Fix 1: actor must not expose raw API key
+def test_actor_hashed_not_raw_key(tmp_path, store, pipeline, fake_graph, monkeypatch):
+    from opendomainmcp.config import Settings
+
+    monkeypatch.setenv("ODM_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ODM_API_KEYS", "sekret1:reviewer:*")
+
+    settings = Settings(data_dir=tmp_path, auth_enabled=True,
+                        api_keys="sekret1:reviewer:*")
+    ctx = Context(settings=settings, store=store, pipeline=pipeline, graph=fake_graph)
+    tc = TestClient(create_app(context=ctx, context_factory=lambda: ctx))
+
+    ids = _seed_pending(ctx, 1)
+    r = tc.post(f"/api/items/{ids[0]}/approve",
+                headers={"X-API-Key": "sekret1"})
+    assert r.status_code == 200
+
+    hist = tc.get(f"/api/items/{ids[0]}/history",
+                  headers={"X-API-Key": "sekret1"}).json()
+    assert len(hist) >= 1
+    actor = hist[0]["actor"]
+    assert actor.startswith("reviewer:"), f"actor should start with role: {actor}"
+    assert "sekret1" not in actor, f"raw key must not appear in actor: {actor}"
+
+
+# Fix 3: trust filter on list_items
+def test_list_items_trust_filter(client):
+    tc, ctx, _ = client
+    from opendomainmcp.models import Chunk, KnowledgeUnit, RuleItem
+
+    ctx.store.upsert([
+        Chunk(text="plain chunk", source="p.md", kind="text",
+              knowledge=KnowledgeUnit(summary="plain", review_status="pending")),
+        RuleItem(statement="conflicting rule", trust="conflicted",
+                 review_status="pending"),
+    ])
+
+    result = tc.get("/api/items", params={"trust": "conflicted"}).json()
+    assert len(result) == 1
+    assert result[0]["metadata"].get("trust") == "conflicted"
+
+
+# Fix 5: PATCH review_status writes audit row
+def test_patch_review_status_writes_audit(client):
+    tc, ctx, _ = client
+    ids = _seed_pending(ctx, 1)
+
+    r = tc.patch(f"/api/items/{ids[0]}",
+                 json={"metadata": {"review_status": "approved"}})
+    assert r.status_code == 200
+    assert r.json()["metadata"]["review_status"] == "approved"
+
+    hist = tc.get(f"/api/items/{ids[0]}/history").json()
+    assert len(hist) >= 1
+    row = hist[0]
+    assert row["action"] == "patch"
+    assert row["prev_status"] == "pending"
+    assert row["new_status"] == "approved"
+
+
+# Fix 6: audit rows filtered by collection
+def test_audit_history_collection_isolation(tmp_path):
+    from opendomainmcp.review.audit import AuditLog
+
+    log = AuditLog(tmp_path / "review_audit.db",
+                   clock=lambda: "2026-07-09T00:00:00+00:00")
+    log.record("item1", "approve", "u", collection="col-A")
+    log.record("item1", "reject", "u", collection="col-B")
+
+    hist_a = log.history("item1", collection="col-A")
+    assert len(hist_a) == 1 and hist_a[0]["action"] == "approve"
+
+    hist_b = log.history("item1", collection="col-B")
+    assert len(hist_b) == 1 and hist_b[0]["action"] == "reject"
+
+    hist_all = log.history("item1")
+    assert len(hist_all) == 2

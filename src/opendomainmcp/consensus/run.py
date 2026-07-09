@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Callable, Optional
 
 from opendomainmcp.config import Settings
@@ -12,6 +13,7 @@ from opendomainmcp.consensus.pairing import find_candidates
 from opendomainmcp.consensus.units import collect_rule_units
 from opendomainmcp.graph.models import Edge, Entity
 from opendomainmcp.graph.normalize import normalize_name
+from opendomainmcp.review.audit import AuditLog
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,7 @@ def run_consensus(
     graph=None,
     progress: Optional[Callable[[dict], None]] = None,
     adjudicator: Optional[RuleAdjudicator] = None,
+    audit: Optional[AuditLog] = None,
 ) -> dict:
     """Run a full consensus pass over the corpus.
 
@@ -41,6 +44,7 @@ def run_consensus(
             "conflicts": int,           # verdict-level conflict count
             "trust": {"high": n, "normal": n, "conflicted": n},
             "pruned": int,
+            "auto_approved": int,       # rules auto-approved this run
             "errors": list[dict],       # per-pair errors
         }
 
@@ -53,6 +57,8 @@ def run_consensus(
     def _emit(stage: str, **kw: object) -> None:
         if progress:
             progress({"stage": stage, **kw})
+
+    _audit_arg = audit  # remember if caller supplied one
 
     errors: list[dict] = []
 
@@ -106,7 +112,13 @@ def run_consensus(
     # ------------------------------------------------------------------
     # Stage 4: merge into rule items
     # ------------------------------------------------------------------
-    rules = merge_groups(units, verdicts, review_mode=settings.review_mode)
+    # When auto-approve is enabled, all rules start as "pending" so that
+    # the auto-approve block below can selectively approve high-trust verified
+    # rules and leave the rest pending for human review.
+    effective_review_mode = (
+        settings.review_mode or settings.review_auto_approve_high_trust
+    )
+    rules = merge_groups(units, verdicts, review_mode=effective_review_mode)
     _emit("merge", rules=len(rules))
 
     # Compute result metrics from the merged rules and verdicts.
@@ -121,6 +133,7 @@ def run_consensus(
     # ------------------------------------------------------------------
     pruned = 0
     rules_created = 0
+    auto_approved = 0
 
     # Guard: total adjudication failure must not wipe prior consensus.
     if adjudicated == 0 and len(candidates) > 0:
@@ -183,6 +196,26 @@ def run_consensus(
                 if same_membership and not newly_conflicted:
                     rule.review_status = human_status
 
+        # Auto-approve: when enabled, set review_status="approved" for any rule
+        # with trust=="high" and evidence_status=="verified" that was NOT already
+        # given a human decision by Fix 1 above (i.e. still "pending").
+        if settings.review_auto_approve_high_trust:
+            # Create AuditLog inside the block so no db file is created when flag is off.
+            if _audit_arg is None:
+                audit = AuditLog(Path(settings.data_dir) / "review_audit.db")
+            else:
+                audit = _audit_arg
+            _collection = store.stats().get("collection", "")
+            for rule in rules:
+                if (rule.trust == "high"
+                        and rule.evidence_status == "verified"
+                        and rule.review_status == "pending"):
+                    rule.review_status = "approved"
+                    audit.record(rule.id, "auto-approve", "auto",
+                                 prev_status="pending", new_status="approved",
+                                 collection=_collection)
+                    auto_approved += 1
+
         if rules:
             store.upsert(rules)
 
@@ -218,6 +251,7 @@ def run_consensus(
         "conflicts": conflicts,
         "trust": trust_counts,
         "pruned": pruned,
+        "auto_approved": auto_approved,
         "errors": errors,
     }
 

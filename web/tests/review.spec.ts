@@ -69,8 +69,8 @@ test.describe("evidence panels", () => {
 
     await expect(page.getByRole("heading", { name: "Knowledge Review" })).toBeVisible();
 
-    // evidence_status badge should be visible
-    await expect(page.getByText("verified").first()).toBeVisible();
+    // evidence_status badge should be visible (exclude hidden select options)
+    await expect(page.locator("span", { hasText: /^verified$/ }).first()).toBeVisible();
 
     // evidence panel toggle should be present and collapsed by default
     const toggle = page.getByRole("button", { name: /Evidence \(1\)/ });
@@ -122,5 +122,112 @@ test.describe("knowledge review", () => {
       type: "synthesize",
       params: {},
     });
+  });
+});
+
+test.describe("batch review", () => {
+  test("select-all, batch approve, and history disclosure", async ({ page }) => {
+    let batchPayload: unknown = null;
+    let itemsCall = 0;
+    await installApiMocks(page, {
+      "GET /api/articles": ARTICLES,
+      "GET /api/items": ITEMS_WITH_EVIDENCE,
+      "POST /api/items/review-batch": {
+        updated: ["item-ev-1"],
+        missing: [],
+        action: "approve",
+      },
+      "GET /api/items/item-ev-1/history": [
+        {
+          ts: "2026-07-09T00:00:00+00:00",
+          item_id: "item-ev-1",
+          action: "approve",
+          actor: "local",
+          note: "bulk",
+          prev_status: "pending",
+          new_status: "approved",
+        },
+      ],
+    });
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (request.method() === "POST" && url.pathname === "/api/items/review-batch") {
+        batchPayload = request.postDataJSON();
+      }
+      if (request.method() === "GET" && url.pathname === "/api/items") {
+        itemsCall += 1;
+      }
+    });
+
+    await page.goto("/#/review");
+    await expect(page.getByRole("heading", { name: "Knowledge Review" })).toBeVisible();
+
+    // history disclosure lazy-loads and renders an audit row
+    await page.getByRole("button", { name: /History/ }).click();
+    await expect(page.getByText(/approve by local \(bulk\)/)).toBeVisible();
+
+    // select all on page -> batch bar appears
+    await page.getByLabel("Select all on page").check();
+    await expect(page.getByText("1 selected")).toBeVisible();
+
+    // batch approve posts the ids and reloads the list
+    await page.getByPlaceholder("Optional note…").fill("bulk");
+    await page.getByRole("button", { name: "Approve selected" }).click();
+    await expect(page.getByText(/Batch approved 1 item/)).toBeVisible();
+    await expect.poll(() => batchPayload).toEqual({
+      ids: ["item-ev-1"],
+      action: "approve",
+      note: "bulk",
+    });
+    await expect.poll(() => itemsCall).toBeGreaterThan(1); // reloaded
+  });
+
+  test("risk sort is on by default and unchecking removes priority order", async ({ page }) => {
+    const itemUrls: string[] = [];
+    await installApiMocks(page, {
+      "GET /api/articles": ARTICLES,
+      "GET /api/items": ITEMS_WITH_EVIDENCE,
+    });
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (request.method() === "GET" && url.pathname === "/api/items") {
+        itemUrls.push(url.search);
+      }
+    });
+
+    await page.goto("/#/review");
+    await expect(page.getByRole("heading", { name: "Knowledge Review" })).toBeVisible();
+
+    // Default on: first load must include order=priority without clicking toggle
+    await expect
+      .poll(() => itemUrls.some((s) => s.includes("order=priority")))
+      .toBe(true);
+
+    // Uncheck the toggle: subsequent request must NOT include order=priority
+    const countBefore = itemUrls.length;
+    await page.getByLabel("Sort by risk").uncheck();
+    await expect
+      .poll(() => itemUrls.slice(countBefore).some((s) => !s.includes("order=priority")))
+      .toBe(true);
+  });
+
+  test("single-item approve clears selection and hides batch bar", async ({ page }) => {
+    await installApiMocks(page, {
+      "GET /api/articles": ARTICLES,
+      "GET /api/items": ITEMS_WITH_EVIDENCE,
+      "POST /api/items/item-ev-1/approve": ITEMS_WITH_EVIDENCE[0],
+    });
+
+    await page.goto("/#/review");
+    await expect(page.getByRole("heading", { name: "Knowledge Review" })).toBeVisible();
+
+    // Select the item via checkbox
+    await page.getByLabel("Select item-ev-1").check();
+    await expect(page.getByText("1 selected")).toBeVisible();
+
+    // Approve via the card button (single-item approve)
+    await page.getByRole("button", { name: "Approve" }).first().click();
+    // Batch bar should disappear (selection cleared)
+    await expect(page.getByText("1 selected")).not.toBeVisible();
   });
 });

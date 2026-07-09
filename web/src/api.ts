@@ -38,6 +38,16 @@ export interface Item {
   evidence?: EvidenceEntry[];
 }
 
+export interface AuditRow {
+  ts: string;
+  item_id: string;
+  action: string;
+  actor: string;
+  note: string;
+  prev_status: string;
+  new_status: string;
+}
+
 export interface Citation {
   n: number;
   id: string;
@@ -448,12 +458,21 @@ export const api = {
     limit: number,
     offset: number,
     kind: string | null,
-    filters: { review_status?: string | null; knowledge_type?: string | null } = {}
+    filters: {
+      review_status?: string | null;
+      knowledge_type?: string | null;
+      trust?: string | null;
+      evidence_status?: string | null;
+      order?: string | null;
+    } = {}
   ) => {
     const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
     if (kind) params.set("kind", kind);
     if (filters.review_status) params.set("review_status", filters.review_status);
     if (filters.knowledge_type) params.set("knowledge_type", filters.knowledge_type);
+    if (filters.trust) params.set("trust", filters.trust);
+    if (filters.evidence_status) params.set("evidence_status", filters.evidence_status);
+    if (filters.order) params.set("order", filters.order);
     return fetch(`/api/items?${params}`, { headers: headers() }).then(json<Item[]>);
   },
 
@@ -471,11 +490,29 @@ export const api = {
       body: JSON.stringify(item),
     }).then(json<Item>),
 
-  approveItem: (id: string) =>
-    fetch(`/api/items/${id}/approve`, { method: "POST", headers: headers() }).then(json<Item>),
+  approveItem: (id: string, note = "") =>
+    fetch(`/api/items/${id}/approve`, {
+      method: "POST",
+      headers: headers(note ? { "Content-Type": "application/json" } : {}),
+      body: note ? JSON.stringify({ note }) : undefined,
+    }).then(json<Item>),
 
-  rejectItem: (id: string) =>
-    fetch(`/api/items/${id}/reject`, { method: "POST", headers: headers() }).then(json<Item>),
+  rejectItem: (id: string, note = "") =>
+    fetch(`/api/items/${id}/reject`, {
+      method: "POST",
+      headers: headers(note ? { "Content-Type": "application/json" } : {}),
+      body: note ? JSON.stringify({ note }) : undefined,
+    }).then(json<Item>),
+
+  reviewBatch: (ids: string[], action: "approve" | "reject", note = "") =>
+    fetch("/api/items/review-batch", {
+      method: "POST",
+      headers: headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ ids, action, note }),
+    }).then(json<{ updated: string[]; missing: string[]; action: string }>),
+
+  itemHistory: (id: string) =>
+    fetch(`/api/items/${id}/history`, { headers: headers() }).then(json<AuditRow[]>),
 
   views: () => fetch("/api/views", { headers: headers() }).then(json<ViewsMap>),
 

@@ -66,8 +66,12 @@ def _get_audit_log(ctx: Context):
 
 
 def _actor(principal: dict) -> str:
-    """The audit actor: the API-key name when auth is on, else 'local'."""
-    return principal.get("key") or "local"
+    """The audit actor: a non-reversible role:hash(key) when auth is on, else 'local'."""
+    return (
+        f"{principal['role']}:{hashlib.sha256(key.encode()).hexdigest()[:8]}"
+        if (key := principal.get("key"))
+        else "local"
+    )
 
 
 class SearchRequest(BaseModel):
@@ -438,6 +442,8 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     def list_items(limit: int = 50, offset: int = 0, kind: str | None = None,
                    review_status: str | None = None,
                    knowledge_type: str | None = None,
+                   trust: str | None = None,
+                   evidence_status: str | None = None,
                    order: str | None = None,
                    ctx: Context = Depends(get_ctx)):
         from ..store import build_where
@@ -446,6 +452,7 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
         where = build_where({
             "kind": kind, "review_status": review_status,
             "knowledge_type": knowledge_type,
+            "trust": trust, "evidence_status": evidence_status,
         })
         if order == "priority" and review_status == "pending":
             # Fetch full pending set (bounded) then sort in Python.
@@ -502,7 +509,8 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
             raise HTTPException(status_code=500,
                                 detail=f"store update failed for {item_id}")
         _get_audit_log(ctx).record(item_id, action, actor, note=note,
-                                   prev_status=prev, new_status=new_status)
+                                   prev_status=prev, new_status=new_status,
+                                   collection=ctx.store.stats()["collection"])
         return ctx.store.get_item(item_id)
 
     @app.post("/api/items/{item_id}/approve")
@@ -542,7 +550,7 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
 
     @app.get("/api/items/{item_id}/history")
     def item_history(item_id: str, ctx: Context = Depends(get_ctx)):
-        return _get_audit_log(ctx).history(item_id)
+        return _get_audit_log(ctx).history(item_id, collection=ctx.store.stats()["collection"])
 
     @app.get("/api/items/{item_id}")
     def get_item(item_id: str, ctx: Context = Depends(get_ctx)):
@@ -552,9 +560,21 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
         return item
 
     @app.patch("/api/items/{item_id}")
-    def update_item(item_id: str, patch: ItemPatch, ctx: Context = Depends(get_ctx)):
+    def update_item(item_id: str, patch: ItemPatch, ctx: Context = Depends(get_ctx),
+                    principal: dict = Depends(auth_dependency)):
+        item = ctx.store.get_item(item_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="item not found")
+        prev_status = item.get("metadata", {}).get("review_status", "")
         if not ctx.store.update_metadata(item_id, patch.metadata):
             raise HTTPException(status_code=404, detail="item not found")
+        if "review_status" in patch.metadata:
+            _get_audit_log(ctx).record(
+                item_id, "patch", _actor(principal),
+                note="", prev_status=prev_status,
+                new_status=patch.metadata["review_status"],
+                collection=ctx.store.stats()["collection"],
+            )
         return ctx.store.get_item(item_id)
 
     @app.delete("/api/items/{item_id}")

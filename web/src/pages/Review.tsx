@@ -40,10 +40,13 @@ export default function Review() {
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [riskSort, setRiskSort] = useState(false);
+  const [riskSort, setRiskSort] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchNote, setBatchNote] = useState("");
   const [batchBusy, setBatchBusy] = useState(false);
+  const [filterTrust, setFilterTrust] = useState("");
+  const [filterEvidence, setFilterEvidence] = useState("");
+  const [filterType, setFilterType] = useState("");
   const toast = useToast();
 
   function load() {
@@ -53,6 +56,9 @@ export default function Review() {
       .items(PAGE, offset, null, {
         review_status: status,
         order: status === "pending" && riskSort ? "priority" : null,
+        trust: filterTrust || null,
+        evidence_status: filterEvidence || null,
+        knowledge_type: filterType || null,
       })
       .then(setItems)
       .catch((e) => {
@@ -61,7 +67,7 @@ export default function Review() {
       });
   }
 
-  useEffect(load, [status, offset, riskSort]);
+  useEffect(load, [status, offset, riskSort, filterTrust, filterEvidence, filterType]);
 
   function toggleSelected(id: string) {
     setSelected((cur) => {
@@ -78,7 +84,7 @@ export default function Review() {
     try {
       const res = await api.reviewBatch([...selected], action, batchNote.trim());
       toast.show(
-        `Batch ${action}d ${res.updated.length} item(s)` +
+        `Batch ${action === "approve" ? "approved" : "rejected"} ${res.updated.length} item(s)` +
           (res.missing.length ? `, ${res.missing.length} missing` : ""),
         action === "approve" ? "green" : "neutral",
       );
@@ -96,8 +102,12 @@ export default function Review() {
     try {
       if (action === "approve") await api.approveItem(it.id);
       else await api.rejectItem(it.id);
-      toast.show(`Marked ${action}d`, action === "approve" ? "green" : "neutral");
+      toast.show(
+        action === "approve" ? "Marked approved" : "Marked rejected",
+        action === "approve" ? "green" : "neutral",
+      );
       setItems((cur) => cur?.filter((x) => x.id !== it.id) ?? cur);
+      setSelected((cur) => { const n = new Set(cur); n.delete(it.id); return n; });
     } catch (e) {
       toast.show(String(e), "red");
     } finally {
@@ -150,6 +160,36 @@ export default function Review() {
             Sort by risk
           </label>
         )}
+        <Select
+          className="h-7 text-xs"
+          value={filterTrust}
+          onChange={(e) => { setOffset(0); setFilterTrust(e.target.value); }}
+        >
+          <option value="">Trust: any</option>
+          <option value="high">high</option>
+          <option value="normal">normal</option>
+          <option value="conflicted">conflicted</option>
+        </Select>
+        <Select
+          className="h-7 text-xs"
+          value={filterEvidence}
+          onChange={(e) => { setOffset(0); setFilterEvidence(e.target.value); }}
+        >
+          <option value="">Evidence: any</option>
+          <option value="verified">verified</option>
+          <option value="partial">partial</option>
+          <option value="unverified">unverified</option>
+        </Select>
+        <Select
+          className="h-7 text-xs"
+          value={filterType}
+          onChange={(e) => { setOffset(0); setFilterType(e.target.value); }}
+        >
+          <option value="">Type: any</option>
+          {KNOWLEDGE_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </Select>
       </div>
 
       {selected.size > 0 && (
@@ -167,7 +207,7 @@ export default function Review() {
                   onClick={() => batchAct("approve")}>
             <IconCheck className="h-4 w-4" /> Approve selected
           </Button>
-          <Button size="sm" variant="danger" disabled={batchBusy}
+          <Button size="sm" variant="danger" loading={batchBusy}
                   onClick={() => batchAct("reject")}>
             <IconClose className="h-4 w-4" /> Reject selected
           </Button>

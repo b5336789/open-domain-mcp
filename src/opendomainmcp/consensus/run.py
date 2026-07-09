@@ -58,8 +58,7 @@ def run_consensus(
         if progress:
             progress({"stage": stage, **kw})
 
-    if audit is None:
-        audit = AuditLog(Path(settings.data_dir) / "review_audit.db")
+    _audit_arg = audit  # remember if caller supplied one
 
     errors: list[dict] = []
 
@@ -201,13 +200,20 @@ def run_consensus(
         # with trust=="high" and evidence_status=="verified" that was NOT already
         # given a human decision by Fix 1 above (i.e. still "pending").
         if settings.review_auto_approve_high_trust:
+            # Create AuditLog inside the block so no db file is created when flag is off.
+            if _audit_arg is None:
+                audit = AuditLog(Path(settings.data_dir) / "review_audit.db")
+            else:
+                audit = _audit_arg
+            _collection = store.stats().get("collection", "")
             for rule in rules:
                 if (rule.trust == "high"
                         and rule.evidence_status == "verified"
                         and rule.review_status == "pending"):
                     rule.review_status = "approved"
                     audit.record(rule.id, "auto-approve", "auto",
-                                 new_status="approved")
+                                 prev_status="pending", new_status="approved",
+                                 collection=_collection)
                     auto_approved += 1
 
         if rules:

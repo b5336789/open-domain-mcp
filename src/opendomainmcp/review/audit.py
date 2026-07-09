@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS review_audit (
     actor TEXT NOT NULL,
     note TEXT NOT NULL DEFAULT '',
     prev_status TEXT NOT NULL DEFAULT '',
-    new_status TEXT NOT NULL DEFAULT ''
+    new_status TEXT NOT NULL DEFAULT '',
+    collection TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_review_audit_item ON review_audit(item_id);
 """
@@ -42,6 +43,7 @@ class AuditEntry:
     note: str = ""
     prev_status: str = ""
     new_status: str = ""
+    collection: str = ""
 
 
 class AuditLog:
@@ -54,26 +56,38 @@ class AuditLog:
         self._conn.row_factory = sqlite3.Row
         with self._conn:
             self._conn.executescript(_SCHEMA)
+            # Migration: add collection column to existing databases that lack it.
+            cols = {row[1] for row in self._conn.execute("PRAGMA table_info(review_audit)")}
+            if "collection" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE review_audit ADD COLUMN collection TEXT NOT NULL DEFAULT ''"
+                )
 
     def record(self, item_id: str, action: str, actor: str, note: str = "",
-               prev_status: str = "", new_status: str = "") -> AuditEntry:
+               prev_status: str = "", new_status: str = "",
+               collection: str = "") -> AuditEntry:
         entry = AuditEntry(ts=self._clock(), item_id=item_id, action=action,
                            actor=actor, note=note, prev_status=prev_status,
-                           new_status=new_status)
+                           new_status=new_status, collection=collection)
         with self._lock, self._conn:
             self._conn.execute(
                 "INSERT INTO review_audit "
-                "(ts, item_id, action, actor, note, prev_status, new_status) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "(ts, item_id, action, actor, note, prev_status, new_status, collection) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (entry.ts, entry.item_id, entry.action, entry.actor,
-                 entry.note, entry.prev_status, entry.new_status))
+                 entry.note, entry.prev_status, entry.new_status, entry.collection))
         return entry
 
-    def history(self, item_id: str) -> list[dict]:
+    def history(self, item_id: str, collection: str | None = None) -> list[dict]:
         with self._lock:
-            cur = self._conn.execute(
-                "SELECT * FROM review_audit WHERE item_id = ? ORDER BY id DESC",
-                (item_id,))
+            if collection is not None:
+                cur = self._conn.execute(
+                    "SELECT * FROM review_audit WHERE item_id = ? AND collection = ? ORDER BY id DESC",
+                    (item_id, collection))
+            else:
+                cur = self._conn.execute(
+                    "SELECT * FROM review_audit WHERE item_id = ? ORDER BY id DESC",
+                    (item_id,))
             return [dict(r) for r in cur.fetchall()]
 
     def all(self, limit: int = 200) -> list[dict]:

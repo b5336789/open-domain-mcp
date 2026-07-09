@@ -461,6 +461,8 @@ export const api = {
     filters: {
       review_status?: string | null;
       knowledge_type?: string | null;
+      trust?: string | null;
+      evidence_status?: string | null;
       order?: string | null;
     } = {}
   ) => {
@@ -468,6 +470,8 @@ export const api = {
     if (kind) params.set("kind", kind);
     if (filters.review_status) params.set("review_status", filters.review_status);
     if (filters.knowledge_type) params.set("knowledge_type", filters.knowledge_type);
+    if (filters.trust) params.set("trust", filters.trust);
+    if (filters.evidence_status) params.set("evidence_status", filters.evidence_status);
     if (filters.order) params.set("order", filters.order);
     return fetch(`/api/items?${params}`, { headers: headers() }).then(json<Item[]>);
   },

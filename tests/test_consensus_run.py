@@ -277,7 +277,6 @@ def test_long_statement_entity_name_truncated(store, fake_graph, tmp_path):
 
 def test_auto_approve_high_trust_verified_rules(store, fake_graph, tmp_path):
     from opendomainmcp.config import Settings
-    from opendomainmcp.consensus.adjudicate import RuleAdjudicator
     from opendomainmcp.consensus.run import run_consensus
     from opendomainmcp.review.audit import AuditLog
 

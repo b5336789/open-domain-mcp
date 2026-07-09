@@ -10,21 +10,35 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
+
+# Env / secrets (keep the documented example)
+.env
+.env.*
+!.env.example
 
 # Project data (vector store, ingested artifacts)
 .opendomain/
 *.sqlite3
-
-# Env / secrets
-.env
+# Stray Chroma dir created when data_dir resolved to None
+None/
 
 # Runtime logs
 *.log
 
 # Node / frontend
-web/node_modules/
+node_modules/
 web/dist/
+web/test-results/
+web/playwright-report/
 src/opendomainmcp/api/static/
+
+# Local debug screenshots at repo root (docs/screenshots/ stays tracked)
+/*.png
+
+# Generated media (brag / launch-video output)
+brag-output/
 
 # OS / editor
 .DS_Store

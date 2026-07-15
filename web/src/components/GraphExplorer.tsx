@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import { api, EvidenceEntry, GraphEntity, GraphNeighbors } from "../api";
+import { api, EvidenceEntry, GraphEntity, GraphNeighbor } from "../api";
 import { Badge, Card, EmptyState, Spinner, useToast } from "./ui";
 import { IconGraph } from "./icons";
 
@@ -31,30 +31,52 @@ function linkEndpointId(endpoint: string | GNode): string {
   return typeof endpoint === "object" ? endpoint.id : endpoint;
 }
 
+// The fetch helper throws "404: ..." on a missing entity. Treat that as a
+// friendly "not found" rather than an error toast (same pattern as Graph.tsx).
+function isNotFound(e: unknown): boolean {
+  return e instanceof Error && e.message.startsWith("404");
+}
+
 type Selection =
   | { kind: "node"; node: GNode }
   | { kind: "link"; link: GLink }
   | null;
 
-/** Merge one /api/graph/entity response into the accumulated node/link maps.
- *  Returns the number of neighbors dropped by the MAX_NEIGHBORS cap. */
+/** Accumulated canvas state. Nodes, links, and truncation notices move
+ *  together so each expansion is a single pure state update. */
+interface GraphState {
+  nodes: Map<string, GNode>;
+  links: Map<string, GLink>;
+  // Per-node truncation record, keyed by normalized_name. Entries accumulate
+  // and are never cleared by later expansions (Fail Loud): expanded nodes
+  // don't re-fetch, so their hidden neighbors stay hidden and every notice
+  // remains relevant until the root resets the canvas.
+  truncated: Map<string, { name: string; hidden: number }>;
+}
+
+function emptyGraph(): GraphState {
+  return { nodes: new Map(), links: new Map(), truncated: new Map() };
+}
+
+/** Pure merge of one /api/graph/entity response (for the just-expanded
+ *  `entity`) into the accumulated graph state. */
 function mergeDetail(
-  nodes: Map<string, GNode>,
-  links: Map<string, GLink>,
-  detail: GraphNeighbors,
-  markExpanded: string | null,
-): number {
-  const root = detail.entity;
-  if (!root) return 0;
-  const existing = nodes.get(root.normalized_name);
-  nodes.set(root.normalized_name, {
-    id: root.normalized_name,
-    name: root.name,
-    type: root.type,
-    expanded: existing?.expanded || markExpanded === root.normalized_name,
-    entity: root,
+  prev: GraphState,
+  entity: GraphEntity,
+  neighbors: GraphNeighbor[],
+): GraphState {
+  const nodes = new Map(prev.nodes);
+  const links = new Map(prev.links);
+  const truncated = new Map(prev.truncated);
+  // The merged center is by definition the node just expanded.
+  nodes.set(entity.normalized_name, {
+    id: entity.normalized_name,
+    name: entity.name,
+    type: entity.type,
+    expanded: true,
+    entity,
   });
-  const shown = detail.neighbors.slice(0, MAX_NEIGHBORS);
+  const shown = neighbors.slice(0, MAX_NEIGHBORS);
   for (const n of shown) {
     const id = n.entity.normalized_name;
     if (!nodes.has(id)) {
@@ -67,7 +89,7 @@ function mergeDetail(
       });
     }
     const [src, dst] =
-      n.direction === "out" ? [root.normalized_name, id] : [id, root.normalized_name];
+      n.direction === "out" ? [entity.normalized_name, id] : [id, entity.normalized_name];
     const key = `${src}|${dst}|${n.relation_type}`;
     if (!links.has(key)) {
       links.set(key, {
@@ -79,17 +101,28 @@ function mergeDetail(
       });
     }
   }
-  return detail.neighbors.length - shown.length;
+  const hidden = neighbors.length - shown.length;
+  if (hidden > 0) {
+    truncated.set(entity.normalized_name, { name: entity.name, hidden });
+  }
+  return { nodes, links, truncated };
 }
 
 export default function GraphExplorer({ rootName }: { rootName: string }) {
-  const [nodes, setNodes] = useState<Map<string, GNode>>(new Map());
-  const [links, setLinks] = useState<Map<string, GLink>>(new Map());
+  const [graph, setGraph] = useState<GraphState>(emptyGraph);
   const [selection, setSelection] = useState<Selection>(null);
-  const [truncated, setTruncated] = useState<{ node: string; hidden: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+
+  // useToast() returns a fresh object identity on provider re-render; hold it
+  // in a ref so `expand` (and the root-reset effect keyed on it) stay stable.
   const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+
+  // Current root, readable from in-flight expansions so responses that arrive
+  // after the root changed are dropped instead of merging into the new canvas.
+  const rootRef = useRef(rootName);
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(600);
@@ -102,61 +135,51 @@ export default function GraphExplorer({ rootName }: { rootName: string }) {
     return () => ro.disconnect();
   }, []);
 
-  const expand = useCallback(
-    async (name: string, isRoot: boolean) => {
-      setLoading(true);
-      try {
-        const detail = await api.graphEntity(name);
-        if (!detail.entity) {
-          if (isRoot) setNotFound(true);
-          return;
-        }
-        setNodes((prev) => {
-          const next = new Map(prev);
-          setLinks((prevLinks) => {
-            const nextLinks = new Map(prevLinks);
-            const hidden = mergeDetail(next, nextLinks, detail, detail.entity!.normalized_name);
-            setTruncated(hidden > 0 ? { node: detail.entity!.name, hidden } : null);
-            return nextLinks;
-          });
-          return next;
+  const expand = useCallback(async (name: string, isRoot: boolean) => {
+    const rootAtCall = rootRef.current;
+    setLoading(true);
+    try {
+      const detail = await api.graphEntity(name);
+      if (rootRef.current !== rootAtCall) return; // stale: root changed mid-flight
+      // Unknown entities 404 (handled in the catch below); a 200 response
+      // always carries the entity. A contract violation here throws into the
+      // same catch and surfaces as a toast (Fail Loud).
+      const entity = detail.entity!;
+      setGraph((prev) => mergeDetail(prev, entity, detail.neighbors));
+      if (isRoot) {
+        setSelection({
+          kind: "node",
+          node: {
+            id: entity.normalized_name,
+            name: entity.name,
+            type: entity.type,
+            expanded: true,
+            entity,
+          },
         });
-        if (isRoot) {
-          setSelection({
-            kind: "node",
-            node: {
-              id: detail.entity.normalized_name,
-              name: detail.entity.name,
-              type: detail.entity.type,
-              expanded: true,
-              entity: detail.entity,
-            },
-          });
-        }
-      } catch (e) {
-        if (isRoot && String(e).startsWith("404")) setNotFound(true);
-        else toast.show(String(e), "red");
-      } finally {
-        setLoading(false);
       }
-    },
-    [toast],
-  );
+    } catch (e) {
+      if (rootRef.current !== rootAtCall) return; // stale: outcome no longer relevant
+      if (isRoot && isNotFound(e)) setNotFound(true);
+      else toastRef.current.show(String(e), "red");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // A new root resets the canvas and loads its ego network.
   useEffect(() => {
-    setNodes(new Map());
-    setLinks(new Map());
+    rootRef.current = rootName;
+    setGraph(emptyGraph());
     setSelection(null);
-    setTruncated(null);
     setNotFound(false);
     void expand(rootName, true);
   }, [rootName, expand]);
 
-  // react-force-graph mutates node objects (positions); memo on map identity.
+  // react-force-graph mutates node objects (positions); memo on state identity.
   const graphData = useMemo(
-    () => ({ nodes: [...nodes.values()], links: [...links.values()] }),
-    [nodes, links],
+    () => ({ nodes: [...graph.nodes.values()], links: [...graph.links.values()] }),
+    [graph],
   );
 
   if (notFound) {
@@ -197,13 +220,16 @@ export default function GraphExplorer({ rootName }: { rootName: string }) {
             <Spinner className="h-4 w-4" />
           </div>
         )}
-        {truncated && (
+        {graph.truncated.size > 0 && (
           <div
-            className="absolute bottom-3 left-3 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+            className="absolute bottom-3 left-3 space-y-0.5 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
             data-testid="graph-truncation-note"
           >
-            Showing {MAX_NEIGHBORS} of {MAX_NEIGHBORS + truncated.hidden} neighbors for{" "}
-            {truncated.node}
+            {[...graph.truncated.entries()].map(([id, t]) => (
+              <div key={id}>
+                Showing {MAX_NEIGHBORS} of {MAX_NEIGHBORS + t.hidden} neighbors for {t.name}
+              </div>
+            ))}
           </div>
         )}
       </Card>

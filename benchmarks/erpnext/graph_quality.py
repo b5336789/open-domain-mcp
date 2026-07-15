@@ -89,10 +89,11 @@ def main() -> None:
           f"   excess entities: {dup['excess_entities']}"
           f"  ({dup['duplication_ratio']:.0%})")
     if dup["clusters"]:
-        shown = len(dup["clusters"])
-        note = f" (top {shown} of {dup['duplicate_clusters']})" if dup["clusters_truncated"] else ""
+        shown = min(5, len(dup["clusters"]))
+        note = (f" (top {shown} of {dup['duplicate_clusters']})"
+                if shown < dup["duplicate_clusters"] else "")
         print(f"  suspect clusters{note}:")
-        for names in dup["clusters"][:5]:
+        for names in dup["clusters"][:shown]:
             print(f"    - {', '.join(names)}")
     if rec["recall"] is not None:
         print(f"core-concept recall      {rec['found']}/{rec['golden_total']}"

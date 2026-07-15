@@ -15,6 +15,8 @@ vibes.
 | `questions.jsonl` | **32 questions across 8 categories**, each with `ground_truth`, the source `symbol`, and machine-checkable `expected_sources` / `expected_answer`. Same `EvalCase` schema as `src/opendomainmcp/evals/` so it also loads with `load_evalset()`. |
 | `run_benchmark.py` | Wires the project's `evals.run_evals` harness to the live store + RAG path and prints per-category + overall metrics. |
 | `baseline.report.json` | Latest full run output (git-ignored; regenerated). |
+| `graph_quality.py` | Structural quality report for the collection's knowledge graph — coverage, orphans, connectivity, duplication, core-concept recall. Offline w.r.t. LLMs; needs MariaDB + the Chroma data dir. |
+| `golden_concepts.json` | Hand-curated core concepts of the pinned corpus, for the recall metric. First pass — extend as the corpus grows. |
 
 The corpus is **not committed** (ERPNext is GPLv3); `setup_corpus.sh` re-materializes
 it from the pinned commit into `.corpus/` (git-ignored).
@@ -53,6 +55,9 @@ benchmarks/erpnext/setup_corpus.sh
 
 # 2. run the benchmark (loads .env itself for LM Studio creds)
 .venv/bin/python benchmarks/erpnext/run_benchmark.py --collection erpnext --out benchmarks/erpnext/baseline.report.json
+
+# graph structural quality (no LLM; diff two reports to compare a change)
+.venv/bin/python benchmarks/erpnext/graph_quality.py --collection erpnext
 ```
 
 Requires the embedder + answer model to be reachable (this repo's `.env` points

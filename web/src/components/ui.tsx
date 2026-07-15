@@ -3,6 +3,7 @@
 import {
   ButtonHTMLAttributes,
   createContext,
+  HTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
   SelectHTMLAttributes,
@@ -106,13 +107,15 @@ export function Card({
   className,
   children,
   interactive = false,
+  ...rest
 }: {
   className?: string;
   children: ReactNode;
   interactive?: boolean;
-}) {
+} & HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      {...rest}
       className={cx(
         "rounded-xl border border-slate-200 bg-white shadow-card",
         "dark:border-slate-800 dark:bg-slate-900",

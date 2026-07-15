@@ -162,6 +162,7 @@ export interface GraphNeighbor {
   entity: GraphEntity;
   relation_type: string;
   direction: "in" | "out";
+  edge_evidence?: EvidenceEntry[];
 }
 
 export interface GraphNeighbors {

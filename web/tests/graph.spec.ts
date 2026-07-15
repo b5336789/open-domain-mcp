@@ -73,3 +73,40 @@ test.describe("graph", () => {
     await expect(page.getByText("Rollback procedure")).toBeVisible();
   });
 });
+
+const MANY_NEIGHBORS = {
+  entity: {
+    name: "Deployment",
+    normalized_name: "deployment",
+    type: "Process",
+    chunk_ids: ["chunk-1"],
+  },
+  neighbors: Array.from({ length: 60 }, (_, i) => ({
+    entity: {
+      name: `Service ${i}`,
+      normalized_name: `service-${i}`,
+      type: "Service",
+    },
+    relation_type: "depends_on",
+    direction: "out",
+  })),
+};
+
+test.describe("graph view (ego network)", () => {
+  test("renders the canvas, root panel, and truncation note", async ({ page }) => {
+    await installApiMocks(page, {
+      "GET /api/graph/entities": ENTITIES,
+      "GET /api/graph/entity/*": MANY_NEIGHBORS,
+    });
+    await page.goto("/#/graph");
+
+    await page.getByTestId("graph-view-toggle").getByText("Graph").click();
+    await page.getByText("Deployment", { exact: true }).click();
+
+    await expect(page.getByTestId("graph-canvas-wrap").locator("canvas")).toBeVisible();
+    await expect(page.getByTestId("graph-selection-panel")).toContainText("Deployment");
+    await expect(page.getByTestId("graph-truncation-note")).toContainText(
+      "Showing 50 of 60 neighbors",
+    );
+  });
+});

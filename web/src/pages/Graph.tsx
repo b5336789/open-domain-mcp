@@ -20,8 +20,10 @@ import {
   useToast,
 } from "../components/ui";
 import { IconGraph } from "../components/icons";
+import GraphExplorer from "../components/GraphExplorer";
 
 type Mode = "entities" | "workflows";
+type EntitiesView = "list" | "graph";
 
 const SEARCH_DEBOUNCE_MS = 250;
 
@@ -117,6 +119,7 @@ function EntitiesMode() {
   const [detail, setDetail] = useState<GraphNeighbors | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [view, setView] = useState<EntitiesView>("list");
   const toast = useToast();
 
   useEffect(() => {
@@ -138,8 +141,7 @@ function EntitiesMode() {
     };
   }, [debouncedQuery]);
 
-  async function selectEntity(name: string) {
-    setSelected(name);
+  async function refetchDetail(name: string) {
     setDetail(null);
     setNotFound(false);
     setDetailLoading(true);
@@ -153,9 +155,32 @@ function EntitiesMode() {
     }
   }
 
+  async function selectEntity(name: string) {
+    setSelected(name);
+    if (view === "graph") return; // GraphExplorer fetches its own data
+    await refetchDetail(name);
+  }
+
+  function switchView(v: EntitiesView) {
+    setView(v);
+    if (v === "list" && selected) void refetchDetail(selected);
+  }
+
   return (
     <div className="grid gap-5 lg:grid-cols-[20rem_1fr]">
       <Card className="space-y-3 p-4">
+        <div
+          className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/70"
+          data-testid="graph-view-toggle"
+        >
+          <TabButton active={view === "list"} onClick={() => switchView("list")}>
+            List
+          </TabButton>
+          <TabButton active={view === "graph"} onClick={() => switchView("graph")}>
+            Graph
+          </TabButton>
+        </div>
+
         <div>
           <Label>Search entities</Label>
           <Input
@@ -204,12 +229,22 @@ function EntitiesMode() {
         )}
       </Card>
 
-      <EntityDetail
-        selected={selected}
-        detail={detail}
-        loading={detailLoading}
-        notFound={notFound}
-      />
+      {view === "list" ? (
+        <EntityDetail
+          selected={selected}
+          detail={detail}
+          loading={detailLoading}
+          notFound={notFound}
+        />
+      ) : selected ? (
+        <GraphExplorer rootName={selected} />
+      ) : (
+        <EmptyState
+          icon={<IconGraph className="h-6 w-6" />}
+          title="Select an entity"
+          hint="Pick an entity on the left to see its ego network."
+        />
+      )}
     </div>
   );
 }

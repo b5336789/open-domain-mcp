@@ -61,6 +61,19 @@ def test_duplication_does_not_cluster_symbol_only_names():
     assert d["total_entities"] == 3
 
 
+def test_duplication_is_deterministic_regardless_of_input_order():
+    # Report order must be a property of the code (sorted clusters, sorted
+    # names within a cluster), not of unordered SELECT/dict-insertion order.
+    entities = [
+        _ent("sales order"), _ent("sales_orders"), _ent("sales-order"),
+        _ent("tax rule"), _ent("tax_rules"),
+        _ent("grand total"),
+    ]
+    forward = duplication(entities)
+    reversed_result = duplication(list(reversed(entities)))
+    assert forward == reversed_result
+
+
 # --- concept_recall --------------------------------------------------------
 
 def test_concept_recall_matches_by_canonical_key():

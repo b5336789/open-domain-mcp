@@ -35,8 +35,10 @@ def duplication(entities: list[dict]) -> dict:
         if not key:  # symbols-only/blank names can never legitimately cluster
             continue
         groups[key].append(e["display_name"])
-    clusters = sorted((names for names in groups.values() if len(names) > 1),
-                      key=len, reverse=True)
+    clusters = sorted(
+        (sorted(names) for names in groups.values() if len(names) > 1),
+        key=lambda c: (-len(c), c),
+    )
     total = len(entities)
     excess = sum(len(c) - 1 for c in clusters)
     return {

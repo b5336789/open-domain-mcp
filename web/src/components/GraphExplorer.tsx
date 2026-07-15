@@ -124,6 +124,12 @@ export default function GraphExplorer({ rootName }: { rootName: string }) {
   // after the root changed are dropped instead of merging into the new canvas.
   const rootRef = useRef(rootName);
 
+  // The root's normalized_name, captured once its expansion resolves.
+  // `rootName` (the prop) is a display name — comparing it against
+  // `GNode.id` (normalized_name) in nodeVal would silently never match for
+  // names that differ in case/formatting.
+  const rootIdRef = useRef<string | null>(null);
+
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(600);
   useEffect(() => {
@@ -147,6 +153,7 @@ export default function GraphExplorer({ rootName }: { rootName: string }) {
       const entity = detail.entity!;
       setGraph((prev) => mergeDetail(prev, entity, detail.neighbors));
       if (isRoot) {
+        rootIdRef.current = entity.normalized_name;
         setSelection({
           kind: "node",
           node: {
@@ -170,6 +177,7 @@ export default function GraphExplorer({ rootName }: { rootName: string }) {
   // A new root resets the canvas and loads its ego network.
   useEffect(() => {
     rootRef.current = rootName;
+    rootIdRef.current = null;
     setGraph(emptyGraph());
     setSelection(null);
     setNotFound(false);
@@ -203,7 +211,7 @@ export default function GraphExplorer({ rootName }: { rootName: string }) {
             nodeId="id"
             nodeLabel="name"
             nodeAutoColorBy="type"
-            nodeVal={(n) => ((n as GNode).id === rootName ? 3 : 1)}
+            nodeVal={(n) => ((n as GNode).id === rootIdRef.current ? 3 : 1)}
             linkLabel="relation_type"
             linkDirectionalArrowLength={4}
             linkDirectionalArrowRelPos={1}

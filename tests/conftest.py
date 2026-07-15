@@ -296,6 +296,18 @@ class FakeGraphStore:
         out = [{"name": n} for _, n in sorted(names.items())]
         return out[:max(1, min(500, limit))]
 
+    def export_graph(self) -> dict:
+        """Bulk read mirroring MariaGraphStore.export_graph()'s shape."""
+        slot = self._slot()
+        entities = [{"normalized_name": norm, "display_name": row["name"], "type": row["type"]}
+                    for norm, row in slot["entities"].items()]
+        edges = [{"src": e.src, "dst": e.dst, "relation_type": e.relation_type,
+                 "chunk_id": e.chunk_id, "confidence": e.confidence}
+                 for e in slot["edges"]]
+        entity_chunks = [{"normalized_name": norm, "chunk_id": cid}
+                         for norm, cids in slot["entity_chunks"].items() for cid in cids]
+        return {"entities": entities, "edges": edges, "entity_chunks": entity_chunks}
+
     def upsert_functions(self, functions):
         table = self._slot().setdefault("code_functions", {})
         for fn in functions:

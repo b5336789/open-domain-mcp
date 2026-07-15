@@ -113,7 +113,7 @@ expansion**:
 
 - Metric functions: pytest unit tests with fabricated small graphs asserting
   each metric's value (fully offline, per repo convention).
-- `list_edges`: covered in the existing `integration`-marked MariaDB tests.
+- `export_graph`: covered in the existing `integration`-marked MariaDB tests.
 - Explorer: one Playwright e2e smoke — load page, switch to Graph view, search,
   expand a node (self-contained route mocks via `tests/helpers/mockApi.ts`, like
   the rest of the e2e suite — no live backend).

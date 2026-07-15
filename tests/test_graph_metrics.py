@@ -26,6 +26,12 @@ def test_canonical_key_keeps_short_tokens_verbatim():
     assert canonical_key("gas") != canonical_key("ga")
 
 
+def test_canonical_key_handles_non_ascii_names():
+    # Two distinct CJK names must NOT collapse into the same key.
+    assert canonical_key("銷售訂單") != canonical_key("稅務規則")
+    assert canonical_key("銷售訂單") == canonical_key("銷售訂單")
+
+
 # --- duplication -----------------------------------------------------------
 
 def test_duplication_clusters_name_variants():
@@ -42,6 +48,13 @@ def test_duplication_clusters_name_variants():
 def test_duplication_empty_graph_is_zero_not_crash():
     d = duplication([])
     assert d["total_entities"] == 0 and d["duplication_ratio"] == 0.0
+
+
+def test_duplication_does_not_cluster_symbol_only_names():
+    entities = [_ent("!!!"), _ent("???"), _ent("tax rule")]
+    d = duplication(entities)
+    assert d["duplicate_clusters"] == 0
+    assert d["total_entities"] == 3
 
 
 # --- concept_recall --------------------------------------------------------

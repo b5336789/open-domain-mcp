@@ -10,7 +10,8 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
-_TOKEN_RE = re.compile(r"[a-z0-9]+")
+# Unicode letters/digits (input is lowercased first); underscore is a separator.
+_TOKEN_RE = re.compile(r"[^\W_]+")
 
 # Report lists are capped for readability; the cap is always reported
 # alongside a *_truncated flag (Fail Loud — no silent truncation).
@@ -30,7 +31,10 @@ def duplication(entities: list[dict]) -> dict:
     concept split into multiple nodes (graph fragmentation at the node level)."""
     groups: dict[str, list[str]] = defaultdict(list)
     for e in entities:
-        groups[canonical_key(e["normalized_name"])].append(e["display_name"])
+        key = canonical_key(e["normalized_name"])
+        if not key:  # symbols-only/blank names can never legitimately cluster
+            continue
+        groups[key].append(e["display_name"])
     clusters = sorted((names for names in groups.values() if len(names) > 1),
                       key=len, reverse=True)
     total = len(entities)

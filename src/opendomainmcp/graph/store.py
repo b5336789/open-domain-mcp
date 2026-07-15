@@ -36,6 +36,7 @@ class GraphStoreProtocol(Protocol):
                         steps: list, prerequisites: list[str]) -> None: ...
     def get_workflow(self, name: str) -> Optional[dict]: ...
     def list_workflows(self, q: Optional[str] = None, limit: int = 50) -> list[dict]: ...
+    def export_graph(self) -> dict: ...
 
 
 class NullGraphStore:
@@ -63,6 +64,9 @@ class NullGraphStore:
 
     def list_workflows(self, q=None, limit=50):
         return []
+
+    def export_graph(self) -> dict:
+        return {"entities": [], "edges": [], "entity_chunks": []}
 
     def upsert_functions(self, functions: list[dict]) -> None:
         pass
@@ -382,6 +386,20 @@ class MariaGraphStore:
                 f"WHERE {' AND '.join(clauses)} GROUP BY workflow_key "
                 "ORDER BY workflow_name LIMIT %s", params)
             return [{"name": r["workflow_name"]} for r in cur.fetchall()]
+
+    def export_graph(self) -> dict:
+        """Bulk read of the collection's graph for offline quality metrics."""
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT normalized_name, display_name, type FROM entities "
+                        "WHERE collection=%s", (self._collection,))
+            entities = list(cur.fetchall())
+            cur.execute("SELECT src, dst, relation_type, chunk_id, confidence "
+                        "FROM edges WHERE collection=%s", (self._collection,))
+            edges = list(cur.fetchall())
+            cur.execute("SELECT normalized_name, chunk_id FROM entity_chunks "
+                        "WHERE collection=%s", (self._collection,))
+            entity_chunks = list(cur.fetchall())
+        return {"entities": entities, "edges": edges, "entity_chunks": entity_chunks}
 
     def upsert_functions(self, functions: list[dict]) -> None:
         if not functions:

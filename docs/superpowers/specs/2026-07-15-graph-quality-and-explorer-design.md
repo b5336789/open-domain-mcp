@@ -72,10 +72,11 @@ iterations, driven by what the metrics reveal):
   summary. Diff two reports to compare before/after a change.
 - **`benchmarks/erpnext/golden_concepts.json`** — 20–30 hand-curated core
   concepts of the pinned ERPNext tax/pricing corpus, for the recall metric.
-- **Protocol extension** — `GraphStoreProtocol.list_edges(limit)` (bulk edge
-  read; the protocol currently only offers per-entity `neighbors`).
-  `MariaGraphStore`: one SELECT scoped to the collection. `NullGraphStore`:
-  returns `[]`. This is the only backend change.
+- **Protocol extension** — `GraphStoreProtocol.export_graph()` — one bulk read
+  returning `{entities, edges, entity_chunks}` for the collection (coverage and
+  duplication metrics need entities and the entity↔chunk map, not just edges).
+  `MariaGraphStore`: three SELECTs scoped to the collection. `NullGraphStore`:
+  returns the same shape with empty lists. This is the only backend change.
 - Extraction coverage needs the chunk-id universe: fetched from `ChromaStore`
   (chunk ids per collection), compared against `entity_chunks`.
 
@@ -114,7 +115,8 @@ expansion**:
   each metric's value (fully offline, per repo convention).
 - `list_edges`: covered in the existing `integration`-marked MariaDB tests.
 - Explorer: one Playwright e2e smoke — load page, switch to Graph view, search,
-  expand a node (against the seeded dev backend, same as existing e2e).
+  expand a node (self-contained route mocks via `tests/helpers/mockApi.ts`, like
+  the rest of the e2e suite — no live backend).
 
 ## Acceptance
 

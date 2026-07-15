@@ -57,3 +57,17 @@ def test_collection_isolation_and_delete(maria_store):
     assert store_b.get_entity("svc_b") is not None   # b untouched
 
     store_b.delete_collection("it-collection-b")  # clean up
+
+
+def test_export_graph_roundtrip(maria_store):
+    maria_store.upsert_entities([
+        Entity("auth service", "Auth Service", "Service", "it-c1"),
+        Entity("user db", "User DB", "Resource", "it-c1")])
+    maria_store.upsert_edges([Edge("auth service", "user db", "depends_on", "it-c1")])
+    export = maria_store.export_graph()
+    names = {e["normalized_name"] for e in export["entities"]}
+    assert {"auth service", "user db"} <= names
+    assert any(e["src"] == "auth service" and e["dst"] == "user db"
+               and e["relation_type"] == "depends_on" for e in export["edges"])
+    assert any(ec["chunk_id"] == "it-c1" for ec in export["entity_chunks"])
+    maria_store.delete_for_chunks(["it-c1"])

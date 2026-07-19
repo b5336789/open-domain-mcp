@@ -32,6 +32,11 @@ test.describe("smoke", () => {
         sidebar.getByRole("link", { name: label, exact: true }),
       ).toBeVisible();
     }
+    for (const heading of ["Knowledge", "Quality", "Publish"]) {
+      await expect(
+        sidebar.getByText(heading, { exact: true }),
+      ).toBeVisible();
+    }
   });
 
   test("renders command center readiness", async ({ page }) => {

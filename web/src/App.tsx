@@ -35,22 +35,52 @@ import {
   IconSun,
 } from "./components/icons";
 
-const links = [
-  { to: "/", label: "Command Center", end: true, icon: IconDashboard },
-  { to: "/intake", label: "Source Intake", icon: IconIngest },
-  { to: "/explore", label: "Explore", icon: IconExplore },
-  { to: "/ask", label: "Ask", icon: IconAsk },
-  { to: "/browse", label: "Browse / Edit", icon: IconBrowse },
-  { to: "/articles", label: "Articles", icon: IconArticles },
-  { to: "/review", label: "Review", icon: IconReview },
-  { to: "/quality", label: "Quality Lab", icon: IconMetrics },
-  { to: "/graph", label: "Graph", icon: IconGraph },
-  { to: "/advisor", label: "Advisor", icon: IconAdvisor },
-  { to: "/mcp", label: "MCP Publish", icon: IconBuilder },
-  { to: "/simulator", label: "Simulator", icon: IconSimulator },
-  { to: "/metrics", label: "Metrics", icon: IconMetrics },
-  { to: "/settings", label: "Settings", icon: IconSettings },
+type NavItemDef = {
+  to: string;
+  label: string;
+  end?: boolean;
+  icon: (props: { className?: string }) => JSX.Element;
+};
+
+const NAV_GROUPS: { title: string | null; items: NavItemDef[] }[] = [
+  {
+    title: null,
+    items: [{ to: "/", label: "Command Center", end: true, icon: IconDashboard }],
+  },
+  {
+    title: "Knowledge",
+    items: [
+      { to: "/intake", label: "Source Intake", icon: IconIngest },
+      { to: "/explore", label: "Explore", icon: IconExplore },
+      { to: "/ask", label: "Ask", icon: IconAsk },
+      { to: "/browse", label: "Browse / Edit", icon: IconBrowse },
+      { to: "/articles", label: "Articles", icon: IconArticles },
+    ],
+  },
+  {
+    title: "Quality",
+    items: [
+      { to: "/review", label: "Review", icon: IconReview },
+      { to: "/quality", label: "Quality Lab", icon: IconMetrics },
+      { to: "/graph", label: "Graph", icon: IconGraph },
+      { to: "/metrics", label: "Metrics", icon: IconMetrics },
+    ],
+  },
+  {
+    title: "Publish",
+    items: [
+      { to: "/advisor", label: "Advisor", icon: IconAdvisor },
+      { to: "/mcp", label: "MCP Publish", icon: IconBuilder },
+      { to: "/simulator", label: "Simulator", icon: IconSimulator },
+    ],
+  },
 ];
+
+const SETTINGS_LINK: NavItemDef = {
+  to: "/settings",
+  label: "Settings",
+  icon: IconSettings,
+};
 
 function Brand() {
   return (
@@ -255,45 +285,66 @@ function ThemeToggle() {
   );
 }
 
+function NavItem({
+  item,
+  onNavigate,
+}: {
+  item: NavItemDef;
+  onNavigate?: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          isActive
+            ? "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <Icon
+            className={`h-[18px] w-[18px] transition-colors ${
+              isActive
+                ? "text-brand-600 dark:text-brand-300"
+                : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200"
+            }`}
+          />
+          {item.label}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <div className="flex h-full flex-col gap-5 p-4">
+    <div className="flex h-full flex-col gap-5 overflow-y-auto p-4">
       <Brand />
       <CollectionSwitcher />
-      <nav className="space-y-0.5">
-        {links.map((l) => {
-          const Icon = l.icon;
-          return (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.end}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-200"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon
-                    className={`h-[18px] w-[18px] transition-colors ${
-                      isActive
-                        ? "text-brand-600 dark:text-brand-300"
-                        : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200"
-                    }`}
-                  />
-                  {l.label}
-                </>
-              )}
-            </NavLink>
-          );
-        })}
+      <nav>
+        {NAV_GROUPS.map((group, i) => (
+          <div key={group.title ?? "top"} className={i > 0 ? "mt-4" : ""}>
+            {group.title && (
+              <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                {group.title}
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <NavItem key={item.to} item={item} onNavigate={onNavigate} />
+              ))}
+            </div>
+          </div>
+        ))}
       </nav>
       <div className="mt-auto space-y-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+        <NavItem item={SETTINGS_LINK} onNavigate={onNavigate} />
         <ThemeToggle />
         <p className="px-3 text-[11px] leading-relaxed text-slate-400 dark:text-slate-600">
           Domain knowledge workflow platform

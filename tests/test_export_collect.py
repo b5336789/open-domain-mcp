@@ -1,4 +1,5 @@
 from opendomainmcp.export.collect import collect_bundle
+from opendomainmcp.export.models import ExportReport
 
 
 class FakeStore:
@@ -87,3 +88,25 @@ def test_collect_skips_graph_when_disabled():
     graph = FakeGraph({"W": {"prereqs": [], "steps": []}})
     bundle = collect_bundle(FakeStore([]), graph, graph_enabled=False)
     assert bundle.workflows == [] and bundle.graph_enabled is False
+
+
+def test_collect_fails_loud_when_workflows_hit_500_cap():
+    # Create exactly 500 workflows (W0 to W499)
+    workflows = {f"W{i}": {"prereqs": [], "steps": []} for i in range(500)}
+    graph = FakeGraph(workflows)
+    report = ExportReport()
+    bundle = collect_bundle(FakeStore([]), graph, graph_enabled=True, report=report)
+
+    # Should report truncation in skipped
+    assert len(report.skipped) == 1
+    assert "workflows" in report.skipped[0].lower()
+    assert "truncated" in report.skipped[0].lower() or "500" in report.skipped[0]
+    assert len(bundle.workflows) == 500
+
+
+def test_collect_backward_compatible_without_report():
+    # Ensure calling without report arg still works (backward compatibility)
+    graph = FakeGraph({"W": {"prereqs": [], "steps": []}})
+    bundle = collect_bundle(FakeStore([]), graph, graph_enabled=True)
+    assert len(bundle.workflows) == 1
+    assert bundle.workflows[0].name == "W"

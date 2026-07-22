@@ -1,8 +1,8 @@
 """Read-only stage: store/graph → ExportBundle. Zero LLM, zero writes."""
 from __future__ import annotations
 
-from .models import (ExportArticle, ExportBundle, ExportRule, ExportWorkflow,
-                     split_comma, split_pipe)
+from .models import (ExportArticle, ExportBundle, ExportReport, ExportRule,
+                     ExportWorkflow, split_comma, split_pipe)
 
 _PAGE = 100
 
@@ -17,7 +17,8 @@ def _page_kind(store, kind: str) -> list[dict]:
         offset += _PAGE
 
 
-def collect_bundle(store, graph, graph_enabled: bool) -> ExportBundle:
+def collect_bundle(store, graph, graph_enabled: bool,
+                   report: ExportReport | None = None) -> ExportBundle:
     articles = []
     for it in _page_kind(store, "article"):
         m = it["metadata"]
@@ -41,7 +42,11 @@ def collect_bundle(store, graph, graph_enabled: bool) -> ExportBundle:
 
     workflows = []
     if graph_enabled:
-        for row in graph.list_workflows(limit=500):
+        rows = graph.list_workflows(limit=500)
+        if report is not None and len(rows) >= 500:
+            report.skipped.append(
+                "workflows possibly truncated at the 500-item graph list cap")
+        for row in rows:
             wf = graph.get_workflow(row["name"])
             if wf is None:
                 continue

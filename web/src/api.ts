@@ -318,7 +318,7 @@ export interface Article {
 // --- Task center ---------------------------------------------------------
 export interface TaskItem {
   id: string;
-  type: "ingest" | "synthesize" | "extract";
+  type: "ingest" | "synthesize" | "extract" | "export";
   title: string;
   collection: string;
   status: "queued" | "running" | "done" | "error" | "cancelled";
@@ -705,6 +705,9 @@ export const api = {
       headers: headers({ "Content-Type": "application/json" }),
       body: JSON.stringify({ type, params }),
     }).then(json<TaskItem>),
+
+  exportDownloadUrl: (id: string) =>
+    withCollection(`/api/export/${encodeURIComponent(id)}/download`),
 
   listTasks: () =>
     fetch(withCollection("/api/tasks"), { headers: headers() })

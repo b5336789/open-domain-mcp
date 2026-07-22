@@ -218,6 +218,48 @@ def _cmd_synthesize(ctx, args) -> int:
     return 0
 
 
+def _cmd_export(ctx, args) -> int:
+    from .export import ExportError, export_documents
+
+    translate_line_open = {"open": False}
+
+    def progress(event):
+        stage = event.get("stage", "")
+        if stage == "translate":
+            print(f"\r  translate {event['done']}/{event['total']}",
+                  end="", flush=True)
+            translate_line_open["open"] = True
+        else:
+            if translate_line_open["open"]:
+                print()
+                translate_line_open["open"] = False
+            print(f"[{stage}]")
+
+    try:
+        report = export_documents(
+            ctx, args.out, translate=not args.no_translate,
+            use_llm=not args.no_llm, zip_output=args.zip, progress=progress)
+    except ExportError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print()
+    c = report.counts
+    print(f"Exported {c.get('articles', 0)} article(s), {c.get('rules', 0)} "
+          f"rule(s) (+{c.get('conflicted_rules', 0)} conflicted), "
+          f"{c.get('workflows', 0)} workflow(s) → {report.out_dir}")
+    if report.zip_path:
+        print(f"Zip: {report.zip_path}")
+    for w in report.outline_warnings:
+        print(f"  outline: {w}", file=sys.stderr)
+    if report.translate_errors:
+        print(f"Translate errors: {len(report.translate_errors)}", file=sys.stderr)
+        for e in report.translate_errors:
+            print(f"  {e['kind']} {e['id']}: {e['error']}", file=sys.stderr)
+    for s in report.skipped:
+        print(f"  skipped: {s}", file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="opendomainmcp", description=__doc__)
     parser.add_argument("--collection", default=None, help="Knowledge base to use")
@@ -323,6 +365,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_consolidate.add_argument("--json", action="store_true", help="Emit result as JSON")
     p_consolidate.set_defaults(func=_cmd_consolidate)
+
+    p_export = sub.add_parser(
+        "export",
+        help="Export articles/rules/workflows as formatted Markdown documents")
+    p_export.add_argument("--out", required=True, help="Output directory")
+    p_export.add_argument("--no-translate", action="store_true",
+                          help="Skip the Chinese translation pass")
+    p_export.add_argument("--no-llm", action="store_true",
+                          help="Skip ALL LLM passes (outline + translation); "
+                               "deterministic flat layout")
+    p_export.add_argument("--zip", action="store_true",
+                          help="Also produce <out>.zip")
+    p_export.set_defaults(func=_cmd_export)
 
     return parser
 

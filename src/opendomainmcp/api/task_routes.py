@@ -26,6 +26,8 @@ def _title(type: str, params: dict) -> str:
         return f"Analyze chains {params.get('path', '')}"
     if type == "consolidate":
         return "Consolidate rules"
+    if type == "export":
+        return "Export documents"
     return type
 
 

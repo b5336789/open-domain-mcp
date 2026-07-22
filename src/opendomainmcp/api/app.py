@@ -22,6 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..context import Context, build_context
 from . import (
+    export_routes,
     insight_routes,
     mcp_endpoints,
     quality_routes,
@@ -688,6 +689,7 @@ def create_app(context: Context | None = None, context_factory=build_context) ->
     app.include_router(quality_routes.router)
     app.include_router(validation_routes.router)
     app.include_router(insight_routes.router)
+    app.include_router(export_routes.router)
     app.include_router(source_routes.router, dependencies=[Depends(auth_dependency)])
 
     # -- dynamic MCP endpoints (real HTTP/SSE transports) ---------------

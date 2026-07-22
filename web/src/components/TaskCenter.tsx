@@ -77,6 +77,12 @@ export default function TaskCenter() {
                 <div className="flex items-center gap-2">
                   <Button
                     variant="secondary"
+                    onClick={() => api.createTask("export", {}).then(refresh)}
+                  >
+                    匯出文件
+                  </Button>
+                  <Button
+                    variant="secondary"
                     onClick={() => api.clearTasks().then(refresh)}
                   >
                     Clear finished
@@ -154,6 +160,15 @@ function TaskCard({ task, onChanged }: { task: TaskItem; onChanged: () => void }
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {task.type === "export" && task.status === "done" && (
+            <a
+              href={api.exportDownloadUrl(task.id)}
+              download
+              className="text-xs font-medium text-brand-500 hover:underline"
+            >
+              下載 zip
+            </a>
+          )}
           {retryable && (
             <Button variant="secondary" onClick={() => api.retryTask(task.id).then(onChanged)}>
               Retry

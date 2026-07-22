@@ -43,6 +43,7 @@ pytest -m integration                   # graph/MariaDB tests (need live GRAPH_D
 ./run.sh ingest ./path [--sync]
 ./run.sh search "query" --top-k 5
 ./run.sh ask "question"
+./run.sh --collection NAME export --out ./docs-out [--no-translate|--no-llm] [--zip]
 # Console scripts when venv active: opendomainmcp / opendomainmcp-server /
 #   opendomainmcp-view --view product / opendomainmcp-web
 
@@ -120,6 +121,14 @@ shared store via `views.run_view_tool()`. Select with `--view NAME` / `ODM_MCP_V
 The default server also exposes `what_should_i_know_before` → the **advisor**, a pure
 (no-LLM) aggregation of retrieval + graph into facets (Workflow / Risks / Permissions
 / Dependencies / Constraints).
+
+### Document export (`export/`)
+
+Renders the corpus's Articles + consensus RuleItems + graph workflows into
+formatted Markdown (domain tree via a cached LLM outline pass, optional cached
+zh-TW translation pass, deterministic flat fallback with `--no-llm`), through
+`export_documents()` — surfaced as the `export` CLI subcommand and an `export`
+background task with `GET /api/export/{task_id}/download` (zip).
 
 ### Other
 

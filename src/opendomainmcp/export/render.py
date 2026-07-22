@@ -32,10 +32,17 @@ def _mark(obj) -> str:
     return " 〔未翻譯〕" if getattr(obj, "untranslated", False) else ""
 
 
+def _cell(value) -> str:
+    """Escape a value for safe use inside a Markdown table cell."""
+    s = str(value).replace("\r", " ").replace("\n", " ")
+    return s.replace("|", "\\|")
+
+
 def _rule_row(r: ExportRule) -> str:
     badge = _BADGE.get(r.trust, r.trust)
     src = ", ".join(r.sources) or "—"
-    return f"| {r.statement}{_mark(r)} | {badge} | {r.corroborations} | {src} |"
+    return (f"| {_cell(r.statement)}{_mark(r)} | {badge} | {r.corroborations} "
+           f"| {_cell(src)} |")
 
 
 def _rules_table(rules: list[ExportRule]) -> list[str]:
@@ -46,6 +53,25 @@ def _rules_table(rules: list[ExportRule]) -> list[str]:
     for r in sorted(rules, key=lambda r: order.get(r.trust, 2)):
         lines.append(_rule_row(r))
     return lines
+
+
+def _rules_tech_appendix(rules: list[ExportRule]) -> list[str]:
+    """Aggregate sources/evidence from a set of rules into a 技術對照 block.
+
+    Used wherever rules are rendered only via ``_rules_table`` (domain
+    README, misc/README.md, flat rules.md) so evidence quotes aren't lost.
+    """
+    if not rules:
+        return []
+    seen: set = set()
+    sources: list[str] = []
+    for r in rules:
+        for s in r.sources:
+            if s not in seen:
+                seen.add(s)
+                sources.append(s)
+    evidence = [e for r in rules for e in r.evidence]
+    return _tech_appendix(sources, [], evidence)
 
 
 def _tech_appendix(sources: list[str], chunk_ids: list[str],
@@ -76,16 +102,18 @@ def _render_article(a: ExportArticle, level: int = 1) -> str:
 
 
 def _render_workflow(w: ExportWorkflow, articles: list[ExportArticle],
-                     rules: list[ExportRule]) -> str:
-    lines = [f"# {w.display_name}{_mark(w)}", ""]
+                     rules: list[ExportRule], level: int = 1) -> str:
+    h = "#" * level
+    lines = [f"{h} {w.display_name}{_mark(w)}", ""]
     if w.prerequisites:
         lines.append("**前置條件：** " + "、".join(w.prerequisites))
         lines.append("")
     if w.steps:
         lines += ["| 步驟 | 內容 | 前置 |", "| --- | --- | --- |"]
         for s in w.steps:
-            lines.append(f"| {s.get('order', '')} | {s.get('text', '')} "
-                         f"| {s.get('precondition', '') or '—'} |")
+            lines.append(f"| {_cell(s.get('order', ''))} "
+                         f"| {_cell(s.get('text', ''))} "
+                         f"| {_cell(s.get('precondition', '') or '—')} |")
         lines.append("")
     for a in articles:
         lines.append(_render_article(a, level=2))
@@ -99,7 +127,7 @@ def _render_workflow(w: ExportWorkflow, articles: list[ExportArticle],
 
 
 def _render_rules_page(title: str, rules: list[ExportRule]) -> str:
-    lines = [f"# {title}", ""] + _rules_table(rules)
+    lines = [f"# {title}", ""] + _rules_table(rules) + _rules_tech_appendix(rules)
     return "\n".join(lines) + "\n"
 
 
@@ -135,12 +163,30 @@ def render_export(bundle: ExportBundle, outline: Optional[Outline],
     conflicted = [r for r in bundle.rules if r.trust == "conflicted"]
 
     if outline is not None:
+        # Compute each domain's slug once up front so the directory created
+        # below and the index link built later always agree, even when two
+        # domain names collide after slugification.
         dom_slugs: set = set()
-        for d in outline.domains:
-            ddir = out / "domains" / slugify(d.name, dom_slugs)
+        domain_slugs = [slugify(d.name, dom_slugs) for d in outline.domains]
+
+        # Track everything actually rendered into a domain page so the
+        # "unassigned" set can be computed from real leftovers rather than
+        # trusting the outline's own (possibly stale) unassigned_* lists.
+        rendered_articles: set = set()
+        rendered_workflows: set = set()
+        rendered_rules: set = set()
+
+        for d, dslug in zip(outline.domains, domain_slugs):
+            ddir = out / "domains" / dslug
             flow_slugs: set = set()
             flow_lines = []
             for f in d.flows:
+                if f.workflow not in workflows:
+                    report.errors.append({
+                        "kind": "workflow", "id": f.workflow,
+                        "error": "outline flow references unknown workflow",
+                    })
+                    continue
                 w = workflows[f.workflow]
                 fslug = slugify(f.workflow, flow_slugs)
                 fa = [articles[t] for t in f.articles if t in articles]
@@ -148,22 +194,26 @@ def render_export(bundle: ExportBundle, outline: Optional[Outline],
                       if i in rules and rules[i].trust != "conflicted"]
                 _write(ddir / f"{fslug}.md", _render_workflow(w, fa, fr), handbook)
                 flow_lines.append(f"- [{w.display_name}]({fslug}.md)")
+                rendered_workflows.add(w.name)
+                rendered_articles.update(a.topic for a in fa)
+                rendered_rules.update(r.id for r in fr)
             dr = [rules[i] for i in d.rules
                   if i in rules and rules[i].trust != "conflicted"]
             da = [articles[t] for t in d.articles if t in articles]
+            rendered_articles.update(a.topic for a in da)
+            rendered_rules.update(r.id for r in dr)
             readme = [f"# {d.name}", "", "## 主流程", ""] + \
                 (flow_lines or ["（無）"]) + [""]
             for a in da:
                 readme.append(_render_article(a, level=2))
             if dr:
-                readme += ["## 領域規則", ""] + _rules_table(dr)
+                readme += ["## 領域規則", ""] + _rules_table(dr) \
+                    + _rules_tech_appendix(dr)
             _write(ddir / "README.md", "\n".join(readme) + "\n", handbook)
 
-        un_a = [articles[t] for t in outline.unassigned_articles if t in articles]
-        un_w = [workflows[n] for n in outline.unassigned_workflows
-                if n in workflows]
-        un_r = [rules[i] for i in outline.unassigned_rules
-                if i in rules and rules[i].trust != "conflicted"]
+        un_a = [a for a in bundle.articles if a.topic not in rendered_articles]
+        un_w = [w for w in bundle.workflows if w.name not in rendered_workflows]
+        un_r = [r for r in active if r.id not in rendered_rules]
         report.unassigned = {"articles": len(un_a), "workflows": len(un_w),
                              "rules": len(un_r)}
         if un_a or un_w or un_r:
@@ -171,9 +221,10 @@ def render_export(bundle: ExportBundle, outline: Optional[Outline],
             for a in un_a:
                 misc.append(_render_article(a, level=2))
             for w in un_w:
-                misc.append(_render_workflow(w, [], []))
+                misc.append(_render_workflow(w, [], [], level=2))
             if un_r:
-                misc += ["## 未分類規則", ""] + _rules_table(un_r)
+                misc += ["## 未分類規則", ""] + _rules_table(un_r) \
+                    + _rules_tech_appendix(un_r)
             _write(out / "misc" / "README.md", "\n".join(misc) + "\n", handbook)
     else:
         a_slugs: set = set()
@@ -208,9 +259,8 @@ def render_export(bundle: ExportBundle, outline: Optional[Outline],
     if outline is not None:
         index.append("## 領域目錄")
         index.append("")
-        seen: set = set()
-        for d in outline.domains:
-            index.append(f"- [{d.name}](domains/{slugify(d.name, seen)}/README.md)")
+        for d, dslug in zip(outline.domains, domain_slugs):
+            index.append(f"- [{d.name}](domains/{dslug}/README.md)")
     (out / "index.md").write_text("\n".join(index) + "\n", encoding="utf-8")
 
     hb = "\n\n---\n\n".join(["# Handbook", ((out / 'index.md')

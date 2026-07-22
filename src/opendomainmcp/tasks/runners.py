@@ -158,6 +158,25 @@ def run_consolidate(ctx, store, task, is_cancelled) -> None:
     store.update(task.id, done=1, failures=failures, result=result)
 
 
+def run_export(ctx, store, task, is_cancelled) -> None:
+    from pathlib import Path
+
+    from ..export import export_documents
+
+    out_dir = Path(ctx.settings.data_dir) / "exports" / task.id
+
+    def progress(event):
+        if event.get("stage") == "translate":
+            store.update(task.id, throttle=True, done=event["done"])
+
+    report = export_documents(
+        ctx, out_dir,
+        translate=not task.params.get("no_translate", False),
+        use_llm=not task.params.get("no_llm", False),
+        zip_output=True, progress=progress)
+    store.update(task.id, result=report.to_dict())
+
+
 class _Cancelled(Exception):
     pass
 
@@ -168,4 +187,5 @@ RUNNERS = {
     "extract": run_extract,
     "analyze_chains": run_analyze_chains,
     "consolidate": run_consolidate,
+    "export": run_export,
 }

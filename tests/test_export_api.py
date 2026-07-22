@@ -38,6 +38,46 @@ def test_run_export_writes_zip_and_result(tmp_path):
     assert result["zip_path"] == str(zip_path)
 
 
+def test_run_export_cancelled_returns_without_zip(tmp_path):
+    """is_cancelled True should stop export cleanly at the first progress
+    boundary: no zip written, no result recorded, no exception raised."""
+    from tests.test_export_documents import FakeCtx
+    from tests.test_export_collect import FakeGraph, FakeStore, _article_item, _rule_item
+
+    ctx = FakeCtx(FakeStore([_article_item(1), _rule_item(1)]),
+                  FakeGraph({}), tmp_path)
+    store = RecordingStore()
+    run_export(ctx, store, FakeTask(), is_cancelled=lambda: True)
+    zip_path = Path(tmp_path) / "exports" / "t1.zip"
+    assert not zip_path.exists()
+    assert not any("result" in u for u in store.updates)
+
+
+def test_run_export_progress_forwards_total(tmp_path, monkeypatch):
+    """TaskCenter needs both done and total to render a progress bar."""
+    from tests.test_export_documents import FakeCtx
+    from tests.test_export_collect import FakeGraph, FakeStore, _article_item, _rule_item
+    from opendomainmcp import export as export_pkg
+
+    ctx = FakeCtx(FakeStore([_article_item(1), _rule_item(1)]),
+                  FakeGraph({}), tmp_path)
+    store = RecordingStore()
+
+    class FakeTaskWithLLM:
+        id = "t2"
+        params = {}
+
+    monkeypatch.setattr(export_pkg, "get_organizer", lambda settings: (
+        lambda p: '{"domains": [{"name": "d", "flows": [], '
+                  '"articles": ["topic-1"], "rules": ["r1"]}]}'))
+    monkeypatch.setattr(export_pkg, "get_translator", lambda settings: (lambda t: t))
+
+    run_export(ctx, store, FakeTaskWithLLM(), is_cancelled=lambda: False)
+    translate_updates = [u for u in store.updates if "total" in u]
+    assert translate_updates, "expected at least one progress update carrying total"
+    assert all(u["total"] > 0 for u in translate_updates)
+
+
 def test_download_404_before_export(client):
     tc, _, _ = client
     assert tc.get("/api/export/nope/download").status_code == 404

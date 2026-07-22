@@ -164,16 +164,25 @@ def run_export(ctx, store, task, is_cancelled) -> None:
     from ..export import export_documents
 
     out_dir = Path(ctx.settings.data_dir) / "exports" / task.id
+    progress_state = {"done": 0, "total": 0}
 
     def progress(event):
         if event.get("stage") == "translate":
-            store.update(task.id, throttle=True, done=event["done"])
+            progress_state["done"] = event["done"]
+            progress_state["total"] = event["total"]
+            store.update(task.id, throttle=True, done=event["done"], total=event["total"])
+        if is_cancelled():
+            raise _Cancelled()
 
-    report = export_documents(
-        ctx, out_dir,
-        translate=not task.params.get("no_translate", False),
-        use_llm=not task.params.get("no_llm", False),
-        zip_output=True, progress=progress)
+    try:
+        report = export_documents(
+            ctx, out_dir,
+            translate=not task.params.get("no_translate", False),
+            use_llm=not task.params.get("no_llm", False),
+            zip_output=True, progress=progress)
+    except _Cancelled:
+        store.update(task.id, done=progress_state["done"], total=progress_state["total"])
+        return
     store.update(task.id, result=report.to_dict())
 
 

@@ -221,12 +221,18 @@ def _cmd_synthesize(ctx, args) -> int:
 def _cmd_export(ctx, args) -> int:
     from .export import ExportError, export_documents
 
+    translate_line_open = {"open": False}
+
     def progress(event):
         stage = event.get("stage", "")
         if stage == "translate":
             print(f"\r  translate {event['done']}/{event['total']}",
                   end="", flush=True)
+            translate_line_open["open"] = True
         else:
+            if translate_line_open["open"]:
+                print()
+                translate_line_open["open"] = False
             print(f"[{stage}]")
 
     try:

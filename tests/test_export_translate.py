@@ -59,6 +59,27 @@ def test_cache_hit_skips_llm_call(tmp_path):
     assert len(calls) == first  # warm cache from disk: zero new calls
 
 
+def test_save_cleans_up_temp_file_on_write_failure(tmp_path, monkeypatch):
+    cache_dir = tmp_path / "cache"
+    path = cache_dir / "t.json"
+    cache = TranslationCache(path)
+    cache.put("hello", "哈囉")
+
+    from opendomainmcp.export import translate as translate_module
+
+    def boom(*a, **k):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(translate_module.json, "dump", boom)
+
+    with pytest.raises(RuntimeError):
+        cache.save()
+
+    # No stray mkstemp temp file left behind, and the real cache file was
+    # never created since the write never completed.
+    assert list(cache_dir.iterdir()) == []
+
+
 def test_failure_keeps_original_marks_and_reports(tmp_path):
     def boom(text):
         if "Credit" in text:

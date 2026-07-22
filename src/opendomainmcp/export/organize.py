@@ -54,9 +54,16 @@ def _save_cache(path: Path, data: dict) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent))
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False)
-    os.replace(tmp, path)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def _validated(raw: dict, bundle: ExportBundle,
@@ -69,31 +76,55 @@ def _validated(raw: dict, bundle: ExportBundle,
         report.outline_warnings.append(
             f"outline referenced unknown {where} {token!r}; dropped")
 
+    seen_rules: set = set()
+    seen_topics: set = set()
+
     def _rules(tokens):
         out = []
         for t in tokens or []:
-            if t in rule_ids:
-                out.append(rule_ids[t])
-            else:
+            if t not in rule_ids:
                 _warn(t, "rule")
+                continue
+            rid = rule_ids[t]
+            if rid in seen_rules:
+                report.outline_warnings.append(
+                    f"rule {rid!r} placed under multiple domains; kept first "
+                    "placement only")
+                continue
+            seen_rules.add(rid)
+            out.append(rid)
         return out
 
     def _topics(tokens):
         out = []
         for t in tokens or []:
-            if t in topics:
-                out.append(t)
-            else:
+            if t not in topics:
                 _warn(t, "article")
+                continue
+            if t in seen_topics:
+                report.outline_warnings.append(
+                    f"article {t!r} placed under multiple domains; kept first "
+                    "placement only")
+                continue
+            seen_topics.add(t)
+            out.append(t)
         return out
 
     domains = []
     for d in raw.get("domains", []) or []:
+        if not isinstance(d, dict):
+            report.outline_warnings.append(
+                f"outline domain entry was not an object ({d!r}); skipped")
+            continue
         name = str(d.get("name", "")).strip()
         if not name:
             continue
         flows = []
         for f in d.get("flows", []) or []:
+            if not isinstance(f, dict):
+                report.outline_warnings.append(
+                    f"outline flow entry was not an object ({f!r}); skipped")
+                continue
             wf = str(f.get("workflow", "")).strip()
             if wf not in wf_names:
                 if wf:
@@ -132,19 +163,26 @@ def build_outline(bundle: ExportBundle, complete: Optional[Callable[[str], str]]
     key = hashlib.sha256(listing.encode("utf-8")).hexdigest()
     cache = _load_cache(cache_path)
     raw = cache.get(key)
+    called_llm = raw is None
     if raw is None:
         response_text = complete(listing)
         try:
             raw = parse_llm_json(response_text)
-        except ExtractionError:
+        except (ExtractionError, json.JSONDecodeError):
             raw = {}
-        if raw:
-            _save_cache(cache_path, {key: raw})
     if not isinstance(raw, dict) or not raw:
         report.outline_warnings.append("outline LLM returned no parseable JSON; "
                                        "falling back to flat layout")
         return None
-    return _validated(raw, bundle, report)
+    outline = _validated(raw, bundle, report)
+    # Only persist a fresh (non-cache-hit) response once it has proven to
+    # produce a usable outline — caching an unusable-but-parseable response
+    # would permanently poison future runs onto the flat layout. Cache hits
+    # are, by construction, already-validated-once raw payloads and are left
+    # untouched (re-validated above so warnings stay accurate).
+    if called_llm and outline is not None:
+        _save_cache(cache_path, {**cache, key: raw})
+    return outline
 
 
 def get_organizer(settings: Settings) -> Callable[[str], str]:
